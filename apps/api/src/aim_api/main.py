@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from aim_api.config import get_settings
+from aim_api.routers.database_health import router as database_health_router
 from aim_api.routers.health import router as health_router
 
 
@@ -12,6 +13,7 @@ def create_app() -> FastAPI:
         debug=settings.app_env == "development",
     )
     app.include_router(health_router)
+    app.include_router(database_health_router)
     return app
 
 

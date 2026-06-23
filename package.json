@@ -1,0 +1,16 @@
+{
+  "name": "aim",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "web:dev": "corepack pnpm --filter @aim/web dev",
+    "web:build": "corepack pnpm --filter @aim/web build",
+    "web:lint": "corepack pnpm --filter @aim/web lint",
+    "web:test": "corepack pnpm --filter @aim/web test",
+    "web:typecheck": "corepack pnpm --filter @aim/web typecheck",
+    "build": "corepack pnpm --filter @aim/web build",
+    "lint": "corepack pnpm --filter @aim/web lint",
+    "test": "corepack pnpm --filter @aim/web test",
+    "typecheck": "corepack pnpm --filter @aim/web typecheck"
+  }
+}

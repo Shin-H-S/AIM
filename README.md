@@ -2,7 +2,7 @@
 
 AIM은 등록된 웹 서비스의 가용성, 품질, 핵심 사용자 흐름을 검사하고 이전 실행과 비교하여 배포 위험을 판단하도록 돕는 AI 기반 품질 평가·모니터링 플랫폼입니다.
 
-현재는 MVP 기반 구조를 준비하는 단계이며 실행 가능한 애플리케이션은 아직 포함되어 있지 않습니다.
+현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션과 상태 확인 API가 포함되어 있습니다.
 
 ## MVP 방향
 
@@ -36,14 +36,31 @@ scripts/          반복 가능한 개발 자동화
 tests/            저장소 수준 통합·E2E 테스트
 ```
 
-각 영역은 실제 구현이 시작될 때 필요한 설정과 소스 코드를 추가합니다. 현재 README 파일들은 디렉터리의 책임과 경계를 기록하기 위한 것입니다.
+API 이외의 영역은 실제 구현이 시작될 때 필요한 설정과 소스 코드를 추가합니다.
+
+## API 시작하기
+
+Python 3.12와 `uv`가 필요합니다.
+
+```powershell
+uv sync
+uv run uvicorn aim_api.main:app --app-dir apps/api/src --reload
+```
+
+상태 확인 API는 `GET http://localhost:8000/health`에서 사용할 수 있습니다. 자세한 내용은 [API README](apps/api/README.md)를 참고합니다.
+
+## API 검증
+
+```powershell
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy .
+uv run pytest
+```
 
 ## 개발 순서
 
-1. FastAPI 애플리케이션 골격과 상태 확인 엔드포인트
-2. PostgreSQL 연결 및 Alembic 설정
-3. Next.js 애플리케이션 골격
-4. 프로젝트 CRUD와 기본 인증
-5. SSRF 방어를 포함한 URL 검증과 도메인 소유권 확인
-
-실행 및 테스트 명령은 각 애플리케이션의 도구가 확정된 뒤 이 문서에 추가합니다.
+1. PostgreSQL 연결 및 Alembic 설정
+2. Next.js 애플리케이션 골격
+3. 프로젝트 CRUD와 기본 인증
+4. SSRF 방어를 포함한 URL 검증과 도메인 소유권 확인

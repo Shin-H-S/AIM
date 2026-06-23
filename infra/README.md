@@ -2,4 +2,19 @@
 
 Docker Compose를 포함한 로컬 개발 및 초기 배포 설정을 관리합니다.
 
-MVP 로컬 환경은 PostgreSQL, Redis, MinIO를 대상으로 하며 애플리케이션 설정이 확정될 때 Compose 파일을 추가합니다.
+현재 개발 구성은 PostgreSQL을 제공합니다. Redis와 MinIO는 해당 기능을 구현할 때 추가합니다.
+
+저장소 루트에서 실행합니다.
+
+```powershell
+docker compose -f infra/compose.dev.yaml up -d postgres
+docker compose -f infra/compose.dev.yaml ps
+```
+
+종료:
+
+```powershell
+docker compose -f infra/compose.dev.yaml down
+```
+
+데이터 볼륨까지 삭제하려면 명시적으로 `--volumes`를 추가해야 합니다.

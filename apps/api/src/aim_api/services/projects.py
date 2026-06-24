@@ -1,0 +1,73 @@
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from aim_api.models.project import Project
+from aim_api.schemas.project import ProjectCreate, ProjectUpdate
+
+
+class ProjectNotFoundError(Exception):
+    """Raised when a project does not exist."""
+
+
+def create_project(session: Session, payload: ProjectCreate) -> Project:
+    project = Project(
+        name=payload.name,
+        service_url=str(payload.service_url),
+        description=payload.description,
+        environment=payload.environment.value,
+        scan_interval_minutes=payload.scan_interval_minutes,
+        response_time_threshold_ms=payload.response_time_threshold_ms,
+        quality_score_threshold=payload.quality_score_threshold,
+    )
+    session.add(project)
+    session.commit()
+    session.refresh(project)
+    return project
+
+
+def list_projects(session: Session, *, limit: int, offset: int) -> list[Project]:
+    statement = select(Project).order_by(Project.created_at.desc()).limit(limit).offset(offset)
+    return list(session.scalars(statement))
+
+
+def get_project(session: Session, project_id: UUID) -> Project:
+    project = session.get(Project, project_id)
+    if project is None:
+        raise ProjectNotFoundError
+
+    return project
+
+
+def update_project(session: Session, project_id: UUID, payload: ProjectUpdate) -> Project:
+    project = get_project(session, project_id)
+    updated_fields = payload.model_fields_set
+
+    if "name" in updated_fields and payload.name is not None:
+        project.name = payload.name
+    if "service_url" in updated_fields and payload.service_url is not None:
+        project.service_url = str(payload.service_url)
+    if "description" in updated_fields:
+        project.description = payload.description
+    if "environment" in updated_fields and payload.environment is not None:
+        project.environment = payload.environment.value
+    if "scan_interval_minutes" in updated_fields and payload.scan_interval_minutes is not None:
+        project.scan_interval_minutes = payload.scan_interval_minutes
+    if (
+        "response_time_threshold_ms" in updated_fields
+        and payload.response_time_threshold_ms is not None
+    ):
+        project.response_time_threshold_ms = payload.response_time_threshold_ms
+    if "quality_score_threshold" in updated_fields and payload.quality_score_threshold is not None:
+        project.quality_score_threshold = payload.quality_score_threshold
+
+    session.commit()
+    session.refresh(project)
+    return project
+
+
+def delete_project(session: Session, project_id: UUID) -> None:
+    project = get_project(session, project_id)
+    session.delete(project)
+    session.commit()

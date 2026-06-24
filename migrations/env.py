@@ -1,5 +1,6 @@
 from logging.config import fileConfig
 
+from aim_api import models  # noqa: F401
 from aim_api.config import get_settings
 from aim_api.database import Base
 from alembic import context

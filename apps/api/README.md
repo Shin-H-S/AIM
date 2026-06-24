@@ -38,9 +38,22 @@ Invoke-RestMethod http://localhost:8000/health/database
 
 `/health`는 애플리케이션 프로세스의 liveness를 확인하며, `/health/database`는 PostgreSQL 연결 readiness를 확인합니다.
 
+## 인증 API
+
+이메일/비밀번호 기반 회원가입과 로그인을 지원합니다. 로그인에 성공하면 JWT access token을 반환하며, 보호된 API는 `Authorization: Bearer <token>` 헤더를 사용합니다.
+
+지원 엔드포인트:
+
+- `POST /auth/signup`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `GET /auth/me`
+
+비밀번호는 Argon2 기반 해시로 저장하며, API 응답에 원문 비밀번호나 비밀번호 해시는 포함하지 않습니다. 현재 로그아웃은 stateless JWT 방식에 맞춰 유효한 토큰을 확인한 뒤 클라이언트가 토큰을 폐기하는 흐름입니다. 서버 측 토큰 폐기 목록은 아직 포함하지 않았습니다.
+
 ## 프로젝트 API
 
-현재 프로젝트 CRUD 기반 API가 제공됩니다. 인증과 프로젝트 소유권 검사는 아직 포함하지 않았으며, 다음 인증 작업에서 연결합니다.
+현재 프로젝트 CRUD 기반 API가 제공됩니다. 인증 기반은 추가되었지만 프로젝트 API에는 아직 적용하지 않았습니다. 다음 작업에서 사용자별 프로젝트 소유권 검사를 연결합니다.
 
 지원 엔드포인트:
 

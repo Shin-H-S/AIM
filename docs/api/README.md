@@ -7,9 +7,47 @@
 - `GET /health`
 - `GET /health/database`
 
+## Auth
+
+### `POST /auth/signup`
+
+이메일과 비밀번호로 사용자를 생성합니다.
+
+요청 필드:
+
+- `email`: 이메일 주소
+- `password`: 8자 이상 128자 이하 비밀번호
+
+성공 시 사용자 정보를 반환합니다. 원문 비밀번호와 비밀번호 해시는 응답에 포함하지 않습니다.
+
+중복 이메일이면 `409`와 `{"detail": "Email is already registered."}`를 반환합니다.
+
+### `POST /auth/login`
+
+이메일과 비밀번호를 검증하고 JWT access token을 발급합니다.
+
+성공 응답:
+
+- `access_token`
+- `token_type`: `bearer`
+
+인증 실패 시 `401`과 `{"detail": "Invalid email or password."}`를 반환합니다.
+
+### `GET /auth/me`
+
+`Authorization: Bearer <token>` 헤더의 access token을 검증하고 현재 사용자 정보를 반환합니다.
+
+토큰이 없거나 유효하지 않으면 `401`과 `{"detail": "Could not validate credentials."}`를 반환합니다.
+
+### `POST /auth/logout`
+
+`Authorization: Bearer <token>` 헤더의 access token을 검증하고 `204`를 반환합니다.
+
+현재 로그아웃은 stateless JWT 방식에 맞춰 클라이언트가 토큰을 폐기하는 흐름입니다. 서버 측 토큰 폐기 목록은 아직 포함하지 않았습니다.
+
 ## Projects
 
-인증은 아직 연결되지 않았습니다. 현재 엔드포인트는 프로젝트 CRUD API 기반을 검증하기 위한 범위입니다.
+인증 기반은 추가되었지만 프로젝트 API에는 아직 연결하지 않았습니다. 현재 엔드포인트는 프로젝트 CRUD API 기반을 검증하기 위한 범위이며, 사용자별 소유권 검사는 다음 작업에서 연결합니다.
 
 ### `POST /projects`
 
@@ -50,7 +88,6 @@
 
 ## 아직 포함하지 않은 범위
 
-- 인증
 - 프로젝트 소유권 검사
 - SSRF 방어를 포함한 전체 URL 검증
 - 도메인 소유권 확인

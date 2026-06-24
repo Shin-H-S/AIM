@@ -53,7 +53,7 @@ Invoke-RestMethod http://localhost:8000/health/database
 
 ## 프로젝트 API
 
-현재 프로젝트 CRUD 기반 API가 제공됩니다. 인증 기반은 추가되었지만 프로젝트 API에는 아직 적용하지 않았습니다. 다음 작업에서 사용자별 프로젝트 소유권 검사를 연결합니다.
+현재 프로젝트 CRUD API가 제공됩니다. 모든 프로젝트 API는 Bearer token 인증을 요구하며, 현재 사용자 소유 프로젝트만 조회·수정·삭제할 수 있습니다.
 
 지원 엔드포인트:
 
@@ -65,6 +65,7 @@ Invoke-RestMethod http://localhost:8000/health/database
 
 프로젝트는 다음 정보를 저장합니다.
 
+- 소유 사용자 ID
 - 이름
 - 서비스 URL
 - 설명

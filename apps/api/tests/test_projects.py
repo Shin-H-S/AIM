@@ -51,17 +51,46 @@ def project_payload(**overrides: Any) -> dict[str, Any]:
 
 
 def create_project(client: TestClient, **overrides: Any) -> dict[str, Any]:
-    response = client.post("/projects", json=project_payload(**overrides))
+    headers = overrides.pop("headers", authenticated_headers(client))
+    response = client.post("/projects", json=project_payload(**overrides), headers=headers)
     assert response.status_code == 201
     return cast(dict[str, Any], response.json())
 
 
+def signup_payload(email: str) -> dict[str, str]:
+    return {
+        "email": email,
+        "password": "correct horse battery staple",
+    }
+
+
+def authenticated_headers(client: TestClient, email: str = "owner@example.com") -> dict[str, str]:
+    signup_response = client.post("/auth/signup", json=signup_payload(email))
+    assert signup_response.status_code in {201, 409}
+    login_response = client.post("/auth/login", json=signup_payload(email))
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_create_project_requires_authentication(client: TestClient) -> None:
+    response = client.post("/projects", json=project_payload())
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Not authenticated"}
+
+
 def test_create_project(client: TestClient) -> None:
-    response = client.post("/projects", json=project_payload(name="  AIM API  "))
+    response = client.post(
+        "/projects",
+        json=project_payload(name="  AIM API  "),
+        headers=authenticated_headers(client),
+    )
 
     assert response.status_code == 201
     body = response.json()
     assert UUID(body["id"])
+    assert UUID(body["owner_id"])
     assert body["name"] == "AIM API"
     assert body["service_url"] == "https://example.com/"
     assert body["description"] == "Public production site"
@@ -74,10 +103,11 @@ def test_create_project(client: TestClient) -> None:
 
 
 def test_list_projects(client: TestClient) -> None:
-    first_project = create_project(client, name="First")
-    second_project = create_project(client, name="Second")
+    headers = authenticated_headers(client)
+    first_project = create_project(client, headers=headers, name="First")
+    second_project = create_project(client, headers=headers, name="Second")
 
-    response = client.get("/projects")
+    response = client.get("/projects", headers=headers)
 
     assert response.status_code == 200
     body = response.json()
@@ -85,23 +115,25 @@ def test_list_projects(client: TestClient) -> None:
 
 
 def test_get_project(client: TestClient) -> None:
-    project = create_project(client)
+    headers = authenticated_headers(client)
+    project = create_project(client, headers=headers)
 
-    response = client.get(f"/projects/{project['id']}")
+    response = client.get(f"/projects/{project['id']}", headers=headers)
 
     assert response.status_code == 200
     assert response.json()["id"] == project["id"]
 
 
 def test_get_project_returns_404_for_missing_project(client: TestClient) -> None:
-    response = client.get(f"/projects/{uuid4()}")
+    response = client.get(f"/projects/{uuid4()}", headers=authenticated_headers(client))
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Project not found."}
 
 
 def test_update_project(client: TestClient) -> None:
-    project = create_project(client)
+    headers = authenticated_headers(client)
+    project = create_project(client, headers=headers)
 
     response = client.patch(
         f"/projects/{project['id']}",
@@ -111,6 +143,7 @@ def test_update_project(client: TestClient) -> None:
             "environment": "staging",
             "quality_score_threshold": 90,
         },
+        headers=headers,
     )
 
     assert response.status_code == 200
@@ -123,33 +156,95 @@ def test_update_project(client: TestClient) -> None:
 
 
 def test_update_project_requires_at_least_one_field(client: TestClient) -> None:
-    project = create_project(client)
+    headers = authenticated_headers(client)
+    project = create_project(client, headers=headers)
 
-    response = client.patch(f"/projects/{project['id']}", json={})
+    response = client.patch(f"/projects/{project['id']}", json={}, headers=headers)
 
     assert response.status_code == 422
 
 
 def test_delete_project(client: TestClient) -> None:
-    project = create_project(client)
+    headers = authenticated_headers(client)
+    project = create_project(client, headers=headers)
 
-    delete_response = client.delete(f"/projects/{project['id']}")
-    get_response = client.get(f"/projects/{project['id']}")
+    delete_response = client.delete(f"/projects/{project['id']}", headers=headers)
+    get_response = client.get(f"/projects/{project['id']}", headers=headers)
 
     assert delete_response.status_code == 204
     assert get_response.status_code == 404
 
 
 def test_create_project_rejects_invalid_environment(client: TestClient) -> None:
-    response = client.post("/projects", json=project_payload(environment="qa"))
+    response = client.post(
+        "/projects",
+        json=project_payload(environment="qa"),
+        headers=authenticated_headers(client),
+    )
 
     assert response.status_code == 422
 
 
 def test_create_project_rejects_non_http_service_url(client: TestClient) -> None:
-    response = client.post("/projects", json=project_payload(service_url="file:///tmp/aim"))
+    response = client.post(
+        "/projects",
+        json=project_payload(service_url="file:///tmp/aim"),
+        headers=authenticated_headers(client),
+    )
 
     assert response.status_code == 422
+
+
+def test_list_projects_returns_only_current_users_projects(client: TestClient) -> None:
+    owner_headers = authenticated_headers(client, "owner@example.com")
+    other_headers = authenticated_headers(client, "other@example.com")
+    owner_project = create_project(client, headers=owner_headers, name="Owner Project")
+    create_project(client, headers=other_headers, name="Other Project")
+
+    response = client.get("/projects", headers=owner_headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [project["id"] for project in body] == [owner_project["id"]]
+
+
+def test_other_user_cannot_read_project(client: TestClient) -> None:
+    owner_headers = authenticated_headers(client, "owner@example.com")
+    other_headers = authenticated_headers(client, "other@example.com")
+    owner_project = create_project(client, headers=owner_headers)
+
+    response = client.get(f"/projects/{owner_project['id']}", headers=other_headers)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Project not found."}
+
+
+def test_other_user_cannot_update_project(client: TestClient) -> None:
+    owner_headers = authenticated_headers(client, "owner@example.com")
+    other_headers = authenticated_headers(client, "other@example.com")
+    owner_project = create_project(client, headers=owner_headers)
+
+    response = client.patch(
+        f"/projects/{owner_project['id']}",
+        json={"name": "Hijacked"},
+        headers=other_headers,
+    )
+    owner_response = client.get(f"/projects/{owner_project['id']}", headers=owner_headers)
+
+    assert response.status_code == 404
+    assert owner_response.json()["name"] == "AIM Website"
+
+
+def test_other_user_cannot_delete_project(client: TestClient) -> None:
+    owner_headers = authenticated_headers(client, "owner@example.com")
+    other_headers = authenticated_headers(client, "other@example.com")
+    owner_project = create_project(client, headers=owner_headers)
+
+    response = client.delete(f"/projects/{owner_project['id']}", headers=other_headers)
+    owner_response = client.get(f"/projects/{owner_project['id']}", headers=owner_headers)
+
+    assert response.status_code == 404
+    assert owner_response.status_code == 200
 
 
 def test_project_table_is_registered_in_metadata() -> None:

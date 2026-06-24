@@ -2,7 +2,7 @@
 
 AIM은 등록된 웹 서비스의 가용성, 품질, 핵심 사용자 흐름을 검사하고 이전 실행과 비교하여 배포 위험을 판단하도록 돕는 AI 기반 품질 평가·모니터링 플랫폼입니다.
 
-현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 프로젝트 CRUD API 기반이 포함되어 있습니다.
+현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 프로젝트 CRUD API 기반, 기본 인증 API가 포함되어 있습니다.
 
 ## MVP 방향
 
@@ -62,7 +62,7 @@ uv run alembic -c migrations/alembic.ini upgrade head
 uv run uvicorn aim_api.main:app --app-dir apps/api/src --reload
 ```
 
-상태 확인 API는 `GET http://localhost:8000/health`, 데이터베이스 연결 확인은 `GET http://localhost:8000/health/database`에서 사용할 수 있습니다. 프로젝트 CRUD는 `POST /projects`, `GET /projects`, `GET /projects/{project_id}`, `PATCH /projects/{project_id}`, `DELETE /projects/{project_id}`에서 사용할 수 있습니다. 자세한 내용은 [API README](apps/api/README.md)를 참고합니다.
+상태 확인 API는 `GET http://localhost:8000/health`, 데이터베이스 연결 확인은 `GET http://localhost:8000/health/database`에서 사용할 수 있습니다. 인증은 `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`에서 사용할 수 있습니다. 프로젝트 CRUD는 `POST /projects`, `GET /projects`, `GET /projects/{project_id}`, `PATCH /projects/{project_id}`, `DELETE /projects/{project_id}`에서 사용할 수 있습니다. 자세한 내용은 [API README](apps/api/README.md)를 참고합니다.
 
 ## API 검증
 
@@ -84,5 +84,5 @@ corepack pnpm web:build
 
 ## 개발 순서
 
-1. 기본 인증
+1. 프로젝트 소유권 검사 연결
 2. SSRF 방어를 포함한 URL 검증과 도메인 소유권 확인

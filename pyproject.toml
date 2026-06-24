@@ -6,9 +6,12 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic",
+    "email-validator",
     "fastapi",
     "pydantic-settings",
     "psycopg[binary]",
+    "pwdlib[argon2]",
+    "pyjwt",
     "sqlalchemy",
     "uvicorn[standard]",
 ]

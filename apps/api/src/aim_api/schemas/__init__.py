@@ -1,3 +1,4 @@
+from aim_api.schemas.auth import AccessToken, UserCreate, UserLogin, UserRead
 from aim_api.schemas.project import (
     ProjectCreate,
     ProjectEnvironment,
@@ -6,8 +7,12 @@ from aim_api.schemas.project import (
 )
 
 __all__ = [
+    "AccessToken",
     "ProjectCreate",
     "ProjectEnvironment",
     "ProjectRead",
     "ProjectUpdate",
+    "UserCreate",
+    "UserLogin",
+    "UserRead",
 ]

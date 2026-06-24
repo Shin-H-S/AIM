@@ -11,8 +11,9 @@ class ProjectNotFoundError(Exception):
     """Raised when a project does not exist."""
 
 
-def create_project(session: Session, payload: ProjectCreate) -> Project:
+def create_project(session: Session, *, owner_id: UUID, payload: ProjectCreate) -> Project:
     project = Project(
+        owner_id=owner_id,
         name=payload.name,
         service_url=str(payload.service_url),
         description=payload.description,
@@ -27,21 +28,34 @@ def create_project(session: Session, payload: ProjectCreate) -> Project:
     return project
 
 
-def list_projects(session: Session, *, limit: int, offset: int) -> list[Project]:
-    statement = select(Project).order_by(Project.created_at.desc()).limit(limit).offset(offset)
+def list_projects(session: Session, *, owner_id: UUID, limit: int, offset: int) -> list[Project]:
+    statement = (
+        select(Project)
+        .where(Project.owner_id == owner_id)
+        .order_by(Project.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     return list(session.scalars(statement))
 
 
-def get_project(session: Session, project_id: UUID) -> Project:
-    project = session.get(Project, project_id)
+def get_project(session: Session, *, owner_id: UUID, project_id: UUID) -> Project:
+    statement = select(Project).where(Project.id == project_id, Project.owner_id == owner_id)
+    project = session.scalar(statement)
     if project is None:
         raise ProjectNotFoundError
 
     return project
 
 
-def update_project(session: Session, project_id: UUID, payload: ProjectUpdate) -> Project:
-    project = get_project(session, project_id)
+def update_project(
+    session: Session,
+    *,
+    owner_id: UUID,
+    project_id: UUID,
+    payload: ProjectUpdate,
+) -> Project:
+    project = get_project(session, owner_id=owner_id, project_id=project_id)
     updated_fields = payload.model_fields_set
 
     if "name" in updated_fields and payload.name is not None:
@@ -67,7 +81,7 @@ def update_project(session: Session, project_id: UUID, payload: ProjectUpdate) -
     return project
 
 
-def delete_project(session: Session, project_id: UUID) -> None:
-    project = get_project(session, project_id)
+def delete_project(session: Session, *, owner_id: UUID, project_id: UUID) -> None:
+    project = get_project(session, owner_id=owner_id, project_id=project_id)
     session.delete(project)
     session.commit()

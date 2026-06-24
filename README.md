@@ -2,7 +2,7 @@
 
 AIM은 등록된 웹 서비스의 가용성, 품질, 핵심 사용자 흐름을 검사하고 이전 실행과 비교하여 배포 위험을 판단하도록 돕는 AI 기반 품질 평가·모니터링 플랫폼입니다.
 
-현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 프로젝트 CRUD API 기반, 기본 인증 API가 포함되어 있습니다.
+현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 기본 인증 API, 사용자별 프로젝트 CRUD API가 포함되어 있습니다.
 
 ## MVP 방향
 
@@ -84,5 +84,5 @@ corepack pnpm web:build
 
 ## 개발 순서
 
-1. 프로젝트 소유권 검사 연결
-2. SSRF 방어를 포함한 URL 검증과 도메인 소유권 확인
+1. SSRF 방어를 포함한 URL 검증
+2. 도메인 소유권 확인

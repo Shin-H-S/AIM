@@ -74,7 +74,17 @@ Invoke-RestMethod http://localhost:8000/health/database
 - 응답 시간 임계값
 - 품질 점수 임계값
 
-서비스 URL은 HTTP/HTTPS 형식만 허용합니다. SSRF 방어를 포함한 전체 URL 검증은 별도 작업에서 구현합니다.
+서비스 URL은 HTTP/HTTPS 형식만 허용하며, 저장 전에 SSRF-safe 검증을 수행합니다.
+
+현재 URL 검증은 다음 대상을 차단합니다.
+
+- `localhost` 및 `.localhost`
+- 사용자 정보가 포함된 URL
+- loopback, private, link-local, multicast, reserved, unspecified IP
+- 주요 cloud metadata IP와 hostname
+- DNS 결과 중 하나라도 public address가 아닌 호스트
+
+실제 HTTP 요청, redirect destination 재검증, response size 제한은 스캐너 구현 단계에서 추가합니다.
 
 ## 검증
 

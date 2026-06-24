@@ -9,6 +9,7 @@ from aim_api.dependencies import get_current_user
 from aim_api.models.user import User
 from aim_api.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from aim_api.services import projects as project_service
+from aim_api.url_validation import UrlValidationError
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -20,13 +21,24 @@ def project_not_found() -> HTTPException:
     )
 
 
+def unsafe_service_url() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail="Service URL is not allowed.",
+    )
+
+
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
 def create_project(
     payload: ProjectCreate,
     session: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> ProjectRead:
-    project = project_service.create_project(session, owner_id=current_user.id, payload=payload)
+    try:
+        project = project_service.create_project(session, owner_id=current_user.id, payload=payload)
+    except UrlValidationError as exc:
+        raise unsafe_service_url() from exc
+
     return ProjectRead.model_validate(project)
 
 
@@ -80,6 +92,8 @@ def update_project(
         )
     except project_service.ProjectNotFoundError as exc:
         raise project_not_found() from exc
+    except UrlValidationError as exc:
+        raise unsafe_service_url() from exc
 
     return ProjectRead.model_validate(project)
 

@@ -6,6 +6,8 @@ import pytest
 from aim_api.database import Base, get_db
 from aim_api.main import app
 from aim_api.models import Project
+from aim_api.services import projects as project_service
+from aim_api.url_validation import UrlValidationError
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -13,7 +15,8 @@ from sqlalchemy.pool import StaticPool
 
 
 @pytest.fixture()
-def client() -> Iterator[TestClient]:
+def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    monkeypatch.setattr(project_service, "validate_service_url", lambda _: None)
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -193,6 +196,49 @@ def test_create_project_rejects_non_http_service_url(client: TestClient) -> None
     )
 
     assert response.status_code == 422
+
+
+def test_create_project_rejects_unsafe_service_url(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def reject_service_url(_: str) -> None:
+        raise UrlValidationError("Internal details must not be exposed.")
+
+    monkeypatch.setattr(project_service, "validate_service_url", reject_service_url)
+
+    response = client.post(
+        "/projects",
+        json=project_payload(service_url="https://internal.example.com"),
+        headers=authenticated_headers(client),
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Service URL is not allowed."}
+    assert "internal.example.com" not in response.text
+
+
+def test_update_project_rejects_unsafe_service_url(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    headers = authenticated_headers(client)
+    project = create_project(client, headers=headers)
+
+    def reject_service_url(_: str) -> None:
+        raise UrlValidationError("Internal details must not be exposed.")
+
+    monkeypatch.setattr(project_service, "validate_service_url", reject_service_url)
+
+    response = client.patch(
+        f"/projects/{project['id']}",
+        json={"service_url": "https://internal.example.com"},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Service URL is not allowed."}
+    assert "Internal details" not in response.text
 
 
 def test_list_projects_returns_only_current_users_projects(client: TestClient) -> None:

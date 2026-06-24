@@ -51,6 +51,8 @@
 
 다른 사용자의 프로젝트 ID로 접근하면 존재 여부를 노출하지 않기 위해 `404`와 `{"detail": "Project not found."}`를 반환합니다.
 
+서비스 URL이 허용되지 않으면 내부 네트워크 정보를 노출하지 않도록 `422`와 `{"detail": "Service URL is not allowed."}`를 반환합니다.
+
 ### `POST /projects`
 
 프로젝트를 생성합니다.
@@ -58,7 +60,7 @@
 필드:
 
 - `name`: 프로젝트 이름
-- `service_url`: HTTP/HTTPS 서비스 URL
+- `service_url`: HTTP/HTTPS 서비스 URL. 저장 전에 SSRF-safe 검증을 수행합니다.
 - `description`: 설명, 선택
 - `environment`: `development`, `staging`, `production`
 - `scan_interval_minutes`: 스캔 주기, 분 단위
@@ -90,6 +92,7 @@
 
 ## 아직 포함하지 않은 범위
 
-- SSRF 방어를 포함한 전체 URL 검증
+- 실제 HTTP 요청 시 redirect destination 재검증
+- 실제 HTTP 요청 시 timeout, response size, redirect count 제한
 - 도메인 소유권 확인
 - 실제 스캔 실행

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from aim_api.models.project import Project
 from aim_api.schemas.project import ProjectCreate, ProjectUpdate
+from aim_api.url_validation import validate_service_url
 
 
 class ProjectNotFoundError(Exception):
@@ -12,6 +13,7 @@ class ProjectNotFoundError(Exception):
 
 
 def create_project(session: Session, *, owner_id: UUID, payload: ProjectCreate) -> Project:
+    validate_service_url(str(payload.service_url))
     project = Project(
         owner_id=owner_id,
         name=payload.name,
@@ -61,6 +63,7 @@ def update_project(
     if "name" in updated_fields and payload.name is not None:
         project.name = payload.name
     if "service_url" in updated_fields and payload.service_url is not None:
+        validate_service_url(str(payload.service_url))
         project.service_url = str(payload.service_url)
     if "description" in updated_fields:
         project.description = payload.description

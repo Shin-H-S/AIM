@@ -84,5 +84,18 @@ class ProjectRead(ProjectBase):
 
     id: UUID
     owner_id: UUID
+    is_verified: bool
     created_at: datetime
     updated_at: datetime
+
+
+class ProjectVerificationRead(BaseModel):
+    project_id: UUID
+    verification_token: str
+    meta_tag: str
+    is_verified: bool
+    verified_at: datetime | None
+
+
+class ProjectVerificationResult(ProjectVerificationRead):
+    status: str

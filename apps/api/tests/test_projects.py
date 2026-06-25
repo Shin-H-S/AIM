@@ -6,6 +6,7 @@ import pytest
 from aim_api.database import Base, get_db
 from aim_api.main import app
 from aim_api.models import Project
+from aim_api.services import domain_verification
 from aim_api.services import projects as project_service
 from aim_api.url_validation import UrlValidationError
 from fastapi.testclient import TestClient
@@ -101,6 +102,7 @@ def test_create_project(client: TestClient) -> None:
     assert body["scan_interval_minutes"] == 60
     assert body["response_time_threshold_ms"] == 2_000
     assert body["quality_score_threshold"] == 80
+    assert body["is_verified"] is False
     assert body["created_at"]
     assert body["updated_at"]
 
@@ -125,6 +127,7 @@ def test_get_project(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json()["id"] == project["id"]
+    assert response.json()["is_verified"] is False
 
 
 def test_get_project_returns_404_for_missing_project(client: TestClient) -> None:
@@ -239,6 +242,79 @@ def test_update_project_rejects_unsafe_service_url(
     assert response.status_code == 422
     assert response.json() == {"detail": "Service URL is not allowed."}
     assert "Internal details" not in response.text
+
+
+def test_get_project_verification(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_project(client, headers=headers)
+
+    response = client.get(f"/projects/{project['id']}/verification", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["project_id"] == project["id"]
+    assert body["verification_token"].startswith("aim_verify_")
+    assert body["meta_tag"] == (
+        f'<meta name="aim-verification" content="{body["verification_token"]}" />'
+    )
+    assert body["is_verified"] is False
+    assert body["verified_at"] is None
+
+
+def test_other_user_cannot_get_project_verification(client: TestClient) -> None:
+    owner_headers = authenticated_headers(client, "owner@example.com")
+    other_headers = authenticated_headers(client, "other@example.com")
+    owner_project = create_project(client, headers=owner_headers)
+
+    response = client.get(f"/projects/{owner_project['id']}/verification", headers=other_headers)
+
+    assert response.status_code == 404
+
+
+def test_verify_project_domain(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    headers = authenticated_headers(client)
+    project = create_project(client, headers=headers)
+    verification = client.get(f"/projects/{project['id']}/verification", headers=headers).json()
+    token = verification["verification_token"]
+
+    monkeypatch.setattr(
+        domain_verification,
+        "fetch_verification_html",
+        lambda _: f'<html><head><meta name="aim-verification" content="{token}" /></head></html>',
+    )
+
+    response = client.post(f"/projects/{project['id']}/verify", headers=headers)
+    project_response = client.get(f"/projects/{project['id']}", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "verified"
+    assert body["is_verified"] is True
+    assert body["verified_at"] is not None
+    assert project_response.json()["is_verified"] is True
+
+
+def test_verify_project_domain_fails_without_meta_tag(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    headers = authenticated_headers(client)
+    project = create_project(client, headers=headers)
+
+    monkeypatch.setattr(
+        domain_verification,
+        "fetch_verification_html",
+        lambda _: "<html><head></head><body>No token</body></html>",
+    )
+
+    response = client.post(f"/projects/{project['id']}/verify", headers=headers)
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Domain verification failed."}
+    assert "No token" not in response.text
 
 
 def test_list_projects_returns_only_current_users_projects(client: TestClient) -> None:

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from secrets import token_urlsafe
 from uuid import UUID, uuid4
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, Uuid, func
@@ -9,6 +10,10 @@ from aim_api.database import Base
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def generate_verification_token() -> str:
+    return f"aim_verify_{token_urlsafe(24)}"
 
 
 class Project(Base):
@@ -37,6 +42,13 @@ class Project(Base):
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     service_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    verification_token: Mapped[str | None] = mapped_column(
+        String(128),
+        unique=True,
+        index=True,
+        default=generate_verification_token,
+    )
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     description: Mapped[str | None] = mapped_column(Text)
     environment: Mapped[str] = mapped_column(String(32), nullable=False, default="development")
     scan_interval_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
@@ -55,3 +67,7 @@ class Project(Base):
         onupdate=utc_now,
         server_default=func.now(),
     )
+
+    @property
+    def is_verified(self) -> bool:
+        return self.verified_at is not None

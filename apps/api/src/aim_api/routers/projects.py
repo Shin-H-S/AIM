@@ -6,8 +6,16 @@ from sqlalchemy.orm import Session
 
 from aim_api.database import get_db
 from aim_api.dependencies import get_current_user
+from aim_api.models.project import Project
 from aim_api.models.user import User
-from aim_api.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
+from aim_api.schemas.project import (
+    ProjectCreate,
+    ProjectRead,
+    ProjectUpdate,
+    ProjectVerificationRead,
+    ProjectVerificationResult,
+)
+from aim_api.services import domain_verification
 from aim_api.services import projects as project_service
 from aim_api.url_validation import UrlValidationError
 
@@ -28,6 +36,24 @@ def unsafe_service_url() -> HTTPException:
     )
 
 
+def domain_verification_failed() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Domain verification failed.",
+    )
+
+
+def build_verification_response(project: Project) -> ProjectVerificationRead:
+    verification_token = domain_verification.require_verification_token(project)
+    return ProjectVerificationRead(
+        project_id=project.id,
+        verification_token=verification_token,
+        meta_tag=domain_verification.build_meta_tag(project),
+        is_verified=project.is_verified,
+        verified_at=project.verified_at,
+    )
+
+
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
 def create_project(
     payload: ProjectCreate,
@@ -40,6 +66,47 @@ def create_project(
         raise unsafe_service_url() from exc
 
     return ProjectRead.model_validate(project)
+
+
+@router.get("/{project_id}/verification", response_model=ProjectVerificationRead)
+def get_project_verification(
+    project_id: UUID,
+    session: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectVerificationRead:
+    try:
+        project = project_service.get_project(
+            session,
+            owner_id=current_user.id,
+            project_id=project_id,
+        )
+    except project_service.ProjectNotFoundError as exc:
+        raise project_not_found() from exc
+
+    project = domain_verification.ensure_verification_token(session, project)
+    return build_verification_response(project)
+
+
+@router.post("/{project_id}/verify", response_model=ProjectVerificationResult)
+def verify_project_domain(
+    project_id: UUID,
+    session: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectVerificationResult:
+    try:
+        project = project_service.get_project(
+            session,
+            owner_id=current_user.id,
+            project_id=project_id,
+        )
+        project = domain_verification.verify_project_domain(session, project)
+    except project_service.ProjectNotFoundError as exc:
+        raise project_not_found() from exc
+    except (domain_verification.DomainVerificationError, UrlValidationError) as exc:
+        raise domain_verification_failed() from exc
+
+    response = build_verification_response(project)
+    return ProjectVerificationResult(**response.model_dump(), status="verified")
 
 
 @router.get("", response_model=list[ProjectRead])

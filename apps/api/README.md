@@ -62,6 +62,8 @@ Invoke-RestMethod http://localhost:8000/health/database
 - `GET /projects/{project_id}`
 - `PATCH /projects/{project_id}`
 - `DELETE /projects/{project_id}`
+- `GET /projects/{project_id}/verification`
+- `POST /projects/{project_id}/verify`
 
 프로젝트는 다음 정보를 저장합니다.
 
@@ -85,6 +87,21 @@ Invoke-RestMethod http://localhost:8000/health/database
 - DNS 결과 중 하나라도 public address가 아닌 호스트
 
 실제 HTTP 요청, redirect destination 재검증, response size 제한은 스캐너 구현 단계에서 추가합니다.
+
+## 도메인 소유권 확인
+
+MVP는 HTML meta-tag 방식의 소유권 확인을 지원합니다.
+
+1. `GET /projects/{project_id}/verification`으로 verification token과 meta tag를 조회합니다.
+2. 대상 서비스의 HTML `<head>`에 다음 형식의 meta tag를 추가합니다.
+
+```html
+<meta name="aim-verification" content="aim_verify_generated_token" />
+```
+
+3. `POST /projects/{project_id}/verify`를 호출하면 API가 프로젝트의 `service_url`을 안전하게 재검증하고 HTML을 가져와 meta tag를 확인합니다.
+
+검증 요청은 redirect destination마다 URL을 다시 검증하며, timeout과 response size 제한을 적용합니다. 검증 실패 시 내부 네트워크 정보나 원격 응답 본문을 사용자 응답에 노출하지 않습니다.
 
 ## 검증
 

@@ -8,6 +8,7 @@ dependencies = [
     "alembic",
     "email-validator",
     "fastapi",
+    "httpx",
     "pydantic-settings",
     "psycopg[binary]",
     "pwdlib[argon2]",
@@ -18,7 +19,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "httpx",
     "mypy",
     "pytest",
     "ruff",

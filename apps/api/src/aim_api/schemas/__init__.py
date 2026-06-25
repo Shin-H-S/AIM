@@ -4,6 +4,8 @@ from aim_api.schemas.project import (
     ProjectEnvironment,
     ProjectRead,
     ProjectUpdate,
+    ProjectVerificationRead,
+    ProjectVerificationResult,
 )
 
 __all__ = [
@@ -12,6 +14,8 @@ __all__ = [
     "ProjectEnvironment",
     "ProjectRead",
     "ProjectUpdate",
+    "ProjectVerificationRead",
+    "ProjectVerificationResult",
     "UserCreate",
     "UserLogin",
     "UserRead",

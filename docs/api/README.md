@@ -90,9 +90,30 @@
 
 프로젝트를 삭제합니다. 성공 시 `204`를 반환합니다.
 
+### `GET /projects/{project_id}/verification`
+
+현재 사용자 소유 프로젝트의 도메인 소유권 확인 정보를 반환합니다.
+
+응답 필드:
+
+- `project_id`
+- `verification_token`
+- `meta_tag`
+- `is_verified`
+- `verified_at`
+
+### `POST /projects/{project_id}/verify`
+
+프로젝트의 `service_url` HTML에서 다음 meta tag를 확인합니다.
+
+```html
+<meta name="aim-verification" content="aim_verify_generated_token" />
+```
+
+검증 성공 시 `status: "verified"`와 검증 상태를 반환합니다. 검증 실패 시 원격 응답 본문이나 내부 네트워크 정보를 노출하지 않고 `400`과 `{"detail": "Domain verification failed."}`를 반환합니다.
+
 ## 아직 포함하지 않은 범위
 
-- 실제 HTTP 요청 시 redirect destination 재검증
-- 실제 HTTP 요청 시 timeout, response size, redirect count 제한
-- 도메인 소유권 확인
+- recurring scan 차단 규칙과 스케줄러 연결
+- verification token 재발급 API
 - 실제 스캔 실행

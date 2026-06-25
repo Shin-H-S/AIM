@@ -103,6 +103,28 @@ MVP는 HTML meta-tag 방식의 소유권 확인을 지원합니다.
 
 검증 요청은 redirect destination마다 URL을 다시 검증하며, timeout과 response size 제한을 적용합니다. 검증 실패 시 내부 네트워크 정보나 원격 응답 본문을 사용자 응답에 노출하지 않습니다.
 
+## CheckRun API
+
+검증된 프로젝트에 대해 수동 check run을 생성하고 조회할 수 있습니다.
+
+지원 엔드포인트:
+
+- `POST /projects/{project_id}/check-runs`
+- `GET /projects/{project_id}/check-runs`
+- `GET /projects/{project_id}/check-runs/{check_run_id}`
+- `POST /projects/{project_id}/check-runs/{check_run_id}/cancel`
+
+지원 상태:
+
+- `QUEUED`
+- `RUNNING`
+- `ANALYZING`
+- `COMPLETED`
+- `FAILED`
+- `CANCELLED`
+
+현재 check run 생성은 `QUEUED` 상태의 레코드만 만들며, 실제 스캔 작업을 실행하거나 queue에 넣지는 않습니다. Redis task queue와 worker 연결은 다음 작업에서 추가합니다.
+
 ## 검증
 
 ```powershell

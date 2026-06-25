@@ -1,0 +1,226 @@
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from typing import Any, cast
+from uuid import UUID, uuid4
+
+import pytest
+from aim_api.database import Base, get_db
+from aim_api.main import app
+from aim_api.models.project import Project
+from aim_api.services import projects as project_service
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
+
+@pytest.fixture()
+def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    monkeypatch.setattr(project_service, "validate_service_url", lambda _: None)
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    Base.metadata.create_all(bind=engine)
+
+    def override_database() -> Iterator[Session]:
+        with testing_session_local() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_database
+
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
+
+
+@contextmanager
+def get_testing_session() -> Iterator[Session]:
+    override_database = cast(Callable[[], Iterator[Session]], app.dependency_overrides[get_db])
+    dependency = override_database()
+    session = next(dependency)
+    try:
+        yield session
+    finally:
+        for _ in dependency:
+            pass
+
+
+def signup_payload(email: str) -> dict[str, str]:
+    return {
+        "email": email,
+        "password": "correct horse battery staple",
+    }
+
+
+def authenticated_headers(client: TestClient, email: str = "owner@example.com") -> dict[str, str]:
+    signup_response = client.post("/auth/signup", json=signup_payload(email))
+    assert signup_response.status_code in {201, 409}
+    login_response = client.post("/auth/login", json=signup_payload(email))
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def project_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "name": "AIM Website",
+        "service_url": "https://example.com",
+        "description": "Public production site",
+        "environment": "production",
+        "scan_interval_minutes": 60,
+        "response_time_threshold_ms": 2_000,
+        "quality_score_threshold": 80,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def create_project(client: TestClient, headers: dict[str, str]) -> dict[str, Any]:
+    response = client.post("/projects", json=project_payload(), headers=headers)
+    assert response.status_code == 201
+    return cast(dict[str, Any], response.json())
+
+
+def mark_project_verified(project_id: str) -> None:
+    with get_testing_session() as session:
+        project = session.get(Project, UUID(project_id))
+        assert project is not None
+        project.verified_at = datetime.now(UTC)
+        session.commit()
+
+
+def create_verified_project(client: TestClient, headers: dict[str, str]) -> dict[str, Any]:
+    project = create_project(client, headers)
+    mark_project_verified(project["id"])
+    return project
+
+
+def create_check_run(
+    client: TestClient, project_id: str, headers: dict[str, str]
+) -> dict[str, Any]:
+    response = client.post(f"/projects/{project_id}/check-runs", json={}, headers=headers)
+    assert response.status_code == 201
+    return cast(dict[str, Any], response.json())
+
+
+def test_create_check_run_requires_authentication(client: TestClient) -> None:
+    response = client.post(f"/projects/{uuid4()}/check-runs", json={})
+
+    assert response.status_code == 401
+
+
+def test_create_check_run_requires_verified_project(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_project(client, headers)
+
+    response = client.post(f"/projects/{project['id']}/check-runs", json={}, headers=headers)
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Project must be verified before creating a check run.",
+    }
+
+
+def test_create_check_run(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+
+    response = client.post(f"/projects/{project['id']}/check-runs", json={}, headers=headers)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert UUID(body["id"])
+    assert body["project_id"] == project["id"]
+    assert UUID(body["requested_by_id"])
+    assert body["status"] == "QUEUED"
+    assert body["trigger_source"] == "manual"
+    assert body["failure_reason"] is None
+    assert body["queued_at"]
+    assert body["started_at"] is None
+    assert body["finished_at"] is None
+
+
+def test_list_check_runs(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+    first_run = create_check_run(client, project["id"], headers)
+    second_run = create_check_run(client, project["id"], headers)
+
+    response = client.get(f"/projects/{project['id']}/check-runs", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [check_run["id"] for check_run in body] == [second_run["id"], first_run["id"]]
+
+
+def test_get_check_run(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+    check_run = create_check_run(client, project["id"], headers)
+
+    response = client.get(
+        f"/projects/{project['id']}/check-runs/{check_run['id']}",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == check_run["id"]
+
+
+def test_cancel_check_run(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+    check_run = create_check_run(client, project["id"], headers)
+
+    response = client.post(
+        f"/projects/{project['id']}/check-runs/{check_run['id']}/cancel",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "CANCELLED"
+    assert body["finished_at"] is not None
+
+
+def test_other_user_cannot_create_check_run_for_project(client: TestClient) -> None:
+    owner_headers = authenticated_headers(client, "owner@example.com")
+    other_headers = authenticated_headers(client, "other@example.com")
+    project = create_verified_project(client, owner_headers)
+
+    response = client.post(f"/projects/{project['id']}/check-runs", json={}, headers=other_headers)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Project not found."}
+
+
+def test_other_user_cannot_read_check_run(client: TestClient) -> None:
+    owner_headers = authenticated_headers(client, "owner@example.com")
+    other_headers = authenticated_headers(client, "other@example.com")
+    project = create_verified_project(client, owner_headers)
+    check_run = create_check_run(client, project["id"], owner_headers)
+
+    response = client.get(
+        f"/projects/{project['id']}/check-runs/{check_run['id']}",
+        headers=other_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Project not found."}
+
+
+def test_missing_check_run_returns_404(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+
+    response = client.get(f"/projects/{project['id']}/check-runs/{uuid4()}", headers=headers)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Check run not found."}

@@ -1,4 +1,5 @@
 from aim_api.schemas.auth import AccessToken, UserCreate, UserLogin, UserRead
+from aim_api.schemas.check_run import CheckRunCreate, CheckRunRead
 from aim_api.schemas.project import (
     ProjectCreate,
     ProjectEnvironment,
@@ -10,6 +11,8 @@ from aim_api.schemas.project import (
 
 __all__ = [
     "AccessToken",
+    "CheckRunCreate",
+    "CheckRunRead",
     "ProjectCreate",
     "ProjectEnvironment",
     "ProjectRead",

@@ -112,8 +112,36 @@
 
 검증 성공 시 `status: "verified"`와 검증 상태를 반환합니다. 검증 실패 시 원격 응답 본문이나 내부 네트워크 정보를 노출하지 않고 `400`과 `{"detail": "Domain verification failed."}`를 반환합니다.
 
+## CheckRuns
+
+모든 CheckRun API는 `Authorization: Bearer <token>` 헤더를 요구합니다. 현재 사용자 소유 프로젝트의 check run만 생성·조회·취소할 수 있습니다.
+
+CheckRun 생성은 프로젝트가 도메인 검증된 경우에만 허용됩니다. 검증되지 않은 프로젝트는 `409`와 `{"detail": "Project must be verified before creating a check run."}`를 반환합니다.
+
+### `POST /projects/{project_id}/check-runs`
+
+수동 check run을 생성합니다. 현재 단계에서는 실제 스캔을 실행하지 않고 `QUEUED` 상태 레코드만 저장합니다.
+
+### `GET /projects/{project_id}/check-runs`
+
+프로젝트 check run 목록을 조회합니다.
+
+쿼리:
+
+- `limit`: 기본 50, 최대 100
+- `offset`: 기본 0
+
+### `GET /projects/{project_id}/check-runs/{check_run_id}`
+
+check run 단건을 조회합니다.
+
+### `POST /projects/{project_id}/check-runs/{check_run_id}/cancel`
+
+아직 완료되지 않은 check run을 `CANCELLED` 상태로 변경합니다.
+
 ## 아직 포함하지 않은 범위
 
 - recurring scan 차단 규칙과 스케줄러 연결
 - verification token 재발급 API
+- Redis task queue 연결
 - 실제 스캔 실행

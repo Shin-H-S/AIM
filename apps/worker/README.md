@@ -13,4 +13,16 @@ docker compose -f infra/compose.dev.yaml up -d postgres redis
 uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
 ```
 
-현재 구현된 worker task는 CheckRun을 `RUNNING`으로 전환하고, 아직 HTTP availability scanner가 없다는 명시적 사유로 `FAILED`를 기록하는 큐 연결 골격입니다.
+현재 구현된 worker task는 CheckRun을 `RUNNING`으로 전환하고 HTTP availability scanner를 실행합니다.
+
+scanner는 다음 항목을 측정하거나 판단합니다.
+
+- HTTP status code
+- response time
+- redirect count
+- HTTPS 사용 여부
+- timeout 여부
+- connection/request failure
+- redirect destination SSRF-safe 재검증
+
+최종 HTTP 상태가 2xx 또는 3xx이면 CheckRun을 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx이면 `FAILED`로 기록합니다. 상세 availability result 저장은 다음 단계에서 추가합니다.

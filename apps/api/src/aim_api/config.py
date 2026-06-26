@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     api_port: int = 8000
     database_url: str = "postgresql+psycopg://aim:aim@localhost:5432/aim"
     redis_url: str = "redis://localhost:6379/0"
+    scanner_timeout_seconds: float = 10.0
+    scanner_max_redirects: int = 5
+    scanner_max_response_bytes: int = 1_048_576
     jwt_secret_key: str = "replace-with-a-local-development-secret"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30

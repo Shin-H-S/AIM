@@ -2,7 +2,7 @@
 
 AIM은 등록된 웹 서비스의 가용성, 품질, 핵심 사용자 흐름을 검사하고 이전 실행과 비교하여 배포 위험을 판단하도록 돕는 AI 기반 품질 평가·모니터링 플랫폼입니다.
 
-현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 기본 인증 API, SSRF-safe URL 검증과 HTML meta-tag 도메인 소유권 확인을 포함한 사용자별 프로젝트 CRUD API, CheckRun 도메인 모델, Redis/Celery 기반 스캔 큐, HTTP availability scanner, SSL inspection이 포함되어 있습니다.
+현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 기본 인증 API, SSRF-safe URL 검증과 HTML meta-tag 도메인 소유권 확인을 포함한 사용자별 프로젝트 CRUD API, CheckRun 도메인 모델, Redis/Celery 기반 스캔 큐, HTTP availability scanner, SSL inspection, 정규화된 scanner result 저장이 포함되어 있습니다.
 
 ## MVP 방향
 
@@ -72,7 +72,7 @@ Redis가 실행 중인 상태에서 Celery worker를 실행합니다.
 uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
 ```
 
-현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤 HTTP availability scanner와 SSL inspection을 실행합니다. 스캔 대상 URL과 redirect destination은 요청 전마다 SSRF-safe 검증을 수행하며, timeout과 response size 제한을 적용합니다. HTTP scan과 SSL inspection이 통과하면 CheckRun을 `COMPLETED`, 사용할 수 없거나 인증서가 유효하지 않으면 `FAILED`로 종료합니다.
+현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤 HTTP availability scanner와 SSL inspection을 실행합니다. 스캔 대상 URL과 redirect destination은 요청 전마다 SSRF-safe 검증을 수행하며, timeout과 response size 제한을 적용합니다. HTTP scan과 SSL inspection 결과는 정규화된 DB 레코드로 저장되며, 통과하면 CheckRun을 `COMPLETED`, 사용할 수 없거나 인증서가 유효하지 않으면 `FAILED`로 종료합니다.
 
 ## API 검증
 
@@ -94,5 +94,5 @@ corepack pnpm web:build
 
 ## 개발 순서
 
-1. Scanner result normalization
-2. Scan status polling
+1. Scan status polling
+2. Basic result page

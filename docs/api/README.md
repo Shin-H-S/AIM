@@ -147,5 +147,5 @@ check run 단건을 조회합니다.
 
 - recurring scan 차단 규칙과 스케줄러 연결
 - verification token 재발급 API
-- availability result 저장
-- SSL result 저장
+- scan result 조회 API
+- frontend polling/result page

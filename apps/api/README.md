@@ -125,7 +125,7 @@ MVP는 HTML meta-tag 방식의 소유권 확인을 지원합니다.
 
 check run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery scan queue에 worker task를 등록합니다. 큐 등록에 실패하면 check run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
 
-현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner와 SSL inspection을 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료는 `FAILED`로 기록합니다. 상세 availability/SSL result 저장은 다음 단계에서 추가합니다.
+현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner와 SSL inspection을 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료는 `FAILED`로 기록합니다. HTTP availability와 SSL inspection 결과는 각각 `availability_results`, `ssl_results`에 정규화해 저장합니다.
 
 ## 검증
 

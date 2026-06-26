@@ -28,4 +28,4 @@ scanner는 다음 항목을 측정하거나 판단합니다.
 - SSL expiration date
 - SSL expiration remaining days
 
-최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하면 CheckRun을 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료는 `FAILED`로 기록합니다. 상세 availability/SSL result 저장은 다음 단계에서 추가합니다.
+최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하면 CheckRun을 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료는 `FAILED`로 기록합니다. HTTP availability와 SSL inspection 결과는 각각 `availability_results`, `ssl_results`에 정규화해 저장합니다.

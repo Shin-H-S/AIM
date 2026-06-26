@@ -4,6 +4,7 @@ from aim_api.database import SessionLocal
 from aim_api.models.check_run import CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.services import check_runs as check_run_service
+from aim_api.services import scanner_results as scanner_result_service
 from aim_api.services.scan_queue import RUN_CHECK_RUN_TASK_NAME
 
 from aim_worker.availability import scan_http_availability
@@ -52,9 +53,33 @@ def run_check_run(check_run_id: str) -> None:
             )
             raise
 
+        scanner_result_service.record_availability_result(
+            session,
+            check_run_id=parsed_check_run_id,
+            service_url=availability_result.service_url,
+            final_url=availability_result.final_url,
+            is_available=availability_result.is_available,
+            status_code=availability_result.status_code,
+            response_time_ms=availability_result.response_time_ms,
+            redirect_count=availability_result.redirect_count,
+            uses_https=availability_result.uses_https,
+            timed_out=availability_result.timed_out,
+            failure_reason=availability_result.failure_reason,
+        )
+
         if availability_result.is_available:
             ssl_result = inspect_ssl_certificate(
                 availability_result.final_url or project.service_url,
+            )
+            scanner_result_service.record_ssl_result(
+                session,
+                check_run_id=parsed_check_run_id,
+                service_url=ssl_result.service_url,
+                is_applicable=ssl_result.is_applicable,
+                is_valid=ssl_result.is_valid,
+                expires_at=ssl_result.expires_at,
+                days_until_expiration=ssl_result.days_until_expiration,
+                failure_reason=ssl_result.failure_reason,
             )
             if ssl_result.is_applicable and ssl_result.is_valid is False:
                 check_run_service.mark_check_run_failed(

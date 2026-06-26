@@ -53,6 +53,14 @@ Lighthouse worker 실행에는 루트 Node 의존성에 포함된 Lighthouse CLI
 
 웹 애플리케이션은 기본적으로 `NEXT_PUBLIC_API_URL=http://localhost:8000`의 `GET /health` 응답을 확인합니다.
 
+CheckRun 결과 페이지는 다음 경로에서 확인할 수 있습니다.
+
+```text
+/projects/{projectId}/check-runs/{checkRunId}
+```
+
+현재 웹에는 로그인 UI가 없으므로 결과 페이지에서 API 로그인 응답의 Bearer token을 직접 입력해 CheckRun 상태와 availability/SSL 결과를 polling합니다.
+
 ## API 시작하기
 
 Python 3.12와 `uv`가 필요합니다.
@@ -74,7 +82,7 @@ Redis가 실행 중인 상태에서 Celery worker를 실행합니다.
 uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
 ```
 
-현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 스캔 대상 URL과 redirect destination은 요청 전마다 SSRF-safe 검증을 수행하며, timeout과 response size 제한을 적용합니다. HTTP scan과 SSL inspection 결과는 정규화된 DB 레코드로 저장됩니다. Lighthouse 결과 저장은 다음 단계에서 추가합니다.
+현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 스캔 대상 URL과 redirect destination은 요청 전마다 SSRF-safe 검증을 수행하며, timeout과 response size 제한을 적용합니다. HTTP scan과 SSL inspection 결과는 정규화된 DB 레코드로 저장되며, 단건 CheckRun 조회 API와 결과 페이지에서 polling할 수 있습니다. Lighthouse 결과 저장은 다음 단계에서 추가합니다.
 
 ## API 검증
 

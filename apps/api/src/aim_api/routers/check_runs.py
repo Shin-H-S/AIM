@@ -7,10 +7,17 @@ from sqlalchemy.orm import Session
 from aim_api.database import get_db
 from aim_api.dependencies import get_current_user
 from aim_api.models.user import User
-from aim_api.schemas.check_run import CheckRunCreate, CheckRunRead
+from aim_api.schemas.check_run import (
+    AvailabilityResultRead,
+    CheckRunCreate,
+    CheckRunDetailRead,
+    CheckRunRead,
+    SslResultRead,
+)
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import projects as project_service
 from aim_api.services import scan_queue
+from aim_api.services import scanner_results as scanner_result_service
 
 router = APIRouter(prefix="/projects/{project_id}/check-runs", tags=["check-runs"])
 
@@ -104,13 +111,13 @@ def list_check_runs(
     return [CheckRunRead.model_validate(check_run) for check_run in check_runs]
 
 
-@router.get("/{check_run_id}", response_model=CheckRunRead)
+@router.get("/{check_run_id}", response_model=CheckRunDetailRead)
 def get_check_run(
     project_id: UUID,
     check_run_id: UUID,
     session: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-) -> CheckRunRead:
+) -> CheckRunDetailRead:
     try:
         project = project_service.get_project(
             session,
@@ -127,7 +134,22 @@ def get_check_run(
     except check_run_service.CheckRunNotFoundError as exc:
         raise check_run_not_found() from exc
 
-    return CheckRunRead.model_validate(check_run)
+    availability_result = scanner_result_service.get_availability_result(
+        session,
+        check_run_id=check_run.id,
+    )
+    ssl_result = scanner_result_service.get_ssl_result(
+        session,
+        check_run_id=check_run.id,
+    )
+    check_run_body = CheckRunRead.model_validate(check_run).model_dump()
+    return CheckRunDetailRead(
+        **check_run_body,
+        availability_result=AvailabilityResultRead.model_validate(availability_result)
+        if availability_result is not None
+        else None,
+        ssl_result=SslResultRead.model_validate(ssl_result) if ssl_result is not None else None,
+    )
 
 
 @router.post("/{check_run_id}/cancel", response_model=CheckRunRead)

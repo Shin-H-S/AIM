@@ -5,6 +5,70 @@ type ApiHealthPayload = {
   service?: string;
 };
 
+export type CheckRunStatus =
+  | "QUEUED"
+  | "RUNNING"
+  | "ANALYZING"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED";
+
+export type AvailabilityResult = {
+  service_url: string;
+  final_url: string | null;
+  is_available: boolean;
+  status_code: number | null;
+  response_time_ms: number | null;
+  redirect_count: number;
+  uses_https: boolean;
+  timed_out: boolean;
+  failure_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SslResult = {
+  service_url: string;
+  is_applicable: boolean;
+  is_valid: boolean | null;
+  expires_at: string | null;
+  days_until_expiration: number | null;
+  failure_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CheckRunDetail = {
+  id: string;
+  project_id: string;
+  requested_by_id: string;
+  status: CheckRunStatus;
+  trigger_source: string;
+  failure_reason: string | null;
+  queued_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+  availability_result: AvailabilityResult | null;
+  ssl_result: SslResult | null;
+};
+
+export type CheckRunDetailResult =
+  | {
+      state: "success";
+      checkRun: CheckRunDetail;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type HealthCheckResult =
   | {
       state: "loading";
@@ -33,6 +97,17 @@ export function getApiHealthUrl(apiBaseUrl = getApiBaseUrl()): string {
   return new URL("/health", getApiBaseUrl(apiBaseUrl)).toString();
 }
 
+export function getCheckRunDetailUrl(
+  projectId: string,
+  checkRunId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/check-runs/${encodeURIComponent(checkRunId)}`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
 export async function fetchApiHealth(
   fetcher: typeof fetch = fetch,
   apiBaseUrl?: string
@@ -52,6 +127,51 @@ export async function fetchApiHealth(
       state: "available",
       status: payload.status ?? "unknown",
       service: payload.service ?? "aim-api"
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchCheckRunDetail({
+  projectId,
+  checkRunId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  checkRunId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<CheckRunDetailResult> {
+  try {
+    const response = await fetcher(
+      getCheckRunDetailUrl(projectId, checkRunId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      checkRun: (await response.json()) as CheckRunDetail
     };
   } catch {
     return { state: "unavailable" };

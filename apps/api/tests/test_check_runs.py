@@ -10,7 +10,7 @@ from aim_api.main import app
 from aim_api.models.check_run import CheckRun
 from aim_api.models.project import Project
 from aim_api.services import projects as project_service
-from aim_api.services import scan_queue
+from aim_api.services import scan_queue, scanner_results
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -215,7 +215,73 @@ def test_get_check_run(client: TestClient) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["id"] == check_run["id"]
+    body = response.json()
+    assert body["id"] == check_run["id"]
+    assert body["availability_result"] is None
+    assert body["ssl_result"] is None
+
+
+def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+    check_run = create_check_run(client, project["id"], headers)
+
+    with get_testing_session() as session:
+        scanner_results.record_availability_result(
+            session,
+            check_run_id=UUID(check_run["id"]),
+            service_url="https://example.com",
+            final_url="https://example.com/health",
+            is_available=True,
+            status_code=204,
+            response_time_ms=123,
+            redirect_count=1,
+            uses_https=True,
+            timed_out=False,
+            failure_reason=None,
+        )
+        scanner_results.record_ssl_result(
+            session,
+            check_run_id=UUID(check_run["id"]),
+            service_url="https://example.com/health",
+            is_applicable=True,
+            is_valid=True,
+            expires_at=datetime(2027, 6, 26, tzinfo=UTC),
+            days_until_expiration=365,
+            failure_reason=None,
+        )
+
+    response = client.get(
+        f"/projects/{project['id']}/check-runs/{check_run['id']}",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == check_run["id"]
+    assert body["availability_result"] == {
+        "service_url": "https://example.com",
+        "final_url": "https://example.com/health",
+        "is_available": True,
+        "status_code": 204,
+        "response_time_ms": 123,
+        "redirect_count": 1,
+        "uses_https": True,
+        "timed_out": False,
+        "failure_reason": None,
+        "created_at": body["availability_result"]["created_at"],
+        "updated_at": body["availability_result"]["updated_at"],
+    }
+    assert body["ssl_result"] == {
+        "service_url": "https://example.com/health",
+        "is_applicable": True,
+        "is_valid": True,
+        "expires_at": "2027-06-26T00:00:00",
+        "days_until_expiration": 365,
+        "failure_reason": None,
+        "created_at": body["ssl_result"]["created_at"],
+        "updated_at": body["ssl_result"]["updated_at"],
+    }
 
 
 def test_cancel_check_run(client: TestClient) -> None:

@@ -13,7 +13,7 @@ docker compose -f infra/compose.dev.yaml up -d postgres redis
 uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
 ```
 
-현재 구현된 worker task는 CheckRun을 `RUNNING`으로 전환하고 HTTP availability scanner를 실행합니다.
+현재 구현된 worker task는 CheckRun을 `RUNNING`으로 전환하고 HTTP availability scanner와 SSL inspection을 실행합니다.
 
 scanner는 다음 항목을 측정하거나 판단합니다.
 
@@ -24,5 +24,8 @@ scanner는 다음 항목을 측정하거나 판단합니다.
 - timeout 여부
 - connection/request failure
 - redirect destination SSRF-safe 재검증
+- SSL certificate validity
+- SSL expiration date
+- SSL expiration remaining days
 
-최종 HTTP 상태가 2xx 또는 3xx이면 CheckRun을 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx이면 `FAILED`로 기록합니다. 상세 availability result 저장은 다음 단계에서 추가합니다.
+최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하면 CheckRun을 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료는 `FAILED`로 기록합니다. 상세 availability/SSL result 저장은 다음 단계에서 추가합니다.

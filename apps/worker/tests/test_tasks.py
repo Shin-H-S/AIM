@@ -9,6 +9,7 @@ from aim_api.models.project import Project
 from aim_api.models.user import User
 from aim_worker import tasks
 from aim_worker.availability import AvailabilityScanResult
+from aim_worker.ssl_inspection import SslInspectionResult
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -30,6 +31,14 @@ def session(monkeypatch: pytest.MonkeyPatch) -> Iterator[Session]:
 
     Base.metadata.drop_all(bind=engine)
     engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def ssl_inspection(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_inspect_ssl_certificate(service_url: str) -> SslInspectionResult:
+        return valid_ssl_result(service_url)
+
+    monkeypatch.setattr(tasks, "inspect_ssl_certificate", fake_inspect_ssl_certificate)
 
 
 def create_check_run(
@@ -90,6 +99,28 @@ def unavailable_result(service_url: str) -> AvailabilityScanResult:
     )
 
 
+def valid_ssl_result(service_url: str) -> SslInspectionResult:
+    return SslInspectionResult(
+        service_url=service_url,
+        is_applicable=service_url.startswith("https://"),
+        is_valid=True,
+        expires_at=datetime(2027, 6, 26, tzinfo=UTC),
+        days_until_expiration=365,
+        failure_reason=None,
+    )
+
+
+def invalid_ssl_result(service_url: str) -> SslInspectionResult:
+    return SslInspectionResult(
+        service_url=service_url,
+        is_applicable=True,
+        is_valid=False,
+        expires_at=datetime(2025, 6, 26, tzinfo=UTC),
+        days_until_expiration=-365,
+        failure_reason="SSL certificate is expired.",
+    )
+
+
 def test_run_check_run_completes_when_availability_scan_succeeds(
     session: Session,
     monkeypatch: pytest.MonkeyPatch,
@@ -111,6 +142,29 @@ def test_run_check_run_completes_when_availability_scan_succeeds(
     assert check_run.started_at is not None
     assert check_run.finished_at is not None
     assert check_run.failure_reason is None
+
+
+def test_run_check_run_fails_when_ssl_inspection_fails(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check_run = create_check_run(session, status=CheckRunStatus.QUEUED)
+
+    def fake_scan(service_url: str) -> AvailabilityScanResult:
+        return available_result(service_url)
+
+    def fake_inspect_ssl_certificate(service_url: str) -> SslInspectionResult:
+        return invalid_ssl_result(service_url)
+
+    monkeypatch.setattr(tasks, "scan_http_availability", fake_scan)
+    monkeypatch.setattr(tasks, "inspect_ssl_certificate", fake_inspect_ssl_certificate)
+
+    tasks.run_check_run.run(str(check_run.id))
+
+    session.refresh(check_run)
+    assert check_run.status == CheckRunStatus.FAILED.value
+    assert check_run.failure_reason == "SSL certificate is expired."
+    assert check_run.finished_at is not None
 
 
 def test_run_check_run_fails_when_availability_scan_fails(

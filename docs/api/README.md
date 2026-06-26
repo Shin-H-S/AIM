@@ -124,7 +124,7 @@ CheckRun 생성은 프로젝트가 도메인 검증된 경우에만 허용됩니
 
 큐 등록에 실패하면 check run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
 
-현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner를 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx이면 `FAILED`로 기록합니다.
+현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner와 SSL inspection을 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료는 `FAILED`로 기록합니다.
 
 ### `GET /projects/{project_id}/check-runs`
 
@@ -148,4 +148,4 @@ check run 단건을 조회합니다.
 - recurring scan 차단 규칙과 스케줄러 연결
 - verification token 재발급 API
 - availability result 저장
-- SSL inspection
+- SSL result 저장

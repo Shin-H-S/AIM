@@ -7,10 +7,12 @@ from uuid import UUID, uuid4
 import pytest
 from aim_api.database import Base, get_db
 from aim_api.main import app
+from aim_api.models.check_run import CheckRun
 from aim_api.models.project import Project
 from aim_api.services import projects as project_service
+from aim_api.services import scan_queue
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -18,6 +20,7 @@ from sqlalchemy.pool import StaticPool
 @pytest.fixture()
 def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setattr(project_service, "validate_service_url", lambda _: None)
+    monkeypatch.setattr(scan_queue, "enqueue_check_run", lambda *, check_run_id: str(check_run_id))
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -145,6 +148,47 @@ def test_create_check_run(client: TestClient) -> None:
     assert body["queued_at"]
     assert body["started_at"] is None
     assert body["finished_at"] is None
+
+
+def test_create_check_run_enqueues_scan_job(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    enqueued_check_run_ids: list[str] = []
+
+    def fake_enqueue_check_run(*, check_run_id: UUID) -> str:
+        enqueued_check_run_ids.append(str(check_run_id))
+        return str(check_run_id)
+
+    monkeypatch.setattr(scan_queue, "enqueue_check_run", fake_enqueue_check_run)
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+
+    response = client.post(f"/projects/{project['id']}/check-runs", json={}, headers=headers)
+
+    assert response.status_code == 201
+    assert enqueued_check_run_ids == [response.json()["id"]]
+
+
+def test_create_check_run_returns_503_when_scan_queue_is_unavailable(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_enqueue_check_run(*, check_run_id: UUID) -> str:
+        _ = check_run_id
+        raise scan_queue.ScanQueueUnavailableError
+
+    monkeypatch.setattr(scan_queue, "enqueue_check_run", fake_enqueue_check_run)
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+
+    response = client.post(f"/projects/{project['id']}/check-runs", json={}, headers=headers)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Scan queue is unavailable."}
+    with get_testing_session() as session:
+        check_run = session.scalars(select(CheckRun)).one()
+        assert check_run.status == "FAILED"
+        assert check_run.failure_reason == "Scan queue is unavailable."
+        assert check_run.finished_at is not None
 
 
 def test_list_check_runs(client: TestClient) -> None:

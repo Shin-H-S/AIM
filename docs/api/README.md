@@ -120,7 +120,11 @@ CheckRun 생성은 프로젝트가 도메인 검증된 경우에만 허용됩니
 
 ### `POST /projects/{project_id}/check-runs`
 
-수동 check run을 생성합니다. 현재 단계에서는 실제 스캔을 실행하지 않고 `QUEUED` 상태 레코드만 저장합니다.
+수동 check run을 생성합니다. API는 `QUEUED` 상태 레코드를 저장한 뒤 Redis/Celery scan queue에 worker task를 등록합니다.
+
+큐 등록에 실패하면 check run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
+
+현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤, 실제 HTTP availability scanner가 아직 없다는 명시적 사유로 `FAILED`를 기록합니다.
 
 ### `GET /projects/{project_id}/check-runs`
 
@@ -143,5 +147,4 @@ check run 단건을 조회합니다.
 
 - recurring scan 차단 규칙과 스케줄러 연결
 - verification token 재발급 API
-- Redis task queue 연결
-- 실제 스캔 실행
+- 실제 HTTP availability scanner 실행

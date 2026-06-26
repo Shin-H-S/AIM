@@ -10,7 +10,7 @@ FastAPI 기반 AIM HTTP API가 위치합니다.
 
 ```powershell
 uv sync
-docker compose -f infra/compose.dev.yaml up -d postgres
+docker compose -f infra/compose.dev.yaml up -d postgres redis
 uv run alembic -c migrations/alembic.ini upgrade head
 uv run uvicorn aim_api.main:app --app-dir apps/api/src --reload
 ```
@@ -123,7 +123,9 @@ MVP는 HTML meta-tag 방식의 소유권 확인을 지원합니다.
 - `FAILED`
 - `CANCELLED`
 
-현재 check run 생성은 `QUEUED` 상태의 레코드만 만들며, 실제 스캔 작업을 실행하거나 queue에 넣지는 않습니다. Redis task queue와 worker 연결은 다음 작업에서 추가합니다.
+check run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery scan queue에 worker task를 등록합니다. 큐 등록에 실패하면 check run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
+
+현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤, 실제 HTTP availability scanner가 아직 없다는 명시적 사유로 `FAILED`를 기록합니다. 실제 스캔 결과 저장은 다음 단계에서 추가합니다.
 
 ## 검증
 

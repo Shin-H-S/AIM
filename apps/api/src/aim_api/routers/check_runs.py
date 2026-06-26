@@ -10,6 +10,7 @@ from aim_api.models.user import User
 from aim_api.schemas.check_run import CheckRunCreate, CheckRunRead
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import projects as project_service
+from aim_api.services import scan_queue
 
 router = APIRouter(prefix="/projects/{project_id}/check-runs", tags=["check-runs"])
 
@@ -35,6 +36,13 @@ def project_not_verified() -> HTTPException:
     )
 
 
+def scan_queue_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Scan queue is unavailable.",
+    )
+
+
 @router.post("", response_model=CheckRunRead, status_code=status.HTTP_201_CREATED)
 def create_check_run(
     project_id: UUID,
@@ -54,10 +62,18 @@ def create_check_run(
             project=project,
             requested_by_id=current_user.id,
         )
+        scan_queue.enqueue_check_run(check_run_id=check_run.id)
     except project_service.ProjectNotFoundError as exc:
         raise project_not_found() from exc
     except check_run_service.ProjectNotVerifiedError as exc:
         raise project_not_verified() from exc
+    except scan_queue.ScanQueueUnavailableError as exc:
+        check_run_service.mark_check_run_failed(
+            session,
+            check_run_id=check_run.id,
+            failure_reason="Scan queue is unavailable.",
+        )
+        raise scan_queue_unavailable() from exc
 
     return CheckRunRead.model_validate(check_run)
 

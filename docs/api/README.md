@@ -137,7 +137,12 @@ CheckRun 생성은 프로젝트가 도메인 검증된 경우에만 허용됩니
 
 ### `GET /projects/{project_id}/check-runs/{check_run_id}`
 
-check run 단건을 조회합니다.
+check run 단건을 조회합니다. Polling 클라이언트는 이 API를 반복 호출해 scan 상태와 저장된 결과를 확인할 수 있습니다.
+
+응답에는 기본 CheckRun 필드와 함께 다음 nullable result 필드가 포함됩니다.
+
+- `availability_result`: HTTP availability scan 결과. 아직 worker가 결과를 저장하지 않았다면 `null`입니다.
+- `ssl_result`: SSL inspection 결과. HTTP scan이 실패했거나 아직 SSL 검사가 실행되지 않았다면 `null`입니다.
 
 ### `POST /projects/{project_id}/check-runs/{check_run_id}/cancel`
 
@@ -147,5 +152,4 @@ check run 단건을 조회합니다.
 
 - recurring scan 차단 규칙과 스케줄러 연결
 - verification token 재발급 API
-- scan result 조회 API
 - frontend polling/result page

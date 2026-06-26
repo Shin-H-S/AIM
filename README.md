@@ -72,7 +72,7 @@ Redis가 실행 중인 상태에서 Celery worker를 실행합니다.
 uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
 ```
 
-현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤 HTTP availability scanner와 SSL inspection을 실행합니다. 스캔 대상 URL과 redirect destination은 요청 전마다 SSRF-safe 검증을 수행하며, timeout과 response size 제한을 적용합니다. HTTP scan과 SSL inspection 결과는 정규화된 DB 레코드로 저장되며, 통과하면 CheckRun을 `COMPLETED`, 사용할 수 없거나 인증서가 유효하지 않으면 `FAILED`로 종료합니다.
+현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤 HTTP availability scanner와 SSL inspection을 실행합니다. 스캔 대상 URL과 redirect destination은 요청 전마다 SSRF-safe 검증을 수행하며, timeout과 response size 제한을 적용합니다. HTTP scan과 SSL inspection 결과는 정규화된 DB 레코드로 저장되며, 단건 CheckRun 조회 API에서 polling할 수 있습니다. 통과하면 CheckRun을 `COMPLETED`, 사용할 수 없거나 인증서가 유효하지 않으면 `FAILED`로 종료합니다.
 
 ## API 검증
 
@@ -94,5 +94,5 @@ corepack pnpm web:build
 
 ## 개발 순서
 
-1. Scan status polling
-2. Basic result page
+1. Basic result page
+2. Lighthouse worker integration

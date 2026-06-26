@@ -90,7 +90,8 @@ describe("fetchCheckRunDetail", () => {
         created_at: "2026-06-26T00:00:00Z",
         updated_at: "2026-06-26T00:00:02Z",
         availability_result: null,
-        ssl_result: null
+        ssl_result: null,
+        lighthouse_result: null
       })
     );
 
@@ -117,7 +118,8 @@ describe("fetchCheckRunDetail", () => {
         created_at: "2026-06-26T00:00:00Z",
         updated_at: "2026-06-26T00:00:02Z",
         availability_result: null,
-        ssl_result: null
+        ssl_result: null,
+        lighthouse_result: null
       }
     });
 

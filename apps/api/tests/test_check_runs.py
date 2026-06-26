@@ -219,6 +219,7 @@ def test_get_check_run(client: TestClient) -> None:
     assert body["id"] == check_run["id"]
     assert body["availability_result"] is None
     assert body["ssl_result"] is None
+    assert body["lighthouse_result"] is None
 
 
 def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
@@ -248,6 +249,21 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
             is_valid=True,
             expires_at=datetime(2027, 6, 26, tzinfo=UTC),
             days_until_expiration=365,
+            failure_reason=None,
+        )
+        scanner_results.record_lighthouse_result(
+            session,
+            check_run_id=UUID(check_run["id"]),
+            service_url="https://example.com/health",
+            is_successful=True,
+            performance_score=90,
+            accessibility_score=95,
+            seo_score=88,
+            best_practices_score=92,
+            largest_contentful_paint_ms=1200,
+            cumulative_layout_shift=0.02,
+            total_blocking_time_ms=30,
+            raw_json={"categories": {"performance": {"score": 0.9}}},
             failure_reason=None,
         )
 
@@ -281,6 +297,20 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
         "failure_reason": None,
         "created_at": body["ssl_result"]["created_at"],
         "updated_at": body["ssl_result"]["updated_at"],
+    }
+    assert body["lighthouse_result"] == {
+        "service_url": "https://example.com/health",
+        "is_successful": True,
+        "performance_score": 90,
+        "accessibility_score": 95,
+        "seo_score": 88,
+        "best_practices_score": 92,
+        "largest_contentful_paint_ms": 1200,
+        "cumulative_layout_shift": 0.02,
+        "total_blocking_time_ms": 30,
+        "failure_reason": None,
+        "created_at": body["lighthouse_result"]["created_at"],
+        "updated_at": body["lighthouse_result"]["updated_at"],
     }
 
 

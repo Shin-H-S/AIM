@@ -1,10 +1,11 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from aim_api.models.scanner_result import AvailabilityResult, SslResult
+from aim_api.models.scanner_result import AvailabilityResult, LighthouseResult, SslResult
 
 
 def record_availability_result(
@@ -67,6 +68,43 @@ def record_ssl_result(
     return result
 
 
+def record_lighthouse_result(
+    session: Session,
+    *,
+    check_run_id: UUID,
+    service_url: str,
+    is_successful: bool,
+    performance_score: int | None,
+    accessibility_score: int | None,
+    seo_score: int | None,
+    best_practices_score: int | None,
+    largest_contentful_paint_ms: int | None,
+    cumulative_layout_shift: float | None,
+    total_blocking_time_ms: int | None,
+    raw_json: dict[str, Any] | None,
+    failure_reason: str | None,
+) -> LighthouseResult:
+    result = get_lighthouse_result(session, check_run_id=check_run_id)
+    if result is None:
+        result = LighthouseResult(check_run_id=check_run_id)
+        session.add(result)
+
+    result.service_url = service_url
+    result.is_successful = is_successful
+    result.performance_score = performance_score
+    result.accessibility_score = accessibility_score
+    result.seo_score = seo_score
+    result.best_practices_score = best_practices_score
+    result.largest_contentful_paint_ms = largest_contentful_paint_ms
+    result.cumulative_layout_shift = cumulative_layout_shift
+    result.total_blocking_time_ms = total_blocking_time_ms
+    result.raw_json = raw_json
+    result.failure_reason = failure_reason
+    session.commit()
+    session.refresh(result)
+    return result
+
+
 def get_availability_result(
     session: Session,
     *,
@@ -83,3 +121,13 @@ def get_ssl_result(
     check_run_id: UUID,
 ) -> SslResult | None:
     return session.scalar(select(SslResult).where(SslResult.check_run_id == check_run_id))
+
+
+def get_lighthouse_result(
+    session: Session,
+    *,
+    check_run_id: UUID,
+) -> LighthouseResult | None:
+    return session.scalar(
+        select(LighthouseResult).where(LighthouseResult.check_run_id == check_run_id)
+    )

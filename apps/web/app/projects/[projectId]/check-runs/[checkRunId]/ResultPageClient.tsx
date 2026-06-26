@@ -8,6 +8,7 @@ import {
   type CheckRunDetail,
   type CheckRunDetailResult,
   type CheckRunStatus,
+  type LighthouseResult,
   type SslResult
 } from "@/lib/api";
 
@@ -170,6 +171,7 @@ export function ResultPageClient({
             <section className="grid gap-4 lg:grid-cols-2">
               <AvailabilityCard result={checkRun.availability_result} />
               <SslCard result={checkRun.ssl_result} />
+              <LighthouseCard result={checkRun.lighthouse_result} />
             </section>
           </>
         )}
@@ -294,6 +296,36 @@ function SslCard({ result }: { result: SslResult | null }) {
   );
 }
 
+function LighthouseCard({ result }: { result: LighthouseResult | null }) {
+  if (!result) {
+    return (
+      <EmptyResultCard title="Lighthouse" description="아직 Lighthouse 결과가 없습니다." />
+    );
+  }
+
+  return (
+    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+      <ResultHeader
+        title="Lighthouse"
+        isHealthy={result.is_successful}
+        healthyLabel="실행 성공"
+        unhealthyLabel="실행 실패"
+      />
+      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
+        <Metric label="Performance" value={formatScore(result.performance_score)} />
+        <Metric label="Accessibility" value={formatScore(result.accessibility_score)} />
+        <Metric label="SEO" value={formatScore(result.seo_score)} />
+        <Metric label="Best practices" value={formatScore(result.best_practices_score)} />
+        <Metric label="LCP" value={formatMilliseconds(result.largest_contentful_paint_ms)} />
+        <Metric label="CLS" value={formatDecimal(result.cumulative_layout_shift)} />
+        <Metric label="TBT" value={formatMilliseconds(result.total_blocking_time_ms)} />
+        <Metric label="Failure" value={result.failure_reason ?? "없음"} />
+      </dl>
+      <p className="mt-5 break-all text-xs text-slate-400">Service URL: {result.service_url}</p>
+    </article>
+  );
+}
+
 function EmptyResultCard({ title, description }: { title: string; description: string }) {
   return (
     <article className="rounded-3xl border border-dashed border-white/10 bg-white/[0.02] p-6">
@@ -390,6 +422,14 @@ function formatMilliseconds(value: number | null) {
 
 function formatNullable(value: number | null) {
   return value === null ? "없음" : String(value);
+}
+
+function formatScore(value: number | null) {
+  return value === null ? "알 수 없음" : `${value}/100`;
+}
+
+function formatDecimal(value: number | null) {
+  return value === null ? "알 수 없음" : String(value);
 }
 
 function formatBoolean(value: boolean | null) {

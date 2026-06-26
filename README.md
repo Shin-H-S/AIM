@@ -51,6 +51,14 @@ corepack pnpm web:dev
 
 웹 애플리케이션은 기본적으로 `NEXT_PUBLIC_API_URL=http://localhost:8000`의 `GET /health` 응답을 확인합니다.
 
+CheckRun 결과 페이지는 다음 경로에서 확인할 수 있습니다.
+
+```text
+/projects/{projectId}/check-runs/{checkRunId}
+```
+
+현재 웹에는 로그인 UI가 없으므로 결과 페이지에서 API 로그인 응답의 Bearer token을 직접 입력해 CheckRun 상태와 availability/SSL 결과를 polling합니다.
+
 ## API 시작하기
 
 Python 3.12와 `uv`가 필요합니다.
@@ -94,5 +102,5 @@ corepack pnpm web:build
 
 ## 개발 순서
 
-1. Basic result page
-2. Lighthouse worker integration
+1. Lighthouse worker integration
+2. Metric normalization

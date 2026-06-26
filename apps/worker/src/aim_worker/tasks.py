@@ -8,6 +8,7 @@ from aim_api.services.scan_queue import RUN_CHECK_RUN_TASK_NAME
 
 from aim_worker.availability import scan_http_availability
 from aim_worker.celery_app import celery_app
+from aim_worker.ssl_inspection import inspect_ssl_certificate
 
 SCAN_WORKER_FAILED_REASON = "Scan worker failed."
 CHECK_RUN_PROJECT_NOT_FOUND_REASON = "Project for check run was not found."
@@ -52,6 +53,17 @@ def run_check_run(check_run_id: str) -> None:
             raise
 
         if availability_result.is_available:
+            ssl_result = inspect_ssl_certificate(
+                availability_result.final_url or project.service_url,
+            )
+            if ssl_result.is_applicable and ssl_result.is_valid is False:
+                check_run_service.mark_check_run_failed(
+                    session,
+                    check_run_id=parsed_check_run_id,
+                    failure_reason=ssl_result.failure_reason or "SSL certificate is invalid.",
+                )
+                return
+
             check_run_service.mark_check_run_completed(
                 session,
                 check_run_id=parsed_check_run_id,

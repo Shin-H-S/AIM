@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     scanner_timeout_seconds: float = 10.0
     scanner_max_redirects: int = 5
     scanner_max_response_bytes: int = 1_048_576
+    ssl_inspection_timeout_seconds: float = 10.0
     jwt_secret_key: str = "replace-with-a-local-development-secret"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30

@@ -6,11 +6,12 @@ import pytest
 from aim_api.database import Base
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
+from aim_api.models.scanner_result import AvailabilityResult, SslResult
 from aim_api.models.user import User
 from aim_worker import tasks
 from aim_worker.availability import AvailabilityScanResult
 from aim_worker.ssl_inspection import SslInspectionResult
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -142,6 +143,14 @@ def test_run_check_run_completes_when_availability_scan_succeeds(
     assert check_run.started_at is not None
     assert check_run.finished_at is not None
     assert check_run.failure_reason is None
+    availability_result = session.scalars(select(AvailabilityResult)).one()
+    assert availability_result.check_run_id == check_run.id
+    assert availability_result.is_available is True
+    assert availability_result.status_code == 200
+    ssl_result = session.scalars(select(SslResult)).one()
+    assert ssl_result.check_run_id == check_run.id
+    assert ssl_result.is_applicable is True
+    assert ssl_result.is_valid is True
 
 
 def test_run_check_run_fails_when_ssl_inspection_fails(
@@ -165,6 +174,11 @@ def test_run_check_run_fails_when_ssl_inspection_fails(
     assert check_run.status == CheckRunStatus.FAILED.value
     assert check_run.failure_reason == "SSL certificate is expired."
     assert check_run.finished_at is not None
+    availability_result = session.scalars(select(AvailabilityResult)).one()
+    assert availability_result.is_available is True
+    ssl_result = session.scalars(select(SslResult)).one()
+    assert ssl_result.is_valid is False
+    assert ssl_result.failure_reason == "SSL certificate is expired."
 
 
 def test_run_check_run_fails_when_availability_scan_fails(
@@ -184,6 +198,11 @@ def test_run_check_run_fails_when_availability_scan_fails(
     assert check_run.status == CheckRunStatus.FAILED.value
     assert check_run.failure_reason == "Service returned HTTP 503."
     assert check_run.finished_at is not None
+    availability_result = session.scalars(select(AvailabilityResult)).one()
+    assert availability_result.is_available is False
+    assert availability_result.status_code == 503
+    assert availability_result.failure_reason == "Service returned HTTP 503."
+    assert session.scalars(select(SslResult)).all() == []
 
 
 def test_run_check_run_does_not_override_cancelled_run(session: Session) -> None:

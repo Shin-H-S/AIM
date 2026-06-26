@@ -2,7 +2,7 @@
 
 AIM은 등록된 웹 서비스의 가용성, 품질, 핵심 사용자 흐름을 검사하고 이전 실행과 비교하여 배포 위험을 판단하도록 돕는 AI 기반 품질 평가·모니터링 플랫폼입니다.
 
-현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 기본 인증 API, SSRF-safe URL 검증과 HTML meta-tag 도메인 소유권 확인을 포함한 사용자별 프로젝트 CRUD API, CheckRun 도메인 모델 기반이 포함되어 있습니다.
+현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 기본 인증 API, SSRF-safe URL 검증과 HTML meta-tag 도메인 소유권 확인을 포함한 사용자별 프로젝트 CRUD API, CheckRun 도메인 모델, Redis/Celery 기반 스캔 큐 골격이 포함되어 있습니다.
 
 ## MVP 방향
 
@@ -57,12 +57,22 @@ Python 3.12와 `uv`가 필요합니다.
 
 ```powershell
 uv sync
-docker compose -f infra/compose.dev.yaml up -d postgres
+docker compose -f infra/compose.dev.yaml up -d postgres redis
 uv run alembic -c migrations/alembic.ini upgrade head
 uv run uvicorn aim_api.main:app --app-dir apps/api/src --reload
 ```
 
 상태 확인 API는 `GET http://localhost:8000/health`, 데이터베이스 연결 확인은 `GET http://localhost:8000/health/database`에서 사용할 수 있습니다. 인증은 `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`에서 사용할 수 있습니다. 프로젝트 CRUD는 `POST /projects`, `GET /projects`, `GET /projects/{project_id}`, `PATCH /projects/{project_id}`, `DELETE /projects/{project_id}`에서 사용할 수 있습니다. 도메인 소유권 확인은 `GET /projects/{project_id}/verification`, `POST /projects/{project_id}/verify`에서 사용할 수 있습니다. CheckRun은 `POST /projects/{project_id}/check-runs`, `GET /projects/{project_id}/check-runs`, `GET /projects/{project_id}/check-runs/{check_run_id}`, `POST /projects/{project_id}/check-runs/{check_run_id}/cancel`에서 사용할 수 있습니다. 자세한 내용은 [API README](apps/api/README.md)를 참고합니다.
+
+## Worker 시작하기
+
+Redis가 실행 중인 상태에서 Celery worker를 실행합니다.
+
+```powershell
+uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
+```
+
+현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤, 실제 HTTP availability scanner가 아직 없다는 명시적 사유로 `FAILED`를 기록합니다. 실제 스캔 구현은 다음 개발 단계입니다.
 
 ## API 검증
 
@@ -84,5 +94,5 @@ corepack pnpm web:build
 
 ## 개발 순서
 
-1. Redis task queue
-2. HTTP availability scanner
+1. HTTP availability scanner
+2. SSL inspection

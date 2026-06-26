@@ -9,6 +9,7 @@ from aim_api.services.scan_queue import RUN_CHECK_RUN_TASK_NAME
 
 from aim_worker.availability import scan_http_availability
 from aim_worker.celery_app import celery_app
+from aim_worker.lighthouse import run_lighthouse_scan
 from aim_worker.ssl_inspection import inspect_ssl_certificate
 
 SCAN_WORKER_FAILED_REASON = "Scan worker failed."
@@ -86,6 +87,21 @@ def run_check_run(check_run_id: str) -> None:
                     session,
                     check_run_id=parsed_check_run_id,
                     failure_reason=ssl_result.failure_reason or "SSL certificate is invalid.",
+                )
+                return
+
+            check_run_service.mark_check_run_analyzing(
+                session,
+                check_run_id=parsed_check_run_id,
+            )
+            lighthouse_result = run_lighthouse_scan(
+                availability_result.final_url or project.service_url,
+            )
+            if not lighthouse_result.is_successful:
+                check_run_service.mark_check_run_failed(
+                    session,
+                    check_run_id=parsed_check_run_id,
+                    failure_reason=lighthouse_result.failure_reason or "Lighthouse scan failed.",
                 )
                 return
 

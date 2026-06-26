@@ -10,6 +10,7 @@ from aim_api.models.scanner_result import AvailabilityResult, SslResult
 from aim_api.models.user import User
 from aim_worker import tasks
 from aim_worker.availability import AvailabilityScanResult
+from aim_worker.lighthouse import LighthouseScanResult
 from aim_worker.ssl_inspection import SslInspectionResult
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -40,6 +41,14 @@ def ssl_inspection(monkeypatch: pytest.MonkeyPatch) -> None:
         return valid_ssl_result(service_url)
 
     monkeypatch.setattr(tasks, "inspect_ssl_certificate", fake_inspect_ssl_certificate)
+
+
+@pytest.fixture(autouse=True)
+def lighthouse_scan(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run_lighthouse_scan(service_url: str) -> LighthouseScanResult:
+        return successful_lighthouse_result(service_url)
+
+    monkeypatch.setattr(tasks, "run_lighthouse_scan", fake_run_lighthouse_scan)
 
 
 def create_check_run(
@@ -122,6 +131,38 @@ def invalid_ssl_result(service_url: str) -> SslInspectionResult:
     )
 
 
+def successful_lighthouse_result(service_url: str) -> LighthouseScanResult:
+    return LighthouseScanResult(
+        service_url=service_url,
+        is_successful=True,
+        performance_score=90,
+        accessibility_score=95,
+        seo_score=88,
+        best_practices_score=92,
+        largest_contentful_paint_ms=1200,
+        cumulative_layout_shift=0.02,
+        total_blocking_time_ms=30,
+        raw_json={"categories": {}},
+        failure_reason=None,
+    )
+
+
+def failed_lighthouse_result(service_url: str) -> LighthouseScanResult:
+    return LighthouseScanResult(
+        service_url=service_url,
+        is_successful=False,
+        performance_score=None,
+        accessibility_score=None,
+        seo_score=None,
+        best_practices_score=None,
+        largest_contentful_paint_ms=None,
+        cumulative_layout_shift=None,
+        total_blocking_time_ms=None,
+        raw_json=None,
+        failure_reason="Lighthouse CLI failed.",
+    )
+
+
 def test_run_check_run_completes_when_availability_scan_succeeds(
     session: Session,
     monkeypatch: pytest.MonkeyPatch,
@@ -151,6 +192,29 @@ def test_run_check_run_completes_when_availability_scan_succeeds(
     assert ssl_result.check_run_id == check_run.id
     assert ssl_result.is_applicable is True
     assert ssl_result.is_valid is True
+
+
+def test_run_check_run_fails_when_lighthouse_scan_fails(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check_run = create_check_run(session, status=CheckRunStatus.QUEUED)
+
+    def fake_scan(service_url: str) -> AvailabilityScanResult:
+        return available_result(service_url)
+
+    def fake_run_lighthouse_scan(service_url: str) -> LighthouseScanResult:
+        return failed_lighthouse_result(service_url)
+
+    monkeypatch.setattr(tasks, "scan_http_availability", fake_scan)
+    monkeypatch.setattr(tasks, "run_lighthouse_scan", fake_run_lighthouse_scan)
+
+    tasks.run_check_run.run(str(check_run.id))
+
+    session.refresh(check_run)
+    assert check_run.status == CheckRunStatus.FAILED.value
+    assert check_run.failure_reason == "Lighthouse CLI failed."
+    assert check_run.finished_at is not None
 
 
 def test_run_check_run_fails_when_ssl_inspection_fails(

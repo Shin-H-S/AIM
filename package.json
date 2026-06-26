@@ -12,5 +12,8 @@
     "lint": "corepack pnpm --filter @aim/web lint",
     "test": "corepack pnpm --filter @aim/web test",
     "typecheck": "corepack pnpm --filter @aim/web typecheck"
+  },
+  "dependencies": {
+    "lighthouse": "^13.4.0"
   }
 }

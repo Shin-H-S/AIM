@@ -38,6 +38,21 @@ export type SslResult = {
   updated_at: string;
 };
 
+export type LighthouseResult = {
+  service_url: string;
+  is_successful: boolean;
+  performance_score: number | null;
+  accessibility_score: number | null;
+  seo_score: number | null;
+  best_practices_score: number | null;
+  largest_contentful_paint_ms: number | null;
+  cumulative_layout_shift: number | null;
+  total_blocking_time_ms: number | null;
+  failure_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type CheckRunDetail = {
   id: string;
   project_id: string;
@@ -52,6 +67,7 @@ export type CheckRunDetail = {
   updated_at: string;
   availability_result: AvailabilityResult | null;
   ssl_result: SslResult | null;
+  lighthouse_result: LighthouseResult | null;
 };
 
 export type CheckRunDetailResult =

@@ -6,7 +6,7 @@ import pytest
 from aim_api.database import Base
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
-from aim_api.models.scanner_result import AvailabilityResult, SslResult
+from aim_api.models.scanner_result import AvailabilityResult, LighthouseResult, SslResult
 from aim_api.models.user import User
 from aim_worker import tasks
 from aim_worker.availability import AvailabilityScanResult
@@ -192,6 +192,11 @@ def test_run_check_run_completes_when_availability_scan_succeeds(
     assert ssl_result.check_run_id == check_run.id
     assert ssl_result.is_applicable is True
     assert ssl_result.is_valid is True
+    lighthouse_result = session.scalars(select(LighthouseResult)).one()
+    assert lighthouse_result.check_run_id == check_run.id
+    assert lighthouse_result.is_successful is True
+    assert lighthouse_result.performance_score == 90
+    assert lighthouse_result.raw_json == {"categories": {}}
 
 
 def test_run_check_run_fails_when_lighthouse_scan_fails(
@@ -215,6 +220,9 @@ def test_run_check_run_fails_when_lighthouse_scan_fails(
     assert check_run.status == CheckRunStatus.FAILED.value
     assert check_run.failure_reason == "Lighthouse CLI failed."
     assert check_run.finished_at is not None
+    lighthouse_result = session.scalars(select(LighthouseResult)).one()
+    assert lighthouse_result.is_successful is False
+    assert lighthouse_result.failure_reason == "Lighthouse CLI failed."
 
 
 def test_run_check_run_fails_when_ssl_inspection_fails(

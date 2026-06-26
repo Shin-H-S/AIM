@@ -39,6 +39,23 @@ class SslResultRead(BaseModel):
     updated_at: datetime
 
 
+class LighthouseResultRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    service_url: str
+    is_successful: bool
+    performance_score: int | None
+    accessibility_score: int | None
+    seo_score: int | None
+    best_practices_score: int | None
+    largest_contentful_paint_ms: int | None
+    cumulative_layout_shift: float | None
+    total_blocking_time_ms: int | None
+    failure_reason: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
 class CheckRunRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -58,3 +75,4 @@ class CheckRunRead(BaseModel):
 class CheckRunDetailRead(CheckRunRead):
     availability_result: AvailabilityResultRead | None
     ssl_result: SslResultRead | None
+    lighthouse_result: LighthouseResultRead | None

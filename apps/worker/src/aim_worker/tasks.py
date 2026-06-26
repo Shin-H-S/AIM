@@ -97,6 +97,21 @@ def run_check_run(check_run_id: str) -> None:
             lighthouse_result = run_lighthouse_scan(
                 availability_result.final_url or project.service_url,
             )
+            scanner_result_service.record_lighthouse_result(
+                session,
+                check_run_id=parsed_check_run_id,
+                service_url=lighthouse_result.service_url,
+                is_successful=lighthouse_result.is_successful,
+                performance_score=lighthouse_result.performance_score,
+                accessibility_score=lighthouse_result.accessibility_score,
+                seo_score=lighthouse_result.seo_score,
+                best_practices_score=lighthouse_result.best_practices_score,
+                largest_contentful_paint_ms=lighthouse_result.largest_contentful_paint_ms,
+                cumulative_layout_shift=lighthouse_result.cumulative_layout_shift,
+                total_blocking_time_ms=lighthouse_result.total_blocking_time_ms,
+                raw_json=lighthouse_result.raw_json,
+                failure_reason=lighthouse_result.failure_reason,
+            )
             if not lighthouse_result.is_successful:
                 check_run_service.mark_check_run_failed(
                     session,

@@ -6,7 +6,7 @@ import pytest
 from aim_api.database import Base
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
-from aim_api.models.scanner_result import AvailabilityResult, SslResult
+from aim_api.models.scanner_result import AvailabilityResult, LighthouseResult, SslResult
 from aim_api.models.user import User
 from aim_api.services import scanner_results
 from sqlalchemy import create_engine, select
@@ -122,3 +122,45 @@ def test_record_ssl_result_updates_existing_result(session: Session) -> None:
     assert second_result.is_valid is False
     assert second_result.days_until_expiration == -365
     assert second_result.failure_reason == "SSL certificate is expired."
+
+
+def test_record_lighthouse_result_updates_existing_result(session: Session) -> None:
+    check_run = create_check_run(session)
+
+    first_result = scanner_results.record_lighthouse_result(
+        session,
+        check_run_id=check_run.id,
+        service_url="https://example.com",
+        is_successful=True,
+        performance_score=90,
+        accessibility_score=95,
+        seo_score=88,
+        best_practices_score=92,
+        largest_contentful_paint_ms=1200,
+        cumulative_layout_shift=0.02,
+        total_blocking_time_ms=30,
+        raw_json={"categories": {"performance": {"score": 0.9}}},
+        failure_reason=None,
+    )
+    second_result = scanner_results.record_lighthouse_result(
+        session,
+        check_run_id=check_run.id,
+        service_url="https://example.com",
+        is_successful=False,
+        performance_score=None,
+        accessibility_score=None,
+        seo_score=None,
+        best_practices_score=None,
+        largest_contentful_paint_ms=None,
+        cumulative_layout_shift=None,
+        total_blocking_time_ms=None,
+        raw_json=None,
+        failure_reason="Lighthouse CLI failed.",
+    )
+
+    assert second_result.id == first_result.id
+    assert session.scalars(select(LighthouseResult)).all() == [second_result]
+    assert second_result.is_successful is False
+    assert second_result.performance_score is None
+    assert second_result.raw_json is None
+    assert second_result.failure_reason == "Lighthouse CLI failed."

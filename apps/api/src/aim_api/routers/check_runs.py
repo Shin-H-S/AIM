@@ -12,6 +12,7 @@ from aim_api.schemas.check_run import (
     CheckRunCreate,
     CheckRunDetailRead,
     CheckRunRead,
+    LighthouseResultRead,
     SslResultRead,
 )
 from aim_api.services import check_runs as check_run_service
@@ -142,6 +143,10 @@ def get_check_run(
         session,
         check_run_id=check_run.id,
     )
+    lighthouse_result = scanner_result_service.get_lighthouse_result(
+        session,
+        check_run_id=check_run.id,
+    )
     check_run_body = CheckRunRead.model_validate(check_run).model_dump()
     return CheckRunDetailRead(
         **check_run_body,
@@ -149,6 +154,9 @@ def get_check_run(
         if availability_result is not None
         else None,
         ssl_result=SslResultRead.model_validate(ssl_result) if ssl_result is not None else None,
+        lighthouse_result=LighthouseResultRead.model_validate(lighthouse_result)
+        if lighthouse_result is not None
+        else None,
     )
 
 

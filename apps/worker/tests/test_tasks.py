@@ -8,6 +8,7 @@ from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.models.user import User
 from aim_worker import tasks
+from aim_worker.availability import AvailabilityScanResult
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -31,14 +32,19 @@ def session(monkeypatch: pytest.MonkeyPatch) -> Iterator[Session]:
     engine.dispose()
 
 
-def create_check_run(session: Session, *, status: CheckRunStatus) -> CheckRun:
+def create_check_run(
+    session: Session,
+    *,
+    status: CheckRunStatus,
+    service_url: str = "https://example.com",
+) -> CheckRun:
     user = User(email=f"{uuid4()}@example.com", password_hash="hashed-password")
     session.add(user)
     session.flush()
     project = Project(
         owner_id=user.id,
         name="AIM Website",
-        service_url="https://example.com",
+        service_url=service_url,
         verified_at=datetime.now(UTC),
         environment="production",
     )
@@ -56,16 +62,74 @@ def create_check_run(session: Session, *, status: CheckRunStatus) -> CheckRun:
     return check_run
 
 
-def test_run_check_run_marks_run_failed_until_scanner_exists(session: Session) -> None:
+def available_result(service_url: str) -> AvailabilityScanResult:
+    return AvailabilityScanResult(
+        service_url=service_url,
+        final_url=service_url,
+        is_available=True,
+        status_code=200,
+        response_time_ms=123,
+        redirect_count=0,
+        uses_https=True,
+        timed_out=False,
+        failure_reason=None,
+    )
+
+
+def unavailable_result(service_url: str) -> AvailabilityScanResult:
+    return AvailabilityScanResult(
+        service_url=service_url,
+        final_url=service_url,
+        is_available=False,
+        status_code=503,
+        response_time_ms=123,
+        redirect_count=0,
+        uses_https=True,
+        timed_out=False,
+        failure_reason="Service returned HTTP 503.",
+    )
+
+
+def test_run_check_run_completes_when_availability_scan_succeeds(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     check_run = create_check_run(session, status=CheckRunStatus.QUEUED)
+    scanned_urls: list[str] = []
+
+    def fake_scan(service_url: str) -> AvailabilityScanResult:
+        scanned_urls.append(service_url)
+        return available_result(service_url)
+
+    monkeypatch.setattr(tasks, "scan_http_availability", fake_scan)
+
+    tasks.run_check_run.run(str(check_run.id))
+
+    session.refresh(check_run)
+    assert scanned_urls == ["https://example.com"]
+    assert check_run.status == CheckRunStatus.COMPLETED.value
+    assert check_run.started_at is not None
+    assert check_run.finished_at is not None
+    assert check_run.failure_reason is None
+
+
+def test_run_check_run_fails_when_availability_scan_fails(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check_run = create_check_run(session, status=CheckRunStatus.QUEUED)
+
+    def fake_scan(service_url: str) -> AvailabilityScanResult:
+        return unavailable_result(service_url)
+
+    monkeypatch.setattr(tasks, "scan_http_availability", fake_scan)
 
     tasks.run_check_run.run(str(check_run.id))
 
     session.refresh(check_run)
     assert check_run.status == CheckRunStatus.FAILED.value
-    assert check_run.started_at is not None
+    assert check_run.failure_reason == "Service returned HTTP 503."
     assert check_run.finished_at is not None
-    assert check_run.failure_reason == tasks.SCANNER_NOT_IMPLEMENTED_REASON
 
 
 def test_run_check_run_does_not_override_cancelled_run(session: Session) -> None:
@@ -86,10 +150,11 @@ def test_run_check_run_records_unexpected_scan_failure(
 ) -> None:
     check_run = create_check_run(session, status=CheckRunStatus.QUEUED)
 
-    def fail_scan() -> None:
+    def fail_scan(service_url: str) -> None:
+        _ = service_url
         raise RuntimeError("browser crashed")
 
-    monkeypatch.setattr(tasks, "execute_scan_placeholder", fail_scan)
+    monkeypatch.setattr(tasks, "scan_http_availability", fail_scan)
 
     with pytest.raises(RuntimeError, match="browser crashed"):
         tasks.run_check_run.run(str(check_run.id))

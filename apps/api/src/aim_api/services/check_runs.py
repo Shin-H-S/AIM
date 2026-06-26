@@ -107,6 +107,22 @@ def mark_check_run_failed(
     return check_run
 
 
+def mark_check_run_completed(session: Session, *, check_run_id: UUID) -> CheckRun:
+    check_run = get_check_run_by_id(session, check_run_id=check_run_id)
+    if check_run.status in {
+        CheckRunStatus.FAILED.value,
+        CheckRunStatus.CANCELLED.value,
+    }:
+        return check_run
+
+    check_run.status = CheckRunStatus.COMPLETED.value
+    check_run.failure_reason = None
+    check_run.finished_at = datetime.now(UTC)
+    session.commit()
+    session.refresh(check_run)
+    return check_run
+
+
 def cancel_check_run(session: Session, *, project_id: UUID, check_run_id: UUID) -> CheckRun:
     check_run = get_check_run(session, project_id=project_id, check_run_id=check_run_id)
     if check_run.status in {

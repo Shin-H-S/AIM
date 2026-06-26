@@ -2,21 +2,15 @@ from uuid import UUID
 
 from aim_api.database import SessionLocal
 from aim_api.models.check_run import CheckRunStatus
+from aim_api.models.project import Project
 from aim_api.services import check_runs as check_run_service
 from aim_api.services.scan_queue import RUN_CHECK_RUN_TASK_NAME
 
+from aim_worker.availability import scan_http_availability
 from aim_worker.celery_app import celery_app
 
-SCANNER_NOT_IMPLEMENTED_REASON = "HTTP availability scanner is not implemented yet."
 SCAN_WORKER_FAILED_REASON = "Scan worker failed."
-
-
-class ScanExecutionNotImplementedError(Exception):
-    """Raised until the first real scanner is implemented."""
-
-
-def execute_scan_placeholder() -> None:
-    raise ScanExecutionNotImplementedError(SCANNER_NOT_IMPLEMENTED_REASON)
+CHECK_RUN_PROJECT_NOT_FOUND_REASON = "Project for check run was not found."
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]
@@ -38,14 +32,17 @@ def run_check_run(check_run_id: str) -> None:
         if check_run.status != CheckRunStatus.RUNNING.value:
             return
 
-        try:
-            execute_scan_placeholder()
-        except ScanExecutionNotImplementedError as exc:
+        project = session.get(Project, check_run.project_id)
+        if project is None:
             check_run_service.mark_check_run_failed(
                 session,
                 check_run_id=parsed_check_run_id,
-                failure_reason=str(exc),
+                failure_reason=CHECK_RUN_PROJECT_NOT_FOUND_REASON,
             )
+            return
+
+        try:
+            availability_result = scan_http_availability(project.service_url)
         except Exception:
             check_run_service.mark_check_run_failed(
                 session,
@@ -53,3 +50,17 @@ def run_check_run(check_run_id: str) -> None:
                 failure_reason=SCAN_WORKER_FAILED_REASON,
             )
             raise
+
+        if availability_result.is_available:
+            check_run_service.mark_check_run_completed(
+                session,
+                check_run_id=parsed_check_run_id,
+            )
+            return
+
+        failure_reason = availability_result.failure_reason or "Service is unavailable."
+        check_run_service.mark_check_run_failed(
+            session,
+            check_run_id=parsed_check_run_id,
+            failure_reason=failure_reason,
+        )

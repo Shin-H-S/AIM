@@ -86,7 +86,7 @@ Invoke-RestMethod http://localhost:8000/health/database
 - 주요 cloud metadata IP와 hostname
 - DNS 결과 중 하나라도 public address가 아닌 호스트
 
-실제 HTTP 요청, redirect destination 재검증, response size 제한은 스캐너 구현 단계에서 추가합니다.
+HTTP availability scanner는 실제 요청 전 `service_url`과 redirect destination을 다시 검증하며, timeout과 response size 제한을 적용합니다.
 
 ## 도메인 소유권 확인
 
@@ -125,7 +125,7 @@ MVP는 HTML meta-tag 방식의 소유권 확인을 지원합니다.
 
 check run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery scan queue에 worker task를 등록합니다. 큐 등록에 실패하면 check run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
 
-현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤, 실제 HTTP availability scanner가 아직 없다는 명시적 사유로 `FAILED`를 기록합니다. 실제 스캔 결과 저장은 다음 단계에서 추가합니다.
+현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner를 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx이면 `FAILED`로 기록합니다. 상세 availability result 저장은 다음 단계에서 추가합니다.
 
 ## 검증
 

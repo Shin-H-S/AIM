@@ -196,10 +196,33 @@ scenario 일부 필드를 수정합니다. 최소 하나 이상의 필드가 필
 
 scenario를 삭제합니다. 성공 시 `204`를 반환합니다.
 
+### `POST /projects/{project_id}/scenarios/{scenario_id}/runs`
+
+시나리오 실행 요청을 생성합니다. API는 `QUEUED` 상태의 `scenario_runs` 레코드를 저장한 뒤 Redis/Celery queue에 worker task를 등록합니다.
+
+비활성 scenario는 `409`와 `{"detail": "Scenario must be active before creating a scenario run."}`를 반환합니다. 큐 등록에 실패하면 scenario run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
+
+### `GET /projects/{project_id}/scenarios/{scenario_id}/runs`
+
+scenario run 목록을 조회합니다.
+
+쿼리:
+
+- `limit`: 기본 50, 최대 100
+- `offset`: 기본 0
+
+### `GET /projects/{project_id}/scenarios/{scenario_id}/runs/{scenario_run_id}`
+
+scenario run 단건과 step result 목록을 조회합니다. Polling 클라이언트는 이 API를 반복 호출해 scenario 실행 상태와 step-level 결과를 확인할 수 있습니다.
+
+현재 worker는 scenario run task를 인식하고 실패 상태를 기록하는 안전장치까지만 포함합니다. 실제 Playwright action 실행, console/network failure 수집, failure screenshot 저장은 아직 포함하지 않았습니다.
+
 ## 아직 포함하지 않은 범위
 
 - recurring scan 차단 규칙과 스케줄러 연결
 - verification token 재발급 API
 - artifact download API와 MinIO/GCS 업로드
 - 로그인 UI와 연결된 frontend result page
-- Playwright scenario 실행 worker와 step-level result 저장
+- Playwright action executor
+- Console/network failure 저장
+- Failure screenshot 저장

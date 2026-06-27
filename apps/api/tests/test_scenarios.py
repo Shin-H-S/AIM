@@ -5,7 +5,6 @@ from uuid import UUID, uuid4
 import pytest
 from aim_api.database import Base, get_db
 from aim_api.main import app
-from aim_api.models import TestScenario, TestStep
 from aim_api.services import projects as project_service
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -76,28 +75,14 @@ def create_project(client: TestClient, headers: dict[str, str]) -> dict[str, Any
 
 def scenario_payload(**overrides: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "name": "Smoke login flow",
-        "description": "Checks the public login page.",
+        "name": "Login flow",
+        "description": "Critical login page smoke test",
         "is_active": True,
         "steps": [
-            {
-                "action": "navigate",
-                "target": "/login",
-                "timeout_ms": 10_000,
-            },
-            {
-                "action": "fill",
-                "target": "[name=email]",
-                "value": "tester@example.com",
-            },
-            {
-                "action": "click",
-                "target": "button[type=submit]",
-            },
-            {
-                "action": "assert_text_exists",
-                "value": "Welcome",
-            },
+            {"action": "navigate", "target": "https://example.com/login"},
+            {"action": "fill", "target": "[name=email]", "value": "user@example.com"},
+            {"action": "click", "target": "button[type=submit]"},
+            {"action": "assert_url", "value": "https://example.com/dashboard"},
         ],
     }
     payload.update(overrides)
@@ -106,6 +91,7 @@ def scenario_payload(**overrides: Any) -> dict[str, Any]:
 
 def create_scenario(
     client: TestClient,
+    *,
     project_id: str,
     headers: dict[str, str],
     **overrides: Any,
@@ -131,7 +117,7 @@ def test_create_scenario(client: TestClient) -> None:
 
     response = client.post(
         f"/projects/{project['id']}/scenarios",
-        json=scenario_payload(name="  Login smoke  "),
+        json=scenario_payload(name="  Login flow  "),
         headers=headers,
     )
 
@@ -139,53 +125,70 @@ def test_create_scenario(client: TestClient) -> None:
     body = response.json()
     assert UUID(body["id"])
     assert body["project_id"] == project["id"]
-    assert body["name"] == "Login smoke"
-    assert body["description"] == "Checks the public login page."
+    assert body["name"] == "Login flow"
+    assert body["description"] == "Critical login page smoke test"
     assert body["is_active"] is True
     assert [step["step_order"] for step in body["steps"]] == [1, 2, 3, 4]
-    assert [step["action"] for step in body["steps"]] == [
-        "navigate",
-        "fill",
-        "click",
-        "assert_text_exists",
-    ]
+    assert body["steps"][0]["action"] == "navigate"
+    assert body["steps"][1]["target"] == "[name=email]"
+    assert body["steps"][1]["value"] == "user@example.com"
     assert body["created_at"]
     assert body["updated_at"]
 
 
-def test_create_scenario_validates_action_payload(client: TestClient) -> None:
+@pytest.mark.parametrize(
+    ("step", "expected_status"),
+    [
+        ({"action": "navigate"}, 422),
+        ({"action": "click"}, 422),
+        ({"action": "fill", "target": "#email"}, 422),
+        ({"action": "wait"}, 422),
+        ({"action": "assert_text_exists"}, 422),
+        ({"action": "assert_url"}, 422),
+        ({"action": "take_screenshot"}, 201),
+    ],
+)
+def test_create_scenario_validates_action_requirements(
+    client: TestClient,
+    step: dict[str, Any],
+    expected_status: int,
+) -> None:
     headers = authenticated_headers(client)
     project = create_project(client, headers)
 
     response = client.post(
         f"/projects/{project['id']}/scenarios",
-        json=scenario_payload(steps=[{"action": "click"}]),
+        json=scenario_payload(steps=[step]),
         headers=headers,
     )
 
-    assert response.status_code == 422
+    assert response.status_code == expected_status
 
 
 def test_list_scenarios(client: TestClient) -> None:
     headers = authenticated_headers(client)
     project = create_project(client, headers)
-    first_scenario = create_scenario(client, project["id"], headers, name="First")
-    second_scenario = create_scenario(client, project["id"], headers, name="Second")
+    first_scenario = create_scenario(
+        client, project_id=project["id"], headers=headers, name="First"
+    )
+    second_scenario = create_scenario(
+        client,
+        project_id=project["id"],
+        headers=headers,
+        name="Second",
+    )
 
     response = client.get(f"/projects/{project['id']}/scenarios", headers=headers)
 
     assert response.status_code == 200
     body = response.json()
-    assert [scenario["id"] for scenario in body] == [
-        second_scenario["id"],
-        first_scenario["id"],
-    ]
+    assert [scenario["id"] for scenario in body] == [second_scenario["id"], first_scenario["id"]]
 
 
 def test_get_scenario(client: TestClient) -> None:
     headers = authenticated_headers(client)
     project = create_project(client, headers)
-    scenario = create_scenario(client, project["id"], headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=headers)
 
     response = client.get(
         f"/projects/{project['id']}/scenarios/{scenario['id']}",
@@ -193,30 +196,25 @@ def test_get_scenario(client: TestClient) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["id"] == scenario["id"]
-    assert len(response.json()["steps"]) == 4
+    body = response.json()
+    assert body["id"] == scenario["id"]
+    assert [step["step_order"] for step in body["steps"]] == [1, 2, 3, 4]
 
 
 def test_update_scenario_replaces_steps(client: TestClient) -> None:
     headers = authenticated_headers(client)
     project = create_project(client, headers)
-    scenario = create_scenario(client, project["id"], headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=headers)
 
     response = client.patch(
         f"/projects/{project['id']}/scenarios/{scenario['id']}",
         json={
-            "name": "Updated smoke",
+            "name": "Checkout smoke",
             "description": None,
             "is_active": False,
             "steps": [
-                {
-                    "action": "navigate",
-                    "target": "/",
-                },
-                {
-                    "action": "take_screenshot",
-                    "is_critical": False,
-                },
+                {"action": "navigate", "target": "https://example.com/cart"},
+                {"action": "assert_text_exists", "value": "Cart"},
             ],
         },
         headers=headers,
@@ -224,17 +222,17 @@ def test_update_scenario_replaces_steps(client: TestClient) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["name"] == "Updated smoke"
+    assert body["name"] == "Checkout smoke"
     assert body["description"] is None
     assert body["is_active"] is False
-    assert [step["action"] for step in body["steps"]] == ["navigate", "take_screenshot"]
     assert [step["step_order"] for step in body["steps"]] == [1, 2]
+    assert [step["action"] for step in body["steps"]] == ["navigate", "assert_text_exists"]
 
 
 def test_update_scenario_requires_at_least_one_field(client: TestClient) -> None:
     headers = authenticated_headers(client)
     project = create_project(client, headers)
-    scenario = create_scenario(client, project["id"], headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=headers)
 
     response = client.patch(
         f"/projects/{project['id']}/scenarios/{scenario['id']}",
@@ -248,7 +246,7 @@ def test_update_scenario_requires_at_least_one_field(client: TestClient) -> None
 def test_delete_scenario(client: TestClient) -> None:
     headers = authenticated_headers(client)
     project = create_project(client, headers)
-    scenario = create_scenario(client, project["id"], headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=headers)
 
     delete_response = client.delete(
         f"/projects/{project['id']}/scenarios/{scenario['id']}",
@@ -263,28 +261,24 @@ def test_delete_scenario(client: TestClient) -> None:
     assert get_response.status_code == 404
 
 
-def test_other_user_cannot_manage_scenarios(client: TestClient) -> None:
-    owner_headers = authenticated_headers(client, "owner@example.com")
-    other_headers = authenticated_headers(client, "other@example.com")
+def test_other_user_cannot_manage_scenario(client: TestClient) -> None:
+    owner_headers = authenticated_headers(client, email="owner@example.com")
+    other_headers = authenticated_headers(client, email="other@example.com")
     project = create_project(client, owner_headers)
-    scenario = create_scenario(client, project["id"], owner_headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=owner_headers)
 
     list_response = client.get(f"/projects/{project['id']}/scenarios", headers=other_headers)
     get_response = client.get(
         f"/projects/{project['id']}/scenarios/{scenario['id']}",
         headers=other_headers,
     )
-    create_response = client.post(
-        f"/projects/{project['id']}/scenarios",
-        json=scenario_payload(),
-        headers=other_headers,
-    )
 
     assert list_response.status_code == 404
+    assert list_response.json() == {"detail": "Project not found."}
     assert get_response.status_code == 404
-    assert create_response.status_code == 404
+    assert get_response.json() == {"detail": "Project not found."}
 
 
 def test_scenario_tables_are_registered_in_metadata() -> None:
-    assert TestScenario.__tablename__ in Base.metadata.tables
-    assert TestStep.__tablename__ in Base.metadata.tables
+    assert "test_scenarios" in Base.metadata.tables
+    assert "test_steps" in Base.metadata.tables

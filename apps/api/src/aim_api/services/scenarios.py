@@ -7,8 +7,31 @@ from aim_api.models.scenario import TestScenario, TestStep
 from aim_api.schemas.scenario import TestScenarioCreate, TestScenarioUpdate, TestStepCreate
 
 
-class TestScenarioNotFoundError(Exception):
+class ScenarioNotFoundError(Exception):
     """Raised when a test scenario does not exist for the requested project."""
+
+
+def build_step(*, scenario_id: UUID, step_order: int, payload: TestStepCreate) -> TestStep:
+    return TestStep(
+        scenario_id=scenario_id,
+        step_order=step_order,
+        action=payload.action.value,
+        target=payload.target,
+        value=payload.value,
+        timeout_ms=payload.timeout_ms,
+        is_critical=payload.is_critical,
+    )
+
+
+def replace_steps(
+    session: Session,
+    *,
+    scenario_id: UUID,
+    steps: list[TestStepCreate],
+) -> None:
+    session.execute(delete(TestStep).where(TestStep.scenario_id == scenario_id))
+    for index, step_payload in enumerate(steps, start=1):
+        session.add(build_step(scenario_id=scenario_id, step_order=index, payload=step_payload))
 
 
 def create_scenario(
@@ -25,7 +48,7 @@ def create_scenario(
     )
     session.add(scenario)
     session.flush()
-    add_steps(session, scenario_id=scenario.id, steps=payload.steps)
+    replace_steps(session, scenario_id=scenario.id, steps=payload.steps)
     session.commit()
     session.refresh(scenario)
     return scenario
@@ -41,27 +64,21 @@ def list_scenarios(
     statement = (
         select(TestScenario)
         .where(TestScenario.project_id == project_id)
-        .order_by(TestScenario.created_at.desc(), TestScenario.id.desc())
+        .order_by(TestScenario.created_at.desc())
         .limit(limit)
         .offset(offset)
     )
     return list(session.scalars(statement))
 
 
-def get_scenario(
-    session: Session,
-    *,
-    project_id: UUID,
-    scenario_id: UUID,
-) -> TestScenario:
-    scenario = session.scalar(
-        select(TestScenario).where(
-            TestScenario.id == scenario_id,
-            TestScenario.project_id == project_id,
-        )
+def get_scenario(session: Session, *, project_id: UUID, scenario_id: UUID) -> TestScenario:
+    statement = select(TestScenario).where(
+        TestScenario.id == scenario_id,
+        TestScenario.project_id == project_id,
     )
+    scenario = session.scalar(statement)
     if scenario is None:
-        raise TestScenarioNotFoundError
+        raise ScenarioNotFoundError
 
     return scenario
 
@@ -90,56 +107,16 @@ def update_scenario(
     return scenario
 
 
-def delete_scenario(
-    session: Session,
-    *,
-    project_id: UUID,
-    scenario_id: UUID,
-) -> None:
+def delete_scenario(session: Session, *, project_id: UUID, scenario_id: UUID) -> None:
     scenario = get_scenario(session, project_id=project_id, scenario_id=scenario_id)
     session.delete(scenario)
     session.commit()
 
 
-def list_steps(
-    session: Session,
-    *,
-    scenario_id: UUID,
-) -> list[TestStep]:
-    return list(
-        session.scalars(
-            select(TestStep)
-            .where(TestStep.scenario_id == scenario_id)
-            .order_by(TestStep.step_order.asc())
-        )
+def list_steps(session: Session, *, scenario_id: UUID) -> list[TestStep]:
+    statement = (
+        select(TestStep)
+        .where(TestStep.scenario_id == scenario_id)
+        .order_by(TestStep.step_order.asc())
     )
-
-
-def add_steps(
-    session: Session,
-    *,
-    scenario_id: UUID,
-    steps: list[TestStepCreate],
-) -> None:
-    for index, step in enumerate(steps, start=1):
-        session.add(
-            TestStep(
-                scenario_id=scenario_id,
-                step_order=index,
-                action=step.action.value,
-                target=step.target,
-                value=step.value,
-                timeout_ms=step.timeout_ms,
-                is_critical=step.is_critical,
-            )
-        )
-
-
-def replace_steps(
-    session: Session,
-    *,
-    scenario_id: UUID,
-    steps: list[TestStepCreate],
-) -> None:
-    session.execute(delete(TestStep).where(TestStep.scenario_id == scenario_id))
-    add_steps(session, scenario_id=scenario_id, steps=steps)
+    return list(session.scalars(statement))

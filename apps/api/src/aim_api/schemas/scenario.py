@@ -19,8 +19,8 @@ class TestStepAction(StrEnum):
 
 class TestStepBase(BaseModel):
     action: TestStepAction
-    target: str | None = Field(default=None, max_length=2048)
-    value: str | None = Field(default=None, max_length=10_000)
+    target: str | None = Field(default=None, min_length=1, max_length=2048)
+    value: str | None = Field(default=None, min_length=1, max_length=10_000)
     timeout_ms: int | None = Field(default=None, ge=1, le=120_000)
     is_critical: bool = True
 
@@ -34,7 +34,7 @@ class TestStepBase(BaseModel):
         return normalized or None
 
     @model_validator(mode="after")
-    def validate_action_payload(self) -> Self:
+    def validate_action_fields(self) -> Self:
         if (
             self.action
             in {
@@ -50,7 +50,11 @@ class TestStepBase(BaseModel):
             raise ValueError("fill step requires target and value.")
 
         if (
-            self.action in {TestStepAction.ASSERT_TEXT_EXISTS, TestStepAction.ASSERT_URL}
+            self.action
+            in {
+                TestStepAction.ASSERT_TEXT_EXISTS,
+                TestStepAction.ASSERT_URL,
+            }
             and self.value is None
         ):
             raise ValueError(f"{self.action.value} step requires value.")
@@ -75,10 +79,11 @@ class TestStepRead(TestStepBase):
     updated_at: datetime
 
 
-class TestScenarioBase(BaseModel):
+class TestScenarioCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=1000)
     is_active: bool = True
+    steps: list[TestStepCreate] = Field(min_length=1, max_length=50)
 
     @field_validator("name")
     @classmethod
@@ -96,10 +101,6 @@ class TestScenarioBase(BaseModel):
 
         normalized = value.strip()
         return normalized or None
-
-
-class TestScenarioCreate(TestScenarioBase):
-    steps: list[TestStepCreate] = Field(min_length=1, max_length=50)
 
 
 class TestScenarioUpdate(BaseModel):
@@ -135,11 +136,14 @@ class TestScenarioUpdate(BaseModel):
         return self
 
 
-class TestScenarioRead(TestScenarioBase):
+class TestScenarioRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     project_id: UUID
-    steps: list[TestStepRead]
+    name: str
+    description: str | None
+    is_active: bool
     created_at: datetime
     updated_at: datetime
+    steps: list[TestStepRead]

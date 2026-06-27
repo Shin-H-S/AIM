@@ -88,31 +88,6 @@ Invoke-RestMethod http://localhost:8000/health/database
 
 HTTP availability scanner는 실제 요청 전 `service_url`과 redirect destination을 다시 검증하며, timeout과 response size 제한을 적용합니다.
 
-## TestScenario API
-
-프로젝트별 Playwright 시나리오와 step 정의를 생성하고 관리할 수 있습니다. 모든 TestScenario API는 Bearer token 인증을 요구하며, 현재 사용자 소유 프로젝트만 대상으로 합니다.
-
-지원 엔드포인트:
-
-- `POST /projects/{project_id}/scenarios`
-- `GET /projects/{project_id}/scenarios`
-- `GET /projects/{project_id}/scenarios/{scenario_id}`
-- `PATCH /projects/{project_id}/scenarios/{scenario_id}`
-- `DELETE /projects/{project_id}/scenarios/{scenario_id}`
-
-현재 저장 가능한 step action:
-
-- `navigate`
-- `click`
-- `fill`
-- `wait`
-- `assert_element_exists`
-- `assert_text_exists`
-- `assert_url`
-- `take_screenshot`
-
-시나리오와 step 정의 저장만 포함하며, Playwright worker 실행과 scenario run 결과 저장은 아직 포함하지 않았습니다.
-
 ## 도메인 소유권 확인
 
 MVP는 HTML meta-tag 방식의 소유권 확인을 지원합니다.
@@ -153,6 +128,31 @@ check run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery scan
 현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하며 Lighthouse 실행이 성공하면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료·Lighthouse 실행 실패는 `FAILED`로 기록합니다. HTTP availability, SSL inspection, Lighthouse metric 결과는 각각 `availability_results`, `ssl_results`, `lighthouse_results`에 정규화해 저장합니다. Lighthouse raw JSON은 로컬 artifact 파일로 저장하고 `artifacts` 테이블에는 metadata와 storage path만 기록합니다. 현재 구현된 scanner 결과를 기준으로 `score_results`에 결정론적 score와 deployment risk를 저장하고, 같은 프로젝트의 직전 terminal run이 있으면 `run_comparisons`에 주요 delta를 저장합니다.
 
 `GET /projects/{project_id}/check-runs/{check_run_id}`는 polling에 사용할 수 있도록 CheckRun 상태와 함께 nullable `availability_result`, `ssl_result`, `lighthouse_result`, `score_result`, `comparison_result`, 그리고 `artifacts` metadata 목록을 반환합니다.
+
+## TestScenario API
+
+프로젝트별 Playwright 시나리오와 실행 step을 정의할 수 있습니다. 모든 시나리오 API는 Bearer token 인증을 요구하며, 현재 사용자 소유 프로젝트의 시나리오만 생성·조회·수정·삭제할 수 있습니다.
+
+지원 엔드포인트:
+
+- `POST /projects/{project_id}/scenarios`
+- `GET /projects/{project_id}/scenarios`
+- `GET /projects/{project_id}/scenarios/{scenario_id}`
+- `PATCH /projects/{project_id}/scenarios/{scenario_id}`
+- `DELETE /projects/{project_id}/scenarios/{scenario_id}`
+
+지원 step action:
+
+- `navigate`
+- `click`
+- `fill`
+- `wait`
+- `assert_element_exists`
+- `assert_text_exists`
+- `assert_url`
+- `take_screenshot`
+
+각 시나리오는 1개 이상 50개 이하의 step을 가져야 하며, API는 저장 순서대로 `step_order`를 부여합니다. 현재 범위는 시나리오 정의 저장까지이며, 실제 Playwright 브라우저 실행과 step-level 결과 저장은 아직 포함하지 않았습니다.
 
 ## 검증
 

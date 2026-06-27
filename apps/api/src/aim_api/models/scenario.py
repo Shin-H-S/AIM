@@ -22,8 +22,8 @@ def utc_now() -> datetime:
 
 
 class TestScenario(Base):
-    __test__ = False
     __tablename__ = "test_scenarios"
+    __test__ = False
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     project_id: Mapped[UUID] = mapped_column(
@@ -51,26 +51,20 @@ class TestScenario(Base):
 
 
 class TestStep(Base):
-    __test__ = False
     __tablename__ = "test_steps"
+    __test__ = False
     __table_args__ = (
-        CheckConstraint("step_order > 0", name="ck_test_steps_step_order_positive"),
         CheckConstraint(
-            "action IN ("
-            "'navigate', "
-            "'click', "
-            "'fill', "
-            "'wait', "
-            "'assert_element_exists', "
-            "'assert_text_exists', "
-            "'assert_url', "
-            "'take_screenshot'"
-            ")",
+            (
+                "action IN ('navigate', 'click', 'fill', 'wait', "
+                "'assert_element_exists', 'assert_text_exists', 'assert_url', "
+                "'take_screenshot')"
+            ),
             name="ck_test_steps_action",
         ),
+        CheckConstraint("step_order > 0", name="ck_test_steps_step_order_positive"),
         CheckConstraint(
-            "timeout_ms IS NULL OR timeout_ms > 0",
-            name="ck_test_steps_timeout_positive",
+            "timeout_ms IS NULL OR timeout_ms > 0", name="ck_test_steps_timeout_positive"
         ),
     )
 

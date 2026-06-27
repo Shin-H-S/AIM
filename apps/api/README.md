@@ -129,6 +129,31 @@ check run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery scan
 
 `GET /projects/{project_id}/check-runs/{check_run_id}`는 polling에 사용할 수 있도록 CheckRun 상태와 함께 nullable `availability_result`, `ssl_result`, `lighthouse_result`, `score_result`, `comparison_result`, 그리고 `artifacts` metadata 목록을 반환합니다.
 
+## TestScenario API
+
+프로젝트별 Playwright 시나리오와 실행 step을 정의할 수 있습니다. 모든 시나리오 API는 Bearer token 인증을 요구하며, 현재 사용자 소유 프로젝트의 시나리오만 생성·조회·수정·삭제할 수 있습니다.
+
+지원 엔드포인트:
+
+- `POST /projects/{project_id}/scenarios`
+- `GET /projects/{project_id}/scenarios`
+- `GET /projects/{project_id}/scenarios/{scenario_id}`
+- `PATCH /projects/{project_id}/scenarios/{scenario_id}`
+- `DELETE /projects/{project_id}/scenarios/{scenario_id}`
+
+지원 step action:
+
+- `navigate`
+- `click`
+- `fill`
+- `wait`
+- `assert_element_exists`
+- `assert_text_exists`
+- `assert_url`
+- `take_screenshot`
+
+각 시나리오는 1개 이상 50개 이하의 step을 가져야 하며, API는 저장 순서대로 `step_order`를 부여합니다. 현재 범위는 시나리오 정의 저장까지이며, 실제 Playwright 브라우저 실행과 step-level 결과 저장은 아직 포함하지 않았습니다.
+
 ## 검증
 
 ```powershell

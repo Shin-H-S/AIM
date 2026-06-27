@@ -8,6 +8,7 @@ from aim_api.models.scanner_result import (
     ScoreResult,
     SslResult,
 )
+from aim_api.models.scenario import TestScenario, TestStep
 from aim_api.models.user import User
 
 __all__ = [
@@ -19,5 +20,7 @@ __all__ = [
     "RunComparison",
     "ScoreResult",
     "SslResult",
+    "TestScenario",
+    "TestStep",
     "User",
 ]

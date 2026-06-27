@@ -6,6 +6,7 @@ from aim_api.models.project import Project
 from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import scanner_results as scanner_result_service
+from aim_api.services import score_results as score_result_service
 from aim_api.services.scan_queue import RUN_CHECK_RUN_TASK_NAME
 
 from aim_worker.artifacts import store_json_artifact
@@ -56,7 +57,7 @@ def run_check_run(check_run_id: str) -> None:
             )
             raise
 
-        scanner_result_service.record_availability_result(
+        saved_availability_result = scanner_result_service.record_availability_result(
             session,
             check_run_id=parsed_check_run_id,
             service_url=availability_result.service_url,
@@ -74,7 +75,7 @@ def run_check_run(check_run_id: str) -> None:
             ssl_result = inspect_ssl_certificate(
                 availability_result.final_url or project.service_url,
             )
-            scanner_result_service.record_ssl_result(
+            saved_ssl_result = scanner_result_service.record_ssl_result(
                 session,
                 check_run_id=parsed_check_run_id,
                 service_url=ssl_result.service_url,
@@ -85,6 +86,14 @@ def run_check_run(check_run_id: str) -> None:
                 failure_reason=ssl_result.failure_reason,
             )
             if ssl_result.is_applicable and ssl_result.is_valid is False:
+                score_result_service.record_score_result(
+                    session,
+                    check_run_id=parsed_check_run_id,
+                    project=project,
+                    availability_result=saved_availability_result,
+                    ssl_result=saved_ssl_result,
+                    lighthouse_result=None,
+                )
                 check_run_service.mark_check_run_failed(
                     session,
                     check_run_id=parsed_check_run_id,
@@ -120,7 +129,7 @@ def run_check_run(check_run_id: str) -> None:
                     )
                     raw_json_artifact_id = raw_json_artifact.id
 
-                scanner_result_service.record_lighthouse_result(
+                saved_lighthouse_result = scanner_result_service.record_lighthouse_result(
                     session,
                     check_run_id=parsed_check_run_id,
                     service_url=lighthouse_result.service_url,
@@ -143,6 +152,14 @@ def run_check_run(check_run_id: str) -> None:
                 )
                 raise
 
+            score_result_service.record_score_result(
+                session,
+                check_run_id=parsed_check_run_id,
+                project=project,
+                availability_result=saved_availability_result,
+                ssl_result=saved_ssl_result,
+                lighthouse_result=saved_lighthouse_result,
+            )
             if not lighthouse_result.is_successful:
                 check_run_service.mark_check_run_failed(
                     session,
@@ -158,6 +175,14 @@ def run_check_run(check_run_id: str) -> None:
             return
 
         failure_reason = availability_result.failure_reason or "Service is unavailable."
+        score_result_service.record_score_result(
+            session,
+            check_run_id=parsed_check_run_id,
+            project=project,
+            availability_result=saved_availability_result,
+            ssl_result=None,
+            lighthouse_result=None,
+        )
         check_run_service.mark_check_run_failed(
             session,
             check_run_id=parsed_check_run_id,

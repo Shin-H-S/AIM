@@ -92,6 +92,7 @@ describe("fetchCheckRunDetail", () => {
         availability_result: null,
         ssl_result: null,
         lighthouse_result: null,
+        score_result: null,
         artifacts: []
       })
     );
@@ -121,6 +122,7 @@ describe("fetchCheckRunDetail", () => {
         availability_result: null,
         ssl_result: null,
         lighthouse_result: null,
+        score_result: null,
         artifacts: []
       }
     });

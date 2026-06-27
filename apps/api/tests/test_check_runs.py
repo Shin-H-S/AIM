@@ -9,7 +9,7 @@ from aim_api.database import Base, get_db
 from aim_api.main import app
 from aim_api.models.check_run import CheckRun
 from aim_api.models.project import Project
-from aim_api.services import artifacts, scan_queue, scanner_results
+from aim_api.services import artifacts, scan_queue, scanner_results, score_results
 from aim_api.services import projects as project_service
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -220,6 +220,7 @@ def test_get_check_run(client: TestClient) -> None:
     assert body["availability_result"] is None
     assert body["ssl_result"] is None
     assert body["lighthouse_result"] is None
+    assert body["score_result"] is None
     assert body["artifacts"] == []
 
 
@@ -229,7 +230,7 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
     check_run = create_check_run(client, project["id"], headers)
 
     with get_testing_session() as session:
-        scanner_results.record_availability_result(
+        availability_result = scanner_results.record_availability_result(
             session,
             check_run_id=UUID(check_run["id"]),
             service_url="https://example.com",
@@ -242,7 +243,7 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
             timed_out=False,
             failure_reason=None,
         )
-        scanner_results.record_ssl_result(
+        ssl_result = scanner_results.record_ssl_result(
             session,
             check_run_id=UUID(check_run["id"]),
             service_url="https://example.com/health",
@@ -262,7 +263,7 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
             size_bytes=17,
             checksum_sha256="a" * 64,
         )
-        scanner_results.record_lighthouse_result(
+        lighthouse_result = scanner_results.record_lighthouse_result(
             session,
             check_run_id=UUID(check_run["id"]),
             service_url="https://example.com/health",
@@ -276,6 +277,16 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
             total_blocking_time_ms=30,
             raw_json_artifact_id=artifact.id,
             failure_reason=None,
+        )
+        score_project = session.get(Project, UUID(project["id"]))
+        assert score_project is not None
+        score_results.record_score_result(
+            session,
+            check_run_id=UUID(check_run["id"]),
+            project=score_project,
+            availability_result=availability_result,
+            ssl_result=ssl_result,
+            lighthouse_result=lighthouse_result,
         )
 
     response = client.get(
@@ -323,6 +334,22 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
         "failure_reason": None,
         "created_at": body["lighthouse_result"]["created_at"],
         "updated_at": body["lighthouse_result"]["updated_at"],
+    }
+    assert body["score_result"] == {
+        "availability_score": 100,
+        "functional_stability_score": None,
+        "web_performance_score": 90,
+        "accessibility_score": 95,
+        "seo_basic_quality_score": 90,
+        "regression_stability_score": None,
+        "overall_score": 95,
+        "evaluated_weight": 60,
+        "grade": "A",
+        "deployment_risk": "STABLE",
+        "gate_reason": None,
+        "scoring_version": "2026-06-27.partial-v1",
+        "created_at": body["score_result"]["created_at"],
+        "updated_at": body["score_result"]["updated_at"],
     }
     assert body["artifacts"] == [
         {

@@ -201,3 +201,88 @@ class LighthouseResult(Base):
         onupdate=utc_now,
         server_default=func.now(),
     )
+
+
+class ScoreResult(Base):
+    __tablename__ = "score_results"
+    __table_args__ = (
+        CheckConstraint(
+            "availability_score IS NULL OR (availability_score >= 0 AND availability_score <= 100)",
+            name="ck_score_results_availability_score_range",
+        ),
+        CheckConstraint(
+            "functional_stability_score IS NULL OR "
+            "(functional_stability_score >= 0 AND functional_stability_score <= 100)",
+            name="ck_score_results_functional_stability_score_range",
+        ),
+        CheckConstraint(
+            "web_performance_score IS NULL OR "
+            "(web_performance_score >= 0 AND web_performance_score <= 100)",
+            name="ck_score_results_web_performance_score_range",
+        ),
+        CheckConstraint(
+            "accessibility_score IS NULL OR "
+            "(accessibility_score >= 0 AND accessibility_score <= 100)",
+            name="ck_score_results_accessibility_score_range",
+        ),
+        CheckConstraint(
+            "seo_basic_quality_score IS NULL OR "
+            "(seo_basic_quality_score >= 0 AND seo_basic_quality_score <= 100)",
+            name="ck_score_results_seo_basic_quality_score_range",
+        ),
+        CheckConstraint(
+            "regression_stability_score IS NULL OR "
+            "(regression_stability_score >= 0 AND regression_stability_score <= 100)",
+            name="ck_score_results_regression_stability_score_range",
+        ),
+        CheckConstraint(
+            "overall_score >= 0 AND overall_score <= 100",
+            name="ck_score_results_overall_score_range",
+        ),
+        CheckConstraint(
+            "evaluated_weight >= 0 AND evaluated_weight <= 100",
+            name="ck_score_results_evaluated_weight_range",
+        ),
+        CheckConstraint(
+            "grade IN ('A', 'B', 'C', 'D', 'F')",
+            name="ck_score_results_grade",
+        ),
+        CheckConstraint(
+            "deployment_risk IN ('STABLE', 'WARNING', 'RISK')",
+            name="ck_score_results_deployment_risk",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    check_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("check_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    availability_score: Mapped[int | None] = mapped_column(Integer)
+    functional_stability_score: Mapped[int | None] = mapped_column(Integer)
+    web_performance_score: Mapped[int | None] = mapped_column(Integer)
+    accessibility_score: Mapped[int | None] = mapped_column(Integer)
+    seo_basic_quality_score: Mapped[int | None] = mapped_column(Integer)
+    regression_stability_score: Mapped[int | None] = mapped_column(Integer)
+    overall_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    evaluated_weight: Mapped[int] = mapped_column(Integer, nullable=False)
+    grade: Mapped[str] = mapped_column(String(1), nullable=False)
+    deployment_risk: Mapped[str] = mapped_column(String(16), nullable=False)
+    gate_reason: Mapped[str | None] = mapped_column(Text)
+    scoring_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        onupdate=utc_now,
+        server_default=func.now(),
+    )

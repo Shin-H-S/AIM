@@ -5,6 +5,7 @@ from aim_api.models.check_run import CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
+from aim_api.services import run_comparisons as run_comparison_service
 from aim_api.services import scanner_results as scanner_result_service
 from aim_api.services import score_results as score_result_service
 from aim_api.services.scan_queue import RUN_CHECK_RUN_TASK_NAME
@@ -86,13 +87,20 @@ def run_check_run(check_run_id: str) -> None:
                 failure_reason=ssl_result.failure_reason,
             )
             if ssl_result.is_applicable and ssl_result.is_valid is False:
-                score_result_service.record_score_result(
+                score_result = score_result_service.record_score_result(
                     session,
                     check_run_id=parsed_check_run_id,
                     project=project,
                     availability_result=saved_availability_result,
                     ssl_result=saved_ssl_result,
                     lighthouse_result=None,
+                )
+                run_comparison_service.record_previous_run_comparison(
+                    session,
+                    check_run=check_run,
+                    current_score_result=score_result,
+                    current_availability_result=saved_availability_result,
+                    current_lighthouse_result=None,
                 )
                 check_run_service.mark_check_run_failed(
                     session,
@@ -152,13 +160,20 @@ def run_check_run(check_run_id: str) -> None:
                 )
                 raise
 
-            score_result_service.record_score_result(
+            score_result = score_result_service.record_score_result(
                 session,
                 check_run_id=parsed_check_run_id,
                 project=project,
                 availability_result=saved_availability_result,
                 ssl_result=saved_ssl_result,
                 lighthouse_result=saved_lighthouse_result,
+            )
+            run_comparison_service.record_previous_run_comparison(
+                session,
+                check_run=check_run,
+                current_score_result=score_result,
+                current_availability_result=saved_availability_result,
+                current_lighthouse_result=saved_lighthouse_result,
             )
             if not lighthouse_result.is_successful:
                 check_run_service.mark_check_run_failed(
@@ -175,13 +190,20 @@ def run_check_run(check_run_id: str) -> None:
             return
 
         failure_reason = availability_result.failure_reason or "Service is unavailable."
-        score_result_service.record_score_result(
+        score_result = score_result_service.record_score_result(
             session,
             check_run_id=parsed_check_run_id,
             project=project,
             availability_result=saved_availability_result,
             ssl_result=None,
             lighthouse_result=None,
+        )
+        run_comparison_service.record_previous_run_comparison(
+            session,
+            check_run=check_run,
+            current_score_result=score_result,
+            current_availability_result=saved_availability_result,
+            current_lighthouse_result=None,
         )
         check_run_service.mark_check_run_failed(
             session,

@@ -10,6 +10,7 @@ import {
   type CheckRunDetailResult,
   type CheckRunStatus,
   type LighthouseResult,
+  type RunComparison,
   type ScoreResult,
   type SslResult
 } from "@/lib/api";
@@ -177,6 +178,7 @@ export function ResultPageClient({
             </section>
 
             <ScoreCard result={checkRun.score_result} />
+            <ComparisonCard result={checkRun.comparison_result} />
 
             <section className="grid gap-4 lg:grid-cols-2">
               <AvailabilityCard result={checkRun.availability_result} />
@@ -299,6 +301,57 @@ function ScoreCard({ result }: { result: ScoreResult | null }) {
         />
         <Metric label="Scoring version" value={result.scoring_version} />
         <Metric label="Updated" value={formatDateTime(result.updated_at)} />
+      </dl>
+    </article>
+  );
+}
+
+function ComparisonCard({ result }: { result: RunComparison | null }) {
+  if (!result) {
+    return (
+      <EmptyResultCard
+        title="Previous run comparison"
+        description="비교 가능한 이전 run이 아직 없습니다."
+      />
+    );
+  }
+
+  return (
+    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+            Previous run comparison
+          </p>
+          <h2 className="mt-3 text-2xl font-bold">직전 run 대비 변화</h2>
+          <p className="mt-3 text-sm leading-6 text-slate-300">{result.summary}</p>
+        </div>
+        <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300 ring-1 ring-white/10">
+          {result.comparison_type}
+        </span>
+      </div>
+      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
+        <Metric label="Baseline run" value={result.baseline_check_run_id} />
+        <Metric label="Overall score" value={formatDelta(result.overall_score_delta)} />
+        <Metric label="Availability" value={formatDelta(result.availability_score_delta)} />
+        <Metric label="Performance score" value={formatDelta(result.performance_score_delta)} />
+        <Metric
+          label="Web performance"
+          value={formatDelta(result.web_performance_score_delta)}
+        />
+        <Metric label="Accessibility" value={formatDelta(result.accessibility_score_delta)} />
+        <Metric
+          label="SEO/basic quality"
+          value={formatDelta(result.seo_basic_quality_score_delta)}
+        />
+        <Metric
+          label="Response time"
+          value={formatMillisecondsDelta(result.response_time_delta_ms)}
+        />
+        <Metric
+          label="Risk changed"
+          value={result.deployment_risk_changed ? "예" : "아니오"}
+        />
       </dl>
     </article>
   );
@@ -549,6 +602,34 @@ function formatScore(value: number | null) {
 
 function formatDecimal(value: number | null) {
   return value === null ? "알 수 없음" : String(value);
+}
+
+function formatDelta(value: number | null) {
+  if (value === null) {
+    return "알 수 없음";
+  }
+
+  if (value > 0) {
+    return `+${value}`;
+  }
+
+  return String(value);
+}
+
+function formatMillisecondsDelta(value: number | null) {
+  if (value === null) {
+    return "알 수 없음";
+  }
+
+  if (value > 0) {
+    return `+${value}ms 느려짐`;
+  }
+
+  if (value < 0) {
+    return `${value}ms 개선`;
+  }
+
+  return "0ms";
 }
 
 function formatBytes(value: number) {

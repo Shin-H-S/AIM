@@ -93,6 +93,7 @@ describe("fetchCheckRunDetail", () => {
         ssl_result: null,
         lighthouse_result: null,
         score_result: null,
+        comparison_result: null,
         artifacts: []
       })
     );
@@ -123,6 +124,7 @@ describe("fetchCheckRunDetail", () => {
         ssl_result: null,
         lighthouse_result: null,
         score_result: null,
+        comparison_result: null,
         artifacts: []
       }
     });

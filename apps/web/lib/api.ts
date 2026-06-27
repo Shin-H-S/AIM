@@ -82,6 +82,22 @@ export type ScoreResult = {
   updated_at: string;
 };
 
+export type RunComparison = {
+  baseline_check_run_id: string;
+  comparison_type: string;
+  overall_score_delta: number | null;
+  availability_score_delta: number | null;
+  web_performance_score_delta: number | null;
+  accessibility_score_delta: number | null;
+  seo_basic_quality_score_delta: number | null;
+  response_time_delta_ms: number | null;
+  performance_score_delta: number | null;
+  deployment_risk_changed: boolean;
+  summary: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type CheckRunDetail = {
   id: string;
   project_id: string;
@@ -98,6 +114,7 @@ export type CheckRunDetail = {
   ssl_result: SslResult | null;
   lighthouse_result: LighthouseResult | null;
   score_result: ScoreResult | null;
+  comparison_result: RunComparison | null;
   artifacts: Artifact[];
 };
 

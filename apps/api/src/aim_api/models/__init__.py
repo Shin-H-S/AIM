@@ -4,6 +4,7 @@ from aim_api.models.scanner_result import (
     Artifact,
     AvailabilityResult,
     LighthouseResult,
+    RunComparison,
     ScoreResult,
     SslResult,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "CheckRun",
     "LighthouseResult",
     "Project",
+    "RunComparison",
     "ScoreResult",
     "SslResult",
     "User",

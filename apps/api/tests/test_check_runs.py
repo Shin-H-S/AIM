@@ -221,6 +221,7 @@ def test_get_check_run(client: TestClient) -> None:
     assert body["ssl_result"] is None
     assert body["lighthouse_result"] is None
     assert body["score_result"] is None
+    assert body["comparison_result"] is None
     assert body["artifacts"] == []
 
 
@@ -351,6 +352,7 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
         "created_at": body["score_result"]["created_at"],
         "updated_at": body["score_result"]["updated_at"],
     }
+    assert body["comparison_result"] is None
     assert body["artifacts"] == [
         {
             "id": str(artifact.id),

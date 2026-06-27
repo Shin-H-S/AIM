@@ -9,8 +9,8 @@ from aim_api.database import Base, get_db
 from aim_api.main import app
 from aim_api.models.check_run import CheckRun
 from aim_api.models.project import Project
+from aim_api.services import artifacts, scan_queue, scanner_results
 from aim_api.services import projects as project_service
-from aim_api.services import scan_queue, scanner_results
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -220,6 +220,7 @@ def test_get_check_run(client: TestClient) -> None:
     assert body["availability_result"] is None
     assert body["ssl_result"] is None
     assert body["lighthouse_result"] is None
+    assert body["artifacts"] == []
 
 
 def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
@@ -251,6 +252,16 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
             days_until_expiration=365,
             failure_reason=None,
         )
+        artifact = artifacts.record_artifact(
+            session,
+            check_run_id=UUID(check_run["id"]),
+            artifact_type="lighthouse_raw_json",
+            storage_backend="local",
+            storage_path=f"check-runs/{check_run['id']}/lighthouse/raw.json",
+            content_type="application/json",
+            size_bytes=17,
+            checksum_sha256="a" * 64,
+        )
         scanner_results.record_lighthouse_result(
             session,
             check_run_id=UUID(check_run["id"]),
@@ -263,7 +274,7 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
             largest_contentful_paint_ms=1200,
             cumulative_layout_shift=0.02,
             total_blocking_time_ms=30,
-            raw_json={"categories": {"performance": {"score": 0.9}}},
+            raw_json_artifact_id=artifact.id,
             failure_reason=None,
         )
 
@@ -308,10 +319,23 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
         "largest_contentful_paint_ms": 1200,
         "cumulative_layout_shift": 0.02,
         "total_blocking_time_ms": 30,
+        "raw_json_artifact_id": str(artifact.id),
         "failure_reason": None,
         "created_at": body["lighthouse_result"]["created_at"],
         "updated_at": body["lighthouse_result"]["updated_at"],
     }
+    assert body["artifacts"] == [
+        {
+            "id": str(artifact.id),
+            "artifact_type": "lighthouse_raw_json",
+            "storage_backend": "local",
+            "storage_path": f"check-runs/{check_run['id']}/lighthouse/raw.json",
+            "content_type": "application/json",
+            "size_bytes": 17,
+            "checksum_sha256": "a" * 64,
+            "created_at": body["artifacts"][0]["created_at"],
+        }
+    ]
 
 
 def test_cancel_check_run(client: TestClient) -> None:

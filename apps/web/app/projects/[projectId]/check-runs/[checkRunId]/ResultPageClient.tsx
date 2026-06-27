@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchCheckRunDetail,
   getApiBaseUrl,
+  type Artifact,
   type AvailabilityResult,
   type CheckRunDetail,
   type CheckRunDetailResult,
@@ -172,6 +173,7 @@ export function ResultPageClient({
               <AvailabilityCard result={checkRun.availability_result} />
               <SslCard result={checkRun.ssl_result} />
               <LighthouseCard result={checkRun.lighthouse_result} />
+              <ArtifactCard artifacts={checkRun.artifacts} />
             </section>
           </>
         )}
@@ -319,9 +321,46 @@ function LighthouseCard({ result }: { result: LighthouseResult | null }) {
         <Metric label="LCP" value={formatMilliseconds(result.largest_contentful_paint_ms)} />
         <Metric label="CLS" value={formatDecimal(result.cumulative_layout_shift)} />
         <Metric label="TBT" value={formatMilliseconds(result.total_blocking_time_ms)} />
+        <Metric label="Raw JSON artifact" value={result.raw_json_artifact_id ?? "없음"} />
         <Metric label="Failure" value={result.failure_reason ?? "없음"} />
       </dl>
       <p className="mt-5 break-all text-xs text-slate-400">Service URL: {result.service_url}</p>
+    </article>
+  );
+}
+
+function ArtifactCard({ artifacts }: { artifacts: Artifact[] }) {
+  if (artifacts.length === 0) {
+    return <EmptyResultCard title="Artifacts" description="아직 저장된 artifact metadata가 없습니다." />;
+  }
+
+  return (
+    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold">Artifacts</h2>
+        <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300 ring-1 ring-cyan-400/20">
+          {artifacts.length}개
+        </span>
+      </div>
+      <ul className="grid gap-3">
+        {artifacts.map((artifact) => (
+          <li
+            className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300"
+            key={artifact.id}
+          >
+            <p className="font-semibold text-slate-100">{artifact.artifact_type}</p>
+            <p className="mt-2 break-all font-mono text-xs text-slate-400">
+              {artifact.storage_backend}:{artifact.storage_path}
+            </p>
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Metric label="Content type" value={artifact.content_type} />
+              <Metric label="Size" value={formatBytes(artifact.size_bytes)} />
+              <Metric label="Created" value={formatDateTime(artifact.created_at)} />
+              <Metric label="SHA-256" value={artifact.checksum_sha256} />
+            </dl>
+          </li>
+        ))}
+      </ul>
     </article>
   );
 }
@@ -430,6 +469,14 @@ function formatScore(value: number | null) {
 
 function formatDecimal(value: number | null) {
   return value === null ? "알 수 없음" : String(value);
+}
+
+function formatBytes(value: number) {
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  return `${(value / 1024).toFixed(1)} KB`;
 }
 
 function formatBoolean(value: boolean | null) {

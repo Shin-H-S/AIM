@@ -6,9 +6,9 @@ import pytest
 from aim_api.database import Base
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
-from aim_api.models.scanner_result import AvailabilityResult, LighthouseResult, SslResult
+from aim_api.models.scanner_result import Artifact, AvailabilityResult, LighthouseResult, SslResult
 from aim_api.models.user import User
-from aim_api.services import scanner_results
+from aim_api.services import artifacts, scanner_results
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -126,6 +126,16 @@ def test_record_ssl_result_updates_existing_result(session: Session) -> None:
 
 def test_record_lighthouse_result_updates_existing_result(session: Session) -> None:
     check_run = create_check_run(session)
+    artifact = artifacts.record_artifact(
+        session,
+        check_run_id=check_run.id,
+        artifact_type="lighthouse_raw_json",
+        storage_backend="local",
+        storage_path=f"check-runs/{check_run.id}/lighthouse/raw.json",
+        content_type="application/json",
+        size_bytes=17,
+        checksum_sha256="a" * 64,
+    )
 
     first_result = scanner_results.record_lighthouse_result(
         session,
@@ -139,7 +149,7 @@ def test_record_lighthouse_result_updates_existing_result(session: Session) -> N
         largest_contentful_paint_ms=1200,
         cumulative_layout_shift=0.02,
         total_blocking_time_ms=30,
-        raw_json={"categories": {"performance": {"score": 0.9}}},
+        raw_json_artifact_id=artifact.id,
         failure_reason=None,
     )
     second_result = scanner_results.record_lighthouse_result(
@@ -154,13 +164,14 @@ def test_record_lighthouse_result_updates_existing_result(session: Session) -> N
         largest_contentful_paint_ms=None,
         cumulative_layout_shift=None,
         total_blocking_time_ms=None,
-        raw_json=None,
+        raw_json_artifact_id=None,
         failure_reason="Lighthouse CLI failed.",
     )
 
     assert second_result.id == first_result.id
     assert session.scalars(select(LighthouseResult)).all() == [second_result]
+    assert session.scalars(select(Artifact)).all() == [artifact]
     assert second_result.is_successful is False
     assert second_result.performance_score is None
-    assert second_result.raw_json is None
+    assert second_result.raw_json_artifact_id is None
     assert second_result.failure_reason == "Lighthouse CLI failed."

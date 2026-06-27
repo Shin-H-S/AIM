@@ -3,10 +3,12 @@ from uuid import UUID
 from aim_api.database import SessionLocal
 from aim_api.models.check_run import CheckRunStatus
 from aim_api.models.project import Project
+from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import scanner_results as scanner_result_service
 from aim_api.services.scan_queue import RUN_CHECK_RUN_TASK_NAME
 
+from aim_worker.artifacts import store_json_artifact
 from aim_worker.availability import scan_http_availability
 from aim_worker.celery_app import celery_app
 from aim_worker.lighthouse import run_lighthouse_scan
@@ -94,24 +96,53 @@ def run_check_run(check_run_id: str) -> None:
                 session,
                 check_run_id=parsed_check_run_id,
             )
-            lighthouse_result = run_lighthouse_scan(
-                availability_result.final_url or project.service_url,
-            )
-            scanner_result_service.record_lighthouse_result(
-                session,
-                check_run_id=parsed_check_run_id,
-                service_url=lighthouse_result.service_url,
-                is_successful=lighthouse_result.is_successful,
-                performance_score=lighthouse_result.performance_score,
-                accessibility_score=lighthouse_result.accessibility_score,
-                seo_score=lighthouse_result.seo_score,
-                best_practices_score=lighthouse_result.best_practices_score,
-                largest_contentful_paint_ms=lighthouse_result.largest_contentful_paint_ms,
-                cumulative_layout_shift=lighthouse_result.cumulative_layout_shift,
-                total_blocking_time_ms=lighthouse_result.total_blocking_time_ms,
-                raw_json=lighthouse_result.raw_json,
-                failure_reason=lighthouse_result.failure_reason,
-            )
+            try:
+                lighthouse_result = run_lighthouse_scan(
+                    availability_result.final_url or project.service_url,
+                )
+                raw_json_artifact_id = None
+                if lighthouse_result.raw_json is not None:
+                    stored_artifact = store_json_artifact(
+                        check_run_id=parsed_check_run_id,
+                        artifact_type="lighthouse_raw_json",
+                        payload=lighthouse_result.raw_json,
+                        relative_path="lighthouse/raw.json",
+                    )
+                    raw_json_artifact = artifact_service.record_artifact(
+                        session,
+                        check_run_id=parsed_check_run_id,
+                        artifact_type=stored_artifact.artifact_type,
+                        storage_backend=stored_artifact.storage_backend,
+                        storage_path=stored_artifact.storage_path,
+                        content_type=stored_artifact.content_type,
+                        size_bytes=stored_artifact.size_bytes,
+                        checksum_sha256=stored_artifact.checksum_sha256,
+                    )
+                    raw_json_artifact_id = raw_json_artifact.id
+
+                scanner_result_service.record_lighthouse_result(
+                    session,
+                    check_run_id=parsed_check_run_id,
+                    service_url=lighthouse_result.service_url,
+                    is_successful=lighthouse_result.is_successful,
+                    performance_score=lighthouse_result.performance_score,
+                    accessibility_score=lighthouse_result.accessibility_score,
+                    seo_score=lighthouse_result.seo_score,
+                    best_practices_score=lighthouse_result.best_practices_score,
+                    largest_contentful_paint_ms=lighthouse_result.largest_contentful_paint_ms,
+                    cumulative_layout_shift=lighthouse_result.cumulative_layout_shift,
+                    total_blocking_time_ms=lighthouse_result.total_blocking_time_ms,
+                    raw_json_artifact_id=raw_json_artifact_id,
+                    failure_reason=lighthouse_result.failure_reason,
+                )
+            except Exception:
+                check_run_service.mark_check_run_failed(
+                    session,
+                    check_run_id=parsed_check_run_id,
+                    failure_reason=SCAN_WORKER_FAILED_REASON,
+                )
+                raise
+
             if not lighthouse_result.is_successful:
                 check_run_service.mark_check_run_failed(
                     session,

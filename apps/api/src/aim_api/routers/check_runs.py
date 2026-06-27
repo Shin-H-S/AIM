@@ -8,6 +8,7 @@ from aim_api.database import get_db
 from aim_api.dependencies import get_current_user
 from aim_api.models.user import User
 from aim_api.schemas.check_run import (
+    ArtifactRead,
     AvailabilityResultRead,
     CheckRunCreate,
     CheckRunDetailRead,
@@ -15,6 +16,7 @@ from aim_api.schemas.check_run import (
     LighthouseResultRead,
     SslResultRead,
 )
+from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import projects as project_service
 from aim_api.services import scan_queue
@@ -147,6 +149,10 @@ def get_check_run(
         session,
         check_run_id=check_run.id,
     )
+    artifacts = artifact_service.list_artifacts(
+        session,
+        check_run_id=check_run.id,
+    )
     check_run_body = CheckRunRead.model_validate(check_run).model_dump()
     return CheckRunDetailRead(
         **check_run_body,
@@ -157,6 +163,7 @@ def get_check_run(
         lighthouse_result=LighthouseResultRead.model_validate(lighthouse_result)
         if lighthouse_result is not None
         else None,
+        artifacts=[ArtifactRead.model_validate(artifact) for artifact in artifacts],
     )
 
 

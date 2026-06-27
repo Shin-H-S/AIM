@@ -89,6 +89,24 @@ class ScoreResultRead(BaseModel):
     updated_at: datetime
 
 
+class RunComparisonRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    baseline_check_run_id: UUID
+    comparison_type: str
+    overall_score_delta: int | None
+    availability_score_delta: int | None
+    web_performance_score_delta: int | None
+    accessibility_score_delta: int | None
+    seo_basic_quality_score_delta: int | None
+    response_time_delta_ms: int | None
+    performance_score_delta: int | None
+    deployment_risk_changed: bool
+    summary: str
+    created_at: datetime
+    updated_at: datetime
+
+
 class CheckRunRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -110,4 +128,5 @@ class CheckRunDetailRead(CheckRunRead):
     ssl_result: SslResultRead | None
     lighthouse_result: LighthouseResultRead | None
     score_result: ScoreResultRead | None
+    comparison_result: RunComparisonRead | None
     artifacts: list[ArtifactRead]

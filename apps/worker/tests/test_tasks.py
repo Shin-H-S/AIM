@@ -10,10 +10,12 @@ from aim_api.models.scanner_result import (
     Artifact,
     AvailabilityResult,
     LighthouseResult,
+    RunComparison,
     ScoreResult,
     SslResult,
 )
 from aim_api.models.user import User
+from aim_api.services import scanner_results, score_results
 from aim_worker import tasks
 from aim_worker.artifacts import StoredArtifact
 from aim_worker.availability import AvailabilityScanResult
@@ -108,6 +110,63 @@ def create_check_run(
     session.commit()
     session.refresh(check_run)
     return check_run
+
+
+def record_completed_baseline_result(
+    session: Session,
+    *,
+    check_run: CheckRun,
+    response_time_ms: int = 700,
+    performance_score: int = 80,
+) -> None:
+    project = session.get(Project, check_run.project_id)
+    assert project is not None
+    availability_result = scanner_results.record_availability_result(
+        session,
+        check_run_id=check_run.id,
+        service_url=project.service_url,
+        final_url=project.service_url,
+        is_available=True,
+        status_code=200,
+        response_time_ms=response_time_ms,
+        redirect_count=0,
+        uses_https=True,
+        timed_out=False,
+        failure_reason=None,
+    )
+    ssl_result = scanner_results.record_ssl_result(
+        session,
+        check_run_id=check_run.id,
+        service_url=project.service_url,
+        is_applicable=True,
+        is_valid=True,
+        expires_at=datetime(2027, 6, 26, tzinfo=UTC),
+        days_until_expiration=365,
+        failure_reason=None,
+    )
+    lighthouse_result = scanner_results.record_lighthouse_result(
+        session,
+        check_run_id=check_run.id,
+        service_url=project.service_url,
+        is_successful=True,
+        performance_score=performance_score,
+        accessibility_score=95,
+        seo_score=88,
+        best_practices_score=92,
+        largest_contentful_paint_ms=1200,
+        cumulative_layout_shift=0.02,
+        total_blocking_time_ms=30,
+        raw_json_artifact_id=None,
+        failure_reason=None,
+    )
+    score_results.record_score_result(
+        session,
+        check_run_id=check_run.id,
+        project=project,
+        availability_result=availability_result,
+        ssl_result=ssl_result,
+        lighthouse_result=lighthouse_result,
+    )
 
 
 def available_result(service_url: str) -> AvailabilityScanResult:
@@ -235,6 +294,45 @@ def test_run_check_run_completes_when_availability_scan_succeeds(
     assert score_result.overall_score == 95
     assert score_result.grade == "A"
     assert score_result.deployment_risk == "STABLE"
+    assert session.scalars(select(RunComparison)).all() == []
+
+
+def test_run_check_run_records_previous_run_comparison(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    baseline_run = create_check_run(session, status=CheckRunStatus.COMPLETED)
+    baseline_run.created_at = datetime(2026, 6, 27, 1, tzinfo=UTC)
+    baseline_run.queued_at = baseline_run.created_at
+    baseline_run.finished_at = baseline_run.created_at
+    session.commit()
+    record_completed_baseline_result(session, check_run=baseline_run)
+    check_run = CheckRun(
+        project_id=baseline_run.project_id,
+        requested_by_id=baseline_run.requested_by_id,
+        status=CheckRunStatus.QUEUED.value,
+        trigger_source="manual",
+        created_at=datetime(2026, 6, 27, 2, tzinfo=UTC),
+        queued_at=datetime(2026, 6, 27, 2, tzinfo=UTC),
+    )
+    session.add(check_run)
+    session.commit()
+    session.refresh(check_run)
+
+    def fake_scan(service_url: str) -> AvailabilityScanResult:
+        return available_result(service_url)
+
+    monkeypatch.setattr(tasks, "scan_http_availability", fake_scan)
+
+    tasks.run_check_run.run(str(check_run.id))
+
+    comparison = session.scalars(select(RunComparison)).one()
+    assert comparison.check_run_id == check_run.id
+    assert comparison.baseline_check_run_id == baseline_run.id
+    assert comparison.overall_score_delta == 3
+    assert comparison.performance_score_delta == 10
+    assert comparison.response_time_delta_ms == -577
+    assert comparison.deployment_risk_changed is False
 
 
 def test_run_check_run_fails_when_lighthouse_scan_fails(

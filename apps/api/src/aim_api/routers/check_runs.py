@@ -14,12 +14,14 @@ from aim_api.schemas.check_run import (
     CheckRunDetailRead,
     CheckRunRead,
     LighthouseResultRead,
+    RunComparisonRead,
     ScoreResultRead,
     SslResultRead,
 )
 from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import projects as project_service
+from aim_api.services import run_comparisons as run_comparison_service
 from aim_api.services import scan_queue
 from aim_api.services import scanner_results as scanner_result_service
 from aim_api.services import score_results as score_result_service
@@ -159,6 +161,10 @@ def get_check_run(
         session,
         check_run_id=check_run.id,
     )
+    comparison_result = run_comparison_service.get_run_comparison(
+        session,
+        check_run_id=check_run.id,
+    )
     check_run_body = CheckRunRead.model_validate(check_run).model_dump()
     return CheckRunDetailRead(
         **check_run_body,
@@ -171,6 +177,9 @@ def get_check_run(
         else None,
         score_result=ScoreResultRead.model_validate(score_result)
         if score_result is not None
+        else None,
+        comparison_result=RunComparisonRead.model_validate(comparison_result)
+        if comparison_result is not None
         else None,
         artifacts=[ArtifactRead.model_validate(artifact) for artifact in artifacts],
     )

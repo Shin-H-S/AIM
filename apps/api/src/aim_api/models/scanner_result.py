@@ -286,3 +286,45 @@ class ScoreResult(Base):
         onupdate=utc_now,
         server_default=func.now(),
     )
+
+
+class RunComparison(Base):
+    __tablename__ = "run_comparisons"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    check_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("check_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    baseline_check_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("check_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    comparison_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    overall_score_delta: Mapped[int | None] = mapped_column(Integer)
+    availability_score_delta: Mapped[int | None] = mapped_column(Integer)
+    web_performance_score_delta: Mapped[int | None] = mapped_column(Integer)
+    accessibility_score_delta: Mapped[int | None] = mapped_column(Integer)
+    seo_basic_quality_score_delta: Mapped[int | None] = mapped_column(Integer)
+    response_time_delta_ms: Mapped[int | None] = mapped_column(Integer)
+    performance_score_delta: Mapped[int | None] = mapped_column(Integer)
+    deployment_risk_changed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        onupdate=utc_now,
+        server_default=func.now(),
+    )

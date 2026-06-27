@@ -1,9 +1,7 @@
 from datetime import UTC, datetime
-from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
-    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -15,7 +13,7 @@ from sqlalchemy import (
     Uuid,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from aim_api.database import Base
 
@@ -101,6 +99,36 @@ class SslResult(Base):
     )
 
 
+class Artifact(Base):
+    __tablename__ = "artifacts"
+    __table_args__ = (
+        CheckConstraint(
+            "size_bytes >= 0",
+            name="ck_artifacts_size_bytes_non_negative",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    check_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("check_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    artifact_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    storage_backend: Mapped[str] = mapped_column(String(32), nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(2048), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=func.now(),
+    )
+
+
 class LighthouseResult(Base):
     __tablename__ = "lighthouse_results"
     __table_args__ = (
@@ -153,8 +181,13 @@ class LighthouseResult(Base):
     largest_contentful_paint_ms: Mapped[int | None] = mapped_column(Integer)
     cumulative_layout_shift: Mapped[float | None] = mapped_column(Float)
     total_blocking_time_ms: Mapped[int | None] = mapped_column(Integer)
-    raw_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    raw_json_artifact_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("artifacts.id", ondelete="SET NULL"),
+        index=True,
+    )
     failure_reason: Mapped[str | None] = mapped_column(Text)
+    raw_json_artifact: Mapped[Artifact | None] = relationship()
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -10,7 +10,7 @@ Next.js 기반 AIM 사용자 인터페이스입니다.
 /projects/{projectId}/check-runs/{checkRunId}
 ```
 
-현재 인증 UI는 아직 없으므로 로그인 API에서 받은 access token을 결과 페이지에 직접 입력합니다. 페이지는 CheckRun이 `QUEUED`, `RUNNING`, `ANALYZING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 availability, SSL, Lighthouse metric 결과를 표시합니다.
+현재 인증 UI는 아직 없으므로 로그인 API에서 받은 access token을 결과 페이지에 직접 입력합니다. 페이지는 CheckRun이 `QUEUED`, `RUNNING`, `ANALYZING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 availability, SSL, Lighthouse metric 결과와 artifact metadata를 표시합니다.
 
 Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 

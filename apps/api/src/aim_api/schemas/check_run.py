@@ -51,9 +51,23 @@ class LighthouseResultRead(BaseModel):
     largest_contentful_paint_ms: int | None
     cumulative_layout_shift: float | None
     total_blocking_time_ms: int | None
+    raw_json_artifact_id: UUID | None
     failure_reason: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class ArtifactRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    artifact_type: str
+    storage_backend: str
+    storage_path: str
+    content_type: str
+    size_bytes: int
+    checksum_sha256: str
+    created_at: datetime
 
 
 class CheckRunRead(BaseModel):
@@ -76,3 +90,4 @@ class CheckRunDetailRead(CheckRunRead):
     availability_result: AvailabilityResultRead | None
     ssl_result: SslResultRead | None
     lighthouse_result: LighthouseResultRead | None
+    artifacts: list[ArtifactRead]

@@ -48,9 +48,21 @@ export type LighthouseResult = {
   largest_contentful_paint_ms: number | null;
   cumulative_layout_shift: number | null;
   total_blocking_time_ms: number | null;
+  raw_json_artifact_id: string | null;
   failure_reason: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type Artifact = {
+  id: string;
+  artifact_type: string;
+  storage_backend: string;
+  storage_path: string;
+  content_type: string;
+  size_bytes: number;
+  checksum_sha256: string;
+  created_at: string;
 };
 
 export type CheckRunDetail = {
@@ -68,6 +80,7 @@ export type CheckRunDetail = {
   availability_result: AvailabilityResult | null;
   ssl_result: SslResult | null;
   lighthouse_result: LighthouseResult | null;
+  artifacts: Artifact[];
 };
 
 export type CheckRunDetailResult =

@@ -88,6 +88,31 @@ Invoke-RestMethod http://localhost:8000/health/database
 
 HTTP availability scanner는 실제 요청 전 `service_url`과 redirect destination을 다시 검증하며, timeout과 response size 제한을 적용합니다.
 
+## TestScenario API
+
+프로젝트별 Playwright 시나리오와 step 정의를 생성하고 관리할 수 있습니다. 모든 TestScenario API는 Bearer token 인증을 요구하며, 현재 사용자 소유 프로젝트만 대상으로 합니다.
+
+지원 엔드포인트:
+
+- `POST /projects/{project_id}/scenarios`
+- `GET /projects/{project_id}/scenarios`
+- `GET /projects/{project_id}/scenarios/{scenario_id}`
+- `PATCH /projects/{project_id}/scenarios/{scenario_id}`
+- `DELETE /projects/{project_id}/scenarios/{scenario_id}`
+
+현재 저장 가능한 step action:
+
+- `navigate`
+- `click`
+- `fill`
+- `wait`
+- `assert_element_exists`
+- `assert_text_exists`
+- `assert_url`
+- `take_screenshot`
+
+시나리오와 step 정의 저장만 포함하며, Playwright worker 실행과 scenario run 결과 저장은 아직 포함하지 않았습니다.
+
 ## 도메인 소유권 확인
 
 MVP는 HTML meta-tag 방식의 소유권 확인을 지원합니다.

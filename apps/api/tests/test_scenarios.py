@@ -1,11 +1,16 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID, uuid4
 
 import pytest
 from aim_api.database import Base, get_db
 from aim_api.main import app
+from aim_api.models.scenario import StepResultStatus
 from aim_api.services import projects as project_service
+from aim_api.services import scan_queue
+from aim_api.services import scenarios as scenario_service
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -15,6 +20,11 @@ from sqlalchemy.pool import StaticPool
 @pytest.fixture()
 def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setattr(project_service, "validate_service_url", lambda _: None)
+    monkeypatch.setattr(
+        scan_queue,
+        "enqueue_scenario_run",
+        lambda *, scenario_run_id: str(scenario_run_id),
+    )
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -35,6 +45,18 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
         app.dependency_overrides.clear()
         Base.metadata.drop_all(bind=engine)
         engine.dispose()
+
+
+@contextmanager
+def get_testing_session() -> Iterator[Session]:
+    override_database = cast(Callable[[], Iterator[Session]], app.dependency_overrides[get_db])
+    dependency = override_database()
+    session = next(dependency)
+    try:
+        yield session
+    finally:
+        for _ in dependency:
+            pass
 
 
 def signup_payload(email: str) -> dict[str, str]:
@@ -261,6 +283,185 @@ def test_delete_scenario(client: TestClient) -> None:
     assert get_response.status_code == 404
 
 
+def test_create_scenario_run(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_project(client, headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=headers)
+
+    response = client.post(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs",
+        json={},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert UUID(body["id"])
+    assert body["project_id"] == project["id"]
+    assert body["scenario_id"] == scenario["id"]
+    assert UUID(body["requested_by_id"])
+    assert body["status"] == "QUEUED"
+    assert body["trigger_source"] == "manual"
+    assert body["failure_reason"] is None
+    assert body["queued_at"]
+    assert body["started_at"] is None
+    assert body["finished_at"] is None
+    assert body["duration_ms"] is None
+
+
+def test_create_scenario_run_enqueues_worker_task(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enqueued_scenario_run_ids: list[str] = []
+
+    def fake_enqueue_scenario_run(*, scenario_run_id: UUID) -> str:
+        enqueued_scenario_run_ids.append(str(scenario_run_id))
+        return str(scenario_run_id)
+
+    monkeypatch.setattr(scan_queue, "enqueue_scenario_run", fake_enqueue_scenario_run)
+    headers = authenticated_headers(client)
+    project = create_project(client, headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=headers)
+
+    response = client.post(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs",
+        json={},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert enqueued_scenario_run_ids == [response.json()["id"]]
+
+
+def test_create_scenario_run_rejects_inactive_scenario(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_project(client, headers)
+    scenario = create_scenario(
+        client,
+        project_id=project["id"],
+        headers=headers,
+        is_active=False,
+    )
+
+    response = client.post(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs",
+        json={},
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Scenario must be active before creating a scenario run.",
+    }
+
+
+def test_create_scenario_run_returns_503_when_queue_is_unavailable(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_enqueue_scenario_run(*, scenario_run_id: UUID) -> str:
+        _ = scenario_run_id
+        raise scan_queue.ScanQueueUnavailableError
+
+    monkeypatch.setattr(scan_queue, "enqueue_scenario_run", fake_enqueue_scenario_run)
+    headers = authenticated_headers(client)
+    project = create_project(client, headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=headers)
+
+    response = client.post(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs",
+        json={},
+        headers=headers,
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Scan queue is unavailable."}
+    with get_testing_session() as session:
+        scenario_runs = scenario_service.list_scenario_runs(
+            session,
+            project_id=UUID(project["id"]),
+            scenario_id=UUID(scenario["id"]),
+            limit=50,
+            offset=0,
+        )
+        assert len(scenario_runs) == 1
+        assert scenario_runs[0].status == "FAILED"
+        assert scenario_runs[0].failure_reason == "Scan queue is unavailable."
+        assert scenario_runs[0].finished_at is not None
+
+
+def test_list_scenario_runs(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_project(client, headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=headers)
+    first_run_response = client.post(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs",
+        json={},
+        headers=headers,
+    )
+    second_run_response = client.post(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs",
+        json={},
+        headers=headers,
+    )
+    assert first_run_response.status_code == 201
+    assert second_run_response.status_code == 201
+
+    response = client.get(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [scenario_run["id"] for scenario_run in body] == [
+        second_run_response.json()["id"],
+        first_run_response.json()["id"],
+    ]
+
+
+def test_get_scenario_run_includes_step_results(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_project(client, headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=headers)
+    create_run_response = client.post(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs",
+        json={},
+        headers=headers,
+    )
+    assert create_run_response.status_code == 201
+    scenario_run = create_run_response.json()
+
+    with get_testing_session() as session:
+        scenario_service.record_step_result(
+            session,
+            scenario_run_id=UUID(scenario_run["id"]),
+            test_step_id=UUID(scenario["steps"][0]["id"]),
+            step_order=1,
+            action="navigate",
+            target="https://example.com/login",
+            status=StepResultStatus.PASSED,
+            started_at=datetime.now(UTC),
+            finished_at=datetime.now(UTC),
+            duration_ms=10,
+            error_message=None,
+        )
+
+    response = client.get(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs/{scenario_run['id']}",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == scenario_run["id"]
+    assert len(body["step_results"]) == 1
+    assert body["step_results"][0]["status"] == "PASSED"
+    assert body["step_results"][0]["action"] == "navigate"
+    assert body["step_results"][0]["duration_ms"] == 10
+
+
 def test_other_user_cannot_manage_scenario(client: TestClient) -> None:
     owner_headers = authenticated_headers(client, email="owner@example.com")
     other_headers = authenticated_headers(client, email="other@example.com")
@@ -279,6 +480,35 @@ def test_other_user_cannot_manage_scenario(client: TestClient) -> None:
     assert get_response.json() == {"detail": "Project not found."}
 
 
+def test_other_user_cannot_manage_scenario_runs(client: TestClient) -> None:
+    owner_headers = authenticated_headers(client, email="owner@example.com")
+    other_headers = authenticated_headers(client, email="other@example.com")
+    project = create_project(client, owner_headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=owner_headers)
+    run_response = client.post(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs",
+        json={},
+        headers=owner_headers,
+    )
+    assert run_response.status_code == 201
+
+    list_response = client.get(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs",
+        headers=other_headers,
+    )
+    get_response = client.get(
+        f"/projects/{project['id']}/scenarios/{scenario['id']}/runs/{run_response.json()['id']}",
+        headers=other_headers,
+    )
+
+    assert list_response.status_code == 404
+    assert list_response.json() == {"detail": "Project not found."}
+    assert get_response.status_code == 404
+    assert get_response.json() == {"detail": "Project not found."}
+
+
 def test_scenario_tables_are_registered_in_metadata() -> None:
     assert "test_scenarios" in Base.metadata.tables
     assert "test_steps" in Base.metadata.tables
+    assert "scenario_runs" in Base.metadata.tables
+    assert "step_results" in Base.metadata.tables

@@ -14,6 +14,7 @@ from aim_api.models.scanner_result import (
     ScoreResult,
     SslResult,
 )
+from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus, TestScenario
 from aim_api.models.user import User
 from aim_api.services import scanner_results, score_results
 from aim_worker import tasks
@@ -110,6 +111,44 @@ def create_check_run(
     session.commit()
     session.refresh(check_run)
     return check_run
+
+
+def create_scenario_run(
+    session: Session,
+    *,
+    status: ScenarioRunStatus,
+) -> ScenarioRun:
+    user = User(email=f"{uuid4()}@example.com", password_hash="hashed-password")
+    session.add(user)
+    session.flush()
+    project = Project(
+        owner_id=user.id,
+        name="AIM Website",
+        service_url="https://example.com",
+        verified_at=datetime.now(UTC),
+        environment="production",
+    )
+    session.add(project)
+    session.flush()
+    scenario = TestScenario(
+        project_id=project.id,
+        name="Login flow",
+        description="Critical login flow",
+        is_active=True,
+    )
+    session.add(scenario)
+    session.flush()
+    scenario_run = ScenarioRun(
+        project_id=project.id,
+        scenario_id=scenario.id,
+        requested_by_id=user.id,
+        status=status.value,
+        trigger_source="manual",
+    )
+    session.add(scenario_run)
+    session.commit()
+    session.refresh(scenario_run)
+    return scenario_run
 
 
 def record_completed_baseline_result(
@@ -497,3 +536,35 @@ def test_run_check_run_ignores_missing_check_run(session: Session) -> None:
     _ = session
 
     tasks.run_check_run.run(str(uuid4()))
+
+
+def test_run_scenario_run_marks_failed_until_playwright_executor_exists(
+    session: Session,
+) -> None:
+    scenario_run = create_scenario_run(session, status=ScenarioRunStatus.QUEUED)
+
+    tasks.run_scenario_run.run(str(scenario_run.id))
+
+    session.refresh(scenario_run)
+    assert scenario_run.status == ScenarioRunStatus.FAILED.value
+    assert scenario_run.started_at is not None
+    assert scenario_run.finished_at is not None
+    assert scenario_run.failure_reason == tasks.SCENARIO_RUNNER_NOT_IMPLEMENTED_REASON
+
+
+def test_run_scenario_run_does_not_override_cancelled_run(session: Session) -> None:
+    scenario_run = create_scenario_run(session, status=ScenarioRunStatus.CANCELLED)
+
+    tasks.run_scenario_run.run(str(scenario_run.id))
+
+    session.refresh(scenario_run)
+    assert scenario_run.status == ScenarioRunStatus.CANCELLED.value
+    assert scenario_run.started_at is None
+    assert scenario_run.finished_at is None
+    assert scenario_run.failure_reason is None
+
+
+def test_run_scenario_run_ignores_missing_scenario_run(session: Session) -> None:
+    _ = session
+
+    tasks.run_scenario_run.run(str(uuid4()))

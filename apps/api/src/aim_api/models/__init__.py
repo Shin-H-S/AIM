@@ -8,7 +8,7 @@ from aim_api.models.scanner_result import (
     ScoreResult,
     SslResult,
 )
-from aim_api.models.scenario import TestScenario, TestStep
+from aim_api.models.scenario import ScenarioRun, StepResult, TestScenario, TestStep
 from aim_api.models.user import User
 
 __all__ = [
@@ -19,6 +19,8 @@ __all__ = [
     "Project",
     "RunComparison",
     "ScoreResult",
+    "ScenarioRun",
+    "StepResult",
     "SslResult",
     "TestScenario",
     "TestStep",

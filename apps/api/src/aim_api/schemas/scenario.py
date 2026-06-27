@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from aim_api.models.scenario import ScenarioRunStatus, StepResultStatus
+
 
 class TestStepAction(StrEnum):
     NAVIGATE = "navigate"
@@ -147,3 +149,47 @@ class TestScenarioRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     steps: list[TestStepRead]
+
+
+class ScenarioRunCreate(BaseModel):
+    pass
+
+
+class StepResultRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    scenario_run_id: UUID
+    test_step_id: UUID | None
+    step_order: int
+    action: TestStepAction
+    target: str | None
+    status: StepResultStatus
+    started_at: datetime | None
+    finished_at: datetime | None
+    duration_ms: int | None
+    error_message: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScenarioRunRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    project_id: UUID
+    scenario_id: UUID
+    requested_by_id: UUID
+    status: ScenarioRunStatus
+    trigger_source: str
+    failure_reason: str | None
+    queued_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+    duration_ms: int | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScenarioRunDetailRead(ScenarioRunRead):
+    step_results: list[StepResultRead]

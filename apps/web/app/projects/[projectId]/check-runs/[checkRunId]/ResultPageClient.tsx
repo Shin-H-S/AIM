@@ -10,6 +10,7 @@ import {
   type CheckRunDetailResult,
   type CheckRunStatus,
   type LighthouseResult,
+  type ScoreResult,
   type SslResult
 } from "@/lib/api";
 
@@ -23,6 +24,12 @@ const statusLabels: Record<CheckRunStatus, string> = {
   COMPLETED: "완료",
   FAILED: "실패",
   CANCELLED: "취소됨"
+};
+
+const riskLabels: Record<ScoreResult["deployment_risk"], string> = {
+  STABLE: "안정",
+  WARNING: "주의",
+  RISK: "위험"
 };
 
 export function ResultPageClient({
@@ -169,6 +176,8 @@ export function ResultPageClient({
               <TimelineCard checkRun={checkRun} />
             </section>
 
+            <ScoreCard result={checkRun.score_result} />
+
             <section className="grid gap-4 lg:grid-cols-2">
               <AvailabilityCard result={checkRun.availability_result} />
               <SslCard result={checkRun.ssl_result} />
@@ -231,6 +240,65 @@ function TimelineCard({ checkRun }: { checkRun: CheckRunDetail }) {
         <Metric label="Started" value={formatDateTime(checkRun.started_at)} />
         <Metric label="Finished" value={formatDateTime(checkRun.finished_at)} />
         <Metric label="Updated" value={formatDateTime(checkRun.updated_at)} />
+      </dl>
+    </article>
+  );
+}
+
+function ScoreCard({ result }: { result: ScoreResult | null }) {
+  if (!result) {
+    return <EmptyResultCard title="Score" description="아직 계산된 score result가 없습니다." />;
+  }
+
+  const riskClassName = getRiskBadgeClassName(result.deployment_risk);
+
+  return (
+    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+            Deterministic score
+          </p>
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <p className="text-5xl font-black tracking-tight">{result.grade}</p>
+            <p className="pb-1 text-xl font-semibold text-slate-200">
+              {result.overall_score}/100
+            </p>
+          </div>
+          <p className="mt-3 text-sm text-slate-400">
+            현재 구현된 scanner 기준 {result.evaluated_weight}% 가중치만 평가했습니다.
+          </p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${riskClassName}`}>
+          {riskLabels[result.deployment_risk]}
+        </span>
+      </div>
+
+      {result.gate_reason && (
+        <div className="mt-5">
+          <Notice
+            tone={result.deployment_risk === "RISK" ? "danger" : "info"}
+            title="Risk gate 적용"
+            description={result.gate_reason}
+          />
+        </div>
+      )}
+
+      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
+        <Metric label="Availability" value={formatScore(result.availability_score)} />
+        <Metric
+          label="Functional stability"
+          value={formatScore(result.functional_stability_score)}
+        />
+        <Metric label="Web performance" value={formatScore(result.web_performance_score)} />
+        <Metric label="Accessibility" value={formatScore(result.accessibility_score)} />
+        <Metric label="SEO/basic quality" value={formatScore(result.seo_basic_quality_score)} />
+        <Metric
+          label="Regression stability"
+          value={formatScore(result.regression_stability_score)}
+        />
+        <Metric label="Scoring version" value={result.scoring_version} />
+        <Metric label="Updated" value={formatDateTime(result.updated_at)} />
       </dl>
     </article>
   );
@@ -442,6 +510,18 @@ function getStatusBadgeClassName(status: CheckRunStatus) {
   }
 
   return "bg-cyan-400/10 text-cyan-300 ring-cyan-400/20";
+}
+
+function getRiskBadgeClassName(risk: ScoreResult["deployment_risk"]) {
+  if (risk === "STABLE") {
+    return "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20";
+  }
+
+  if (risk === "RISK") {
+    return "bg-rose-400/10 text-rose-300 ring-rose-400/20";
+  }
+
+  return "bg-amber-400/10 text-amber-300 ring-amber-400/20";
 }
 
 function formatDateTime(value: string | null) {

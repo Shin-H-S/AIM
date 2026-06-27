@@ -65,6 +65,23 @@ export type Artifact = {
   created_at: string;
 };
 
+export type ScoreResult = {
+  availability_score: number | null;
+  functional_stability_score: number | null;
+  web_performance_score: number | null;
+  accessibility_score: number | null;
+  seo_basic_quality_score: number | null;
+  regression_stability_score: number | null;
+  overall_score: number;
+  evaluated_weight: number;
+  grade: "A" | "B" | "C" | "D" | "F";
+  deployment_risk: "STABLE" | "WARNING" | "RISK";
+  gate_reason: string | null;
+  scoring_version: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type CheckRunDetail = {
   id: string;
   project_id: string;
@@ -80,6 +97,7 @@ export type CheckRunDetail = {
   availability_result: AvailabilityResult | null;
   ssl_result: SslResult | null;
   lighthouse_result: LighthouseResult | null;
+  score_result: ScoreResult | null;
   artifacts: Artifact[];
 };
 

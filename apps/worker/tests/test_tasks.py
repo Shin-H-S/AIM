@@ -6,7 +6,13 @@ import pytest
 from aim_api.database import Base
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
-from aim_api.models.scanner_result import Artifact, AvailabilityResult, LighthouseResult, SslResult
+from aim_api.models.scanner_result import (
+    Artifact,
+    AvailabilityResult,
+    LighthouseResult,
+    ScoreResult,
+    SslResult,
+)
 from aim_api.models.user import User
 from aim_worker import tasks
 from aim_worker.artifacts import StoredArtifact
@@ -224,6 +230,11 @@ def test_run_check_run_completes_when_availability_scan_succeeds(
     assert artifact.artifact_type == "lighthouse_raw_json"
     assert artifact.storage_path == f"check-runs/{check_run.id}/lighthouse/raw.json"
     assert lighthouse_result.raw_json_artifact_id == artifact.id
+    score_result = session.scalars(select(ScoreResult)).one()
+    assert score_result.check_run_id == check_run.id
+    assert score_result.overall_score == 95
+    assert score_result.grade == "A"
+    assert score_result.deployment_risk == "STABLE"
 
 
 def test_run_check_run_fails_when_lighthouse_scan_fails(
@@ -251,6 +262,11 @@ def test_run_check_run_fails_when_lighthouse_scan_fails(
     assert lighthouse_result.is_successful is False
     assert lighthouse_result.failure_reason == "Lighthouse CLI failed."
     assert session.scalars(select(Artifact)).all() == []
+    score_result = session.scalars(select(ScoreResult)).one()
+    assert score_result.overall_score == 42
+    assert score_result.grade == "F"
+    assert score_result.deployment_risk == "RISK"
+    assert score_result.gate_reason == "Lighthouse CLI failed."
 
 
 def test_run_check_run_records_unexpected_artifact_storage_failure(
@@ -312,6 +328,10 @@ def test_run_check_run_fails_when_ssl_inspection_fails(
     ssl_result = session.scalars(select(SslResult)).one()
     assert ssl_result.is_valid is False
     assert ssl_result.failure_reason == "SSL certificate is expired."
+    score_result = session.scalars(select(ScoreResult)).one()
+    assert score_result.deployment_risk == "RISK"
+    assert score_result.grade == "D"
+    assert score_result.gate_reason == "SSL certificate is expired."
 
 
 def test_run_check_run_fails_when_availability_scan_fails(
@@ -336,6 +356,10 @@ def test_run_check_run_fails_when_availability_scan_fails(
     assert availability_result.status_code == 503
     assert availability_result.failure_reason == "Service returned HTTP 503."
     assert session.scalars(select(SslResult)).all() == []
+    score_result = session.scalars(select(ScoreResult)).one()
+    assert score_result.overall_score == 0
+    assert score_result.grade == "F"
+    assert score_result.deployment_risk == "RISK"
 
 
 def test_run_check_run_does_not_override_cancelled_run(session: Session) -> None:

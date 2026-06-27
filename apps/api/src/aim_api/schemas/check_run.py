@@ -70,6 +70,25 @@ class ArtifactRead(BaseModel):
     created_at: datetime
 
 
+class ScoreResultRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    availability_score: int | None
+    functional_stability_score: int | None
+    web_performance_score: int | None
+    accessibility_score: int | None
+    seo_basic_quality_score: int | None
+    regression_stability_score: int | None
+    overall_score: int
+    evaluated_weight: int
+    grade: str
+    deployment_risk: str
+    gate_reason: str | None
+    scoring_version: str
+    created_at: datetime
+    updated_at: datetime
+
+
 class CheckRunRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -90,4 +109,5 @@ class CheckRunDetailRead(CheckRunRead):
     availability_result: AvailabilityResultRead | None
     ssl_result: SslResultRead | None
     lighthouse_result: LighthouseResultRead | None
+    score_result: ScoreResultRead | None
     artifacts: list[ArtifactRead]

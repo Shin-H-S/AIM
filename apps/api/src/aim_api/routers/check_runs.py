@@ -14,6 +14,7 @@ from aim_api.schemas.check_run import (
     CheckRunDetailRead,
     CheckRunRead,
     LighthouseResultRead,
+    ScoreResultRead,
     SslResultRead,
 )
 from aim_api.services import artifacts as artifact_service
@@ -21,6 +22,7 @@ from aim_api.services import check_runs as check_run_service
 from aim_api.services import projects as project_service
 from aim_api.services import scan_queue
 from aim_api.services import scanner_results as scanner_result_service
+from aim_api.services import score_results as score_result_service
 
 router = APIRouter(prefix="/projects/{project_id}/check-runs", tags=["check-runs"])
 
@@ -153,6 +155,10 @@ def get_check_run(
         session,
         check_run_id=check_run.id,
     )
+    score_result = score_result_service.get_score_result(
+        session,
+        check_run_id=check_run.id,
+    )
     check_run_body = CheckRunRead.model_validate(check_run).model_dump()
     return CheckRunDetailRead(
         **check_run_body,
@@ -162,6 +168,9 @@ def get_check_run(
         ssl_result=SslResultRead.model_validate(ssl_result) if ssl_result is not None else None,
         lighthouse_result=LighthouseResultRead.model_validate(lighthouse_result)
         if lighthouse_result is not None
+        else None,
+        score_result=ScoreResultRead.model_validate(score_result)
+        if score_result is not None
         else None,
         artifacts=[ArtifactRead.model_validate(artifact) for artifact in artifacts],
     )

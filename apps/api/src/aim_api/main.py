@@ -6,6 +6,7 @@ from aim_api.routers.check_runs import router as check_runs_router
 from aim_api.routers.database_health import router as database_health_router
 from aim_api.routers.health import router as health_router
 from aim_api.routers.projects import router as projects_router
+from aim_api.routers.scenarios import router as scenarios_router
 
 
 def create_app() -> FastAPI:
@@ -20,6 +21,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(projects_router)
     app.include_router(check_runs_router)
+    app.include_router(scenarios_router)
     return app
 
 

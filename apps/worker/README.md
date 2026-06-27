@@ -13,7 +13,7 @@ docker compose -f infra/compose.dev.yaml up -d postgres redis
 uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
 ```
 
-현재 구현된 worker task는 CheckRun을 `RUNNING`으로 전환하고 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다.
+현재 구현된 worker task는 CheckRun을 `RUNNING`으로 전환하고 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. TestScenario와 TestStep 모델/API는 존재하지만 Playwright scenario 실행 worker는 아직 포함하지 않았습니다.
 
 scanner는 다음 항목을 측정하거나 판단합니다.
 

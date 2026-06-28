@@ -701,6 +701,54 @@ def test_run_scenario_run_records_failed_execution(
     assert artifact.size_bytes == len(b"fake-png")
 
 
+def test_run_scenario_run_refreshes_linked_check_run_score(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check_run = create_check_run(session, status=CheckRunStatus.COMPLETED)
+    record_completed_baseline_result(session, check_run=check_run)
+    scenario_run = create_scenario_run(session, status=ScenarioRunStatus.QUEUED)
+    scenario_run.project_id = check_run.project_id
+    scenario_run.check_run_id = check_run.id
+    session.commit()
+    step = session.scalars(
+        select(TestStep).where(TestStep.scenario_id == scenario_run.scenario_id)
+    ).one()
+
+    def fake_run_playwright_scenario(steps: list[TestStep]) -> ScenarioExecutionResult:
+        assert [scenario_step.id for scenario_step in steps] == [step.id]
+        return ScenarioExecutionResult(
+            is_successful=False,
+            failure_reason="Expected element was not found.",
+            step_results=[
+                ExecutedStepResult(
+                    test_step_id=step.id,
+                    step_order=1,
+                    action="assert_element_exists",
+                    target="#dashboard",
+                    status=StepResultStatus.FAILED,
+                    started_at=datetime.now(UTC),
+                    finished_at=datetime.now(UTC),
+                    duration_ms=20,
+                    error_message="Expected element was not found.",
+                )
+            ],
+            console_errors=[],
+            network_failures=[],
+        )
+
+    monkeypatch.setattr(tasks, "run_playwright_scenario", fake_run_playwright_scenario)
+
+    tasks.run_scenario_run.run(str(scenario_run.id))
+
+    score_result = session.scalars(select(ScoreResult)).one()
+    assert score_result.check_run_id == check_run.id
+    assert score_result.functional_stability_score == 0
+    assert score_result.deployment_risk == "RISK"
+    assert score_result.grade == "F"
+    assert score_result.gate_reason == "Expected element was not found."
+
+
 def test_run_scenario_run_records_unexpected_runner_failure(
     session: Session,
     monkeypatch: pytest.MonkeyPatch,

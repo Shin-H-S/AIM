@@ -24,6 +24,7 @@ from aim_api.services import projects as project_service
 from aim_api.services import run_comparisons as run_comparison_service
 from aim_api.services import scan_queue
 from aim_api.services import scanner_results as scanner_result_service
+from aim_api.services import scenarios as scenario_service
 from aim_api.services import score_results as score_result_service
 
 router = APIRouter(prefix="/projects/{project_id}/check-runs", tags=["check-runs"])
@@ -76,7 +77,15 @@ def create_check_run(
             project=project,
             requested_by_id=current_user.id,
         )
+        scenario_runs = scenario_service.create_scenario_runs_for_check_run(
+            session,
+            project_id=project.id,
+            check_run_id=check_run.id,
+            requested_by_id=current_user.id,
+        )
         scan_queue.enqueue_check_run(check_run_id=check_run.id)
+        for scenario_run in scenario_runs:
+            scan_queue.enqueue_scenario_run(scenario_run_id=scenario_run.id)
     except project_service.ProjectNotFoundError as exc:
         raise project_not_found() from exc
     except check_run_service.ProjectNotVerifiedError as exc:
@@ -87,6 +96,15 @@ def create_check_run(
             check_run_id=check_run.id,
             failure_reason="Scan queue is unavailable.",
         )
+        for scenario_run in scenario_service.list_scenario_runs_for_check_run(
+            session,
+            check_run_id=check_run.id,
+        ):
+            scenario_service.mark_scenario_run_failed(
+                session,
+                scenario_run_id=scenario_run.id,
+                failure_reason="Scan queue is unavailable.",
+            )
         raise scan_queue_unavailable() from exc
 
     return CheckRunRead.model_validate(check_run)

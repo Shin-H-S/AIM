@@ -9,6 +9,7 @@ from aim_api.database import Base, get_db
 from aim_api.main import app
 from aim_api.models.check_run import CheckRun
 from aim_api.models.project import Project
+from aim_api.models.scenario import ScenarioRun
 from aim_api.services import artifacts, scan_queue, scanner_results, score_results
 from aim_api.services import projects as project_service
 from fastapi.testclient import TestClient
@@ -21,6 +22,11 @@ from sqlalchemy.pool import StaticPool
 def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setattr(project_service, "validate_service_url", lambda _: None)
     monkeypatch.setattr(scan_queue, "enqueue_check_run", lambda *, check_run_id: str(check_run_id))
+    monkeypatch.setattr(
+        scan_queue,
+        "enqueue_scenario_run",
+        lambda *, scenario_run_id: str(scenario_run_id),
+    )
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -105,6 +111,39 @@ def create_verified_project(client: TestClient, headers: dict[str, str]) -> dict
     return project
 
 
+def scenario_payload(**overrides: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "name": "Login flow",
+        "description": "Critical login flow",
+        "is_active": True,
+        "steps": [
+            {
+                "action": "navigate",
+                "target": "https://example.com/login",
+                "is_critical": True,
+            }
+        ],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def create_scenario(
+    client: TestClient,
+    *,
+    project_id: str,
+    headers: dict[str, str],
+    **overrides: Any,
+) -> dict[str, Any]:
+    response = client.post(
+        f"/projects/{project_id}/scenarios",
+        json=scenario_payload(**overrides),
+        headers=headers,
+    )
+    assert response.status_code == 201
+    return cast(dict[str, Any], response.json())
+
+
 def create_check_run(
     client: TestClient, project_id: str, headers: dict[str, str]
 ) -> dict[str, Any]:
@@ -169,6 +208,40 @@ def test_create_check_run_enqueues_scan_job(
     assert enqueued_check_run_ids == [response.json()["id"]]
 
 
+def test_create_check_run_creates_and_enqueues_active_scenario_runs(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    enqueued_scenario_run_ids: list[str] = []
+
+    def fake_enqueue_scenario_run(*, scenario_run_id: UUID) -> str:
+        enqueued_scenario_run_ids.append(str(scenario_run_id))
+        return str(scenario_run_id)
+
+    monkeypatch.setattr(scan_queue, "enqueue_scenario_run", fake_enqueue_scenario_run)
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+    active_scenario = create_scenario(client, project_id=project["id"], headers=headers)
+    create_scenario(
+        client,
+        project_id=project["id"],
+        headers=headers,
+        name="Inactive flow",
+        is_active=False,
+    )
+
+    response = client.post(f"/projects/{project['id']}/check-runs", json={}, headers=headers)
+
+    assert response.status_code == 201
+    check_run_id = response.json()["id"]
+    with get_testing_session() as session:
+        scenario_run = session.scalars(select(ScenarioRun)).one()
+        assert scenario_run.check_run_id == UUID(check_run_id)
+        assert scenario_run.scenario_id == UUID(active_scenario["id"])
+        assert scenario_run.trigger_source == "check_run"
+        assert scenario_run.status == "QUEUED"
+    assert enqueued_scenario_run_ids == [str(scenario_run.id)]
+
+
 def test_create_check_run_returns_503_when_scan_queue_is_unavailable(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -189,6 +262,31 @@ def test_create_check_run_returns_503_when_scan_queue_is_unavailable(
         assert check_run.status == "FAILED"
         assert check_run.failure_reason == "Scan queue is unavailable."
         assert check_run.finished_at is not None
+
+
+def test_create_check_run_marks_linked_scenario_runs_failed_when_queue_is_unavailable(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_enqueue_scenario_run(*, scenario_run_id: UUID) -> str:
+        _ = scenario_run_id
+        raise scan_queue.ScanQueueUnavailableError
+
+    monkeypatch.setattr(scan_queue, "enqueue_scenario_run", fake_enqueue_scenario_run)
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+    create_scenario(client, project_id=project["id"], headers=headers)
+
+    response = client.post(f"/projects/{project['id']}/check-runs", json={}, headers=headers)
+
+    assert response.status_code == 503
+    with get_testing_session() as session:
+        check_run = session.scalars(select(CheckRun)).one()
+        scenario_run = session.scalars(select(ScenarioRun)).one()
+        assert check_run.status == "FAILED"
+        assert scenario_run.check_run_id == check_run.id
+        assert scenario_run.status == "FAILED"
+        assert scenario_run.failure_reason == "Scan queue is unavailable."
+        assert scenario_run.finished_at is not None
 
 
 def test_list_check_runs(client: TestClient) -> None:

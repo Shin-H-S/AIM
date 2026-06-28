@@ -123,11 +123,11 @@ MVP는 HTML meta-tag 방식의 소유권 확인을 지원합니다.
 - `FAILED`
 - `CANCELLED`
 
-check run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery scan queue에 worker task를 등록합니다. 큐 등록에 실패하면 check run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
+check run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 active scenario별 linked ScenarioRun을 함께 생성하고 Redis/Celery queue에 CheckRun task와 ScenarioRun task를 등록합니다. 큐 등록에 실패하면 check run과 linked scenario run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
 
-현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하며 Lighthouse 실행이 성공하면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료·Lighthouse 실행 실패는 `FAILED`로 기록합니다. HTTP availability, SSL inspection, Lighthouse metric 결과는 각각 `availability_results`, `ssl_results`, `lighthouse_results`에 정규화해 저장합니다. Lighthouse raw JSON은 로컬 artifact 파일로 저장하고 `artifacts` 테이블에는 metadata와 storage path만 기록합니다. scanner 결과와 같은 프로젝트의 최신 terminal ScenarioRun 결과를 기준으로 `score_results`에 결정론적 score와 deployment risk를 저장하고, 같은 프로젝트의 직전 terminal check run이 있으면 `run_comparisons`에 주요 delta를 저장합니다.
+현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하며 Lighthouse 실행이 성공하면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료·Lighthouse 실행 실패는 `FAILED`로 기록합니다. HTTP availability, SSL inspection, Lighthouse metric 결과는 각각 `availability_results`, `ssl_results`, `lighthouse_results`에 정규화해 저장합니다. Lighthouse raw JSON은 로컬 artifact 파일로 저장하고 `artifacts` 테이블에는 metadata와 storage path만 기록합니다. scanner 결과와 해당 CheckRun에 연결된 terminal ScenarioRun 결과를 기준으로 `score_results`에 결정론적 score와 deployment risk를 저장하고, 같은 프로젝트의 직전 terminal check run이 있으면 `run_comparisons`에 주요 delta를 저장합니다. 연결된 ScenarioRun이 없던 기존 run은 같은 프로젝트의 최신 terminal ScenarioRun을 fallback으로 사용합니다.
 
-ScenarioRun이 아직 없으면 `functional_stability_score`는 `null`입니다. 최신 terminal ScenarioRun이 모두 성공하면 functional stability는 100점으로 반영되고, 완료된 run에 실패 step이 포함되면 감점됩니다. 최신 terminal ScenarioRun 중 실패한 run이 있으면 deployment risk를 `RISK`로 올리고 grade를 `F`로 제한합니다.
+연결된 ScenarioRun이 아직 terminal 상태가 아니거나 ScenarioRun이 없으면 `functional_stability_score`는 `null`입니다. linked terminal ScenarioRun이 모두 성공하면 functional stability는 100점으로 반영되고, 완료된 run에 실패 step이 포함되면 감점됩니다. linked terminal ScenarioRun 중 실패한 run이 있으면 deployment risk를 `RISK`로 올리고 grade를 `F`로 제한합니다. ScenarioRun worker는 linked run 완료 후 scanner 결과가 이미 저장된 CheckRun의 score와 comparison을 다시 계산합니다.
 
 `GET /projects/{project_id}/check-runs/{check_run_id}`는 polling에 사용할 수 있도록 CheckRun 상태와 함께 nullable `availability_result`, `ssl_result`, `lighthouse_result`, `score_result`, `comparison_result`, 그리고 `artifacts` metadata 목록을 반환합니다.
 
@@ -182,7 +182,7 @@ step result 상태:
 
 scenario run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery queue에 worker task를 등록합니다. 큐 등록에 실패하면 scenario run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
 
-현재 worker는 scenario run task를 소비하면 상태를 `RUNNING`으로 전환한 뒤 저장된 step을 순서대로 실행합니다. critical step이 실패하면 이후 step은 `SKIPPED`로 기록하고 scenario run을 `FAILED`로 종료합니다. non-critical step 실패는 step result에는 `FAILED`로 남기지만 전체 scenario run은 계속 진행합니다.
+현재 worker는 scenario run task를 소비하면 상태를 `RUNNING`으로 전환한 뒤 저장된 step을 순서대로 실행합니다. critical step이 실패하면 이후 step은 `SKIPPED`로 기록하고 scenario run을 `FAILED`로 종료합니다. non-critical step 실패는 step result에는 `FAILED`로 남기지만 전체 scenario run은 계속 진행합니다. CheckRun에서 생성된 ScenarioRun은 `check_run_id`로 원본 CheckRun과 연결됩니다.
 
 ScenarioRun 단건 조회 응답에는 step result와 함께 브라우저 `console.error` 목록과 failed network request 목록이 포함됩니다. 실패한 step에서 screenshot을 캡처할 수 있으면 local artifact 파일로 저장하고 `StepResult.failure_screenshot_artifact_id`를 응답에 포함합니다. 웹 결과 페이지는 `/projects/{projectId}/scenarios/{scenarioId}/runs/{scenarioRunId}`에서 이 응답을 polling해 표시합니다. evidence message와 URL에 포함될 수 있는 token/password/API key 형태의 값은 저장 전에 마스킹하며, SSRF-safe 검증을 통과하지 못한 URL은 `[blocked-url]`로 저장합니다.
 

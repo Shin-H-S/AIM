@@ -174,6 +174,7 @@ export type ScenarioRunDetail = {
   id: string;
   project_id: string;
   scenario_id: string;
+  check_run_id: string | null;
   requested_by_id: string;
   status: ScenarioRunStatus;
   trigger_source: string;

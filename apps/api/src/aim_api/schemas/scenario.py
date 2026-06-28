@@ -169,6 +169,7 @@ class StepResultRead(BaseModel):
     finished_at: datetime | None
     duration_ms: int | None
     error_message: str | None
+    failure_screenshot_artifact_id: UUID | None
     created_at: datetime
     updated_at: datetime
 

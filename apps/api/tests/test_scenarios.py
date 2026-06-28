@@ -477,6 +477,7 @@ def test_get_scenario_run_includes_step_results(client: TestClient) -> None:
     assert body["step_results"][0]["status"] == "PASSED"
     assert body["step_results"][0]["action"] == "navigate"
     assert body["step_results"][0]["duration_ms"] == 10
+    assert body["step_results"][0]["failure_screenshot_artifact_id"] is None
     assert len(body["console_errors"]) == 1
     assert body["console_errors"][0]["level"] == "error"
     assert body["console_errors"][0]["message"] == "Client crashed"
@@ -540,5 +541,6 @@ def test_scenario_tables_are_registered_in_metadata() -> None:
     assert "test_steps" in Base.metadata.tables
     assert "scenario_runs" in Base.metadata.tables
     assert "step_results" in Base.metadata.tables
+    assert "artifacts" in Base.metadata.tables
     assert "console_errors" in Base.metadata.tables
     assert "network_failures" in Base.metadata.tables

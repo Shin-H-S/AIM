@@ -97,6 +97,24 @@ def artifact_storage(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(tasks, "store_json_artifact", fake_store_json_artifact)
 
+    def fake_store_binary_artifact(
+        *,
+        artifact_type: str,
+        storage_path: str,
+        content_type: str,
+        payload: bytes,
+    ) -> StoredArtifact:
+        return StoredArtifact(
+            artifact_type=artifact_type,
+            storage_backend="local",
+            storage_path=storage_path,
+            content_type=content_type,
+            size_bytes=len(payload),
+            checksum_sha256="b" * 64,
+        )
+
+    monkeypatch.setattr(tasks, "store_binary_artifact", fake_store_binary_artifact)
+
 
 def create_check_run(
     session: Session,
@@ -655,6 +673,7 @@ def test_run_scenario_run_records_failed_execution(
                     finished_at=datetime.now(UTC),
                     duration_ms=20,
                     error_message="Expected element was not found.",
+                    failure_screenshot=b"fake-png",
                 )
             ],
             console_errors=[],
@@ -671,6 +690,15 @@ def test_run_scenario_run_records_failed_execution(
     step_result = session.scalars(select(StepResult)).one()
     assert step_result.status == StepResultStatus.FAILED.value
     assert step_result.error_message == "Expected element was not found."
+    assert step_result.failure_screenshot_artifact_id is not None
+    artifact = session.get(Artifact, step_result.failure_screenshot_artifact_id)
+    assert artifact is not None
+    assert artifact.check_run_id is None
+    assert artifact.scenario_run_id == scenario_run.id
+    assert artifact.artifact_type == "scenario_failure_screenshot"
+    assert artifact.storage_path == f"scenario-runs/{scenario_run.id}/steps/1/failure.png"
+    assert artifact.content_type == "image/png"
+    assert artifact.size_bytes == len(b"fake-png")
 
 
 def test_run_scenario_run_records_unexpected_runner_failure(

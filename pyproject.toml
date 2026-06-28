@@ -16,6 +16,7 @@ dependencies = [
     "pyjwt",
     "sqlalchemy",
     "uvicorn[standard]",
+    "playwright>=1.60.0",
 ]
 
 [dependency-groups]

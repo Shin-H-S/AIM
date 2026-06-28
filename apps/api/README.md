@@ -152,7 +152,7 @@ check run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery scan
 - `assert_url`
 - `take_screenshot`
 
-각 시나리오는 1개 이상 50개 이하의 step을 가져야 하며, API는 저장 순서대로 `step_order`를 부여합니다. 현재 범위는 시나리오 정의 저장까지이며, 실제 Playwright 브라우저 실행과 step-level 결과 저장은 아직 포함하지 않았습니다.
+각 시나리오는 1개 이상 50개 이하의 step을 가져야 하며, API는 저장 순서대로 `step_order`를 부여합니다. worker는 저장된 step을 Playwright 브라우저에서 순서대로 실행하고 StepResult를 기록합니다. `navigate` 대상과 브라우저의 HTTP/HTTPS 요청 URL은 실행 전 SSRF-safe 검증을 수행합니다.
 
 ## ScenarioRun API
 
@@ -180,7 +180,9 @@ step result 상태:
 
 scenario run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery queue에 worker task를 등록합니다. 큐 등록에 실패하면 scenario run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
 
-현재 worker는 scenario run task를 인식하고 상태를 `RUNNING`으로 전환한 뒤, 실제 Playwright action executor가 아직 없다는 실패 사유를 기록합니다. 브라우저 action 실행, console/network failure 수집, failure screenshot 저장은 다음 작업 범위입니다.
+현재 worker는 scenario run task를 소비하면 상태를 `RUNNING`으로 전환한 뒤 저장된 step을 순서대로 실행합니다. critical step이 실패하면 이후 step은 `SKIPPED`로 기록하고 scenario run을 `FAILED`로 종료합니다. non-critical step 실패는 step result에는 `FAILED`로 남기지만 전체 scenario run은 계속 진행합니다.
+
+아직 console/network failure 수집과 failure screenshot artifact 저장은 포함하지 않았습니다.
 
 ## 검증
 

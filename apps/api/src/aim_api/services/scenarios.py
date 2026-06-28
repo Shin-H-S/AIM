@@ -317,6 +317,11 @@ def record_step_result(
     return step_result
 
 
+def clear_step_results(session: Session, *, scenario_run_id: UUID) -> None:
+    session.execute(delete(StepResult).where(StepResult.scenario_run_id == scenario_run_id))
+    session.commit()
+
+
 def list_step_results(session: Session, *, scenario_run_id: UUID) -> list[StepResult]:
     statement = (
         select(StepResult)

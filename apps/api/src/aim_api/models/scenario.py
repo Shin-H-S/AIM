@@ -221,3 +221,58 @@ class StepResult(Base):
         onupdate=utc_now,
         server_default=func.now(),
     )
+
+
+class ConsoleError(Base):
+    __tablename__ = "console_errors"
+    __table_args__ = (
+        CheckConstraint(
+            "line_number IS NULL OR line_number >= 0",
+            name="ck_console_errors_line_number_non_negative",
+        ),
+        CheckConstraint(
+            "column_number IS NULL OR column_number >= 0",
+            name="ck_console_errors_column_number_non_negative",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    scenario_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("scenario_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    level: Mapped[str] = mapped_column(String(32), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String(2048))
+    line_number: Mapped[int | None] = mapped_column(Integer)
+    column_number: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=func.now(),
+    )
+
+
+class NetworkFailure(Base):
+    __tablename__ = "network_failures"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    scenario_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("scenario_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    request_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    resource_type: Mapped[str | None] = mapped_column(String(64))
+    failure_text: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=func.now(),
+    )

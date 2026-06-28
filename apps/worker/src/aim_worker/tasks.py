@@ -48,6 +48,10 @@ def run_scenario_run(scenario_run_id: str) -> None:
             session,
             scenario_run_id=parsed_scenario_run_id,
         )
+        scenario_service.clear_failure_evidence(
+            session,
+            scenario_run_id=parsed_scenario_run_id,
+        )
         try:
             execution_result = run_playwright_scenario(steps)
         except Exception:
@@ -71,6 +75,27 @@ def run_scenario_run(scenario_run_id: str) -> None:
                 finished_at=step_result.finished_at,
                 duration_ms=step_result.duration_ms,
                 error_message=step_result.error_message,
+            )
+
+        for console_error in execution_result.console_errors:
+            scenario_service.record_console_error(
+                session,
+                scenario_run_id=parsed_scenario_run_id,
+                level=console_error.level,
+                message=console_error.message,
+                source_url=console_error.source_url,
+                line_number=console_error.line_number,
+                column_number=console_error.column_number,
+            )
+
+        for network_failure in execution_result.network_failures:
+            scenario_service.record_network_failure(
+                session,
+                scenario_run_id=parsed_scenario_run_id,
+                request_url=network_failure.request_url,
+                method=network_failure.method,
+                resource_type=network_failure.resource_type,
+                failure_text=network_failure.failure_text,
             )
 
         if execution_result.is_successful:

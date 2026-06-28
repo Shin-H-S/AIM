@@ -447,6 +447,23 @@ def test_get_scenario_run_includes_step_results(client: TestClient) -> None:
             duration_ms=10,
             error_message=None,
         )
+        scenario_service.record_console_error(
+            session,
+            scenario_run_id=UUID(scenario_run["id"]),
+            level="error",
+            message="Client crashed",
+            source_url="https://example.com/app.js",
+            line_number=10,
+            column_number=2,
+        )
+        scenario_service.record_network_failure(
+            session,
+            scenario_run_id=UUID(scenario_run["id"]),
+            request_url="https://example.com/api",
+            method="GET",
+            resource_type="fetch",
+            failure_text="net::ERR_FAILED",
+        )
 
     response = client.get(
         f"/projects/{project['id']}/scenarios/{scenario['id']}/runs/{scenario_run['id']}",
@@ -460,6 +477,17 @@ def test_get_scenario_run_includes_step_results(client: TestClient) -> None:
     assert body["step_results"][0]["status"] == "PASSED"
     assert body["step_results"][0]["action"] == "navigate"
     assert body["step_results"][0]["duration_ms"] == 10
+    assert len(body["console_errors"]) == 1
+    assert body["console_errors"][0]["level"] == "error"
+    assert body["console_errors"][0]["message"] == "Client crashed"
+    assert body["console_errors"][0]["source_url"] == "https://example.com/app.js"
+    assert body["console_errors"][0]["line_number"] == 10
+    assert body["console_errors"][0]["column_number"] == 2
+    assert len(body["network_failures"]) == 1
+    assert body["network_failures"][0]["request_url"] == "https://example.com/api"
+    assert body["network_failures"][0]["method"] == "GET"
+    assert body["network_failures"][0]["resource_type"] == "fetch"
+    assert body["network_failures"][0]["failure_text"] == "net::ERR_FAILED"
 
 
 def test_other_user_cannot_manage_scenario(client: TestClient) -> None:
@@ -512,3 +540,5 @@ def test_scenario_tables_are_registered_in_metadata() -> None:
     assert "test_steps" in Base.metadata.tables
     assert "scenario_runs" in Base.metadata.tables
     assert "step_results" in Base.metadata.tables
+    assert "console_errors" in Base.metadata.tables
+    assert "network_failures" in Base.metadata.tables

@@ -1,4 +1,5 @@
-from collections.abc import Callable, Sequence
+import re
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, Protocol
@@ -6,10 +7,15 @@ from uuid import UUID
 
 from aim_api.models.scenario import StepResultStatus, TestStep
 from aim_api.url_validation import UrlValidationError, validate_service_url
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import ConsoleMessage, Request, sync_playwright
 
 DEFAULT_STEP_TIMEOUT_MS = 10_000
 BODY_SELECTOR = "body"
+BLOCKED_URL_PLACEHOLDER = "[blocked-url]"
+SECRET_VALUE_PATTERN = re.compile(
+    r"(?i)(password|passwd|pwd|token|secret|api[_-]?key)(\s*[=:]\s*)([^\s&]+)"
+)
+BEARER_TOKEN_PATTERN = re.compile(r"(?i)(bearer\s+)([A-Za-z0-9._~+/=-]+)")
 
 
 class LocatorProtocol(Protocol):
@@ -51,6 +57,26 @@ class RequestProtocol(Protocol):
     @property
     def url(self) -> str: ...
 
+    @property
+    def method(self) -> str: ...
+
+    @property
+    def resource_type(self) -> str: ...
+
+    @property
+    def failure(self) -> str | None: ...
+
+
+class ConsoleMessageProtocol(Protocol):
+    @property
+    def type(self) -> str: ...
+
+    @property
+    def text(self) -> str: ...
+
+    @property
+    def location(self) -> Mapping[str, object]: ...
+
 
 @dataclass(frozen=True)
 class ExecutedStepResult:
@@ -66,10 +92,29 @@ class ExecutedStepResult:
 
 
 @dataclass(frozen=True)
+class ConsoleErrorEvidence:
+    level: str
+    message: str
+    source_url: str | None
+    line_number: int | None
+    column_number: int | None
+
+
+@dataclass(frozen=True)
+class NetworkFailureEvidence:
+    request_url: str
+    method: str
+    resource_type: str | None
+    failure_text: str | None
+
+
+@dataclass(frozen=True)
 class ScenarioExecutionResult:
     is_successful: bool
     failure_reason: str | None
     step_results: list[ExecutedStepResult]
+    console_errors: list[ConsoleErrorEvidence]
+    network_failures: list[NetworkFailureEvidence]
 
 
 def calculate_duration_ms(*, started_at: datetime, finished_at: datetime) -> int:
@@ -87,6 +132,25 @@ def validate_navigation_url(url: str) -> None:
         raise RuntimeError("Navigation URL is not allowed.") from exc
 
 
+def mask_secret_values(text: str) -> str:
+    masked_text = BEARER_TOKEN_PATTERN.sub(r"\1[masked]", text)
+    return SECRET_VALUE_PATTERN.sub(r"\1\2[masked]", masked_text)
+
+
+def sanitize_evidence_url(url: str | None) -> str | None:
+    if url is None:
+        return None
+    if not url.startswith(("http://", "https://")):
+        return url
+
+    try:
+        validate_service_url(url)
+    except UrlValidationError:
+        return BLOCKED_URL_PLACEHOLDER
+
+    return mask_secret_values(url)
+
+
 def handle_browser_request(route: RouteProtocol, request: RequestProtocol) -> None:
     if request.url.startswith(("http://", "https://")):
         try:
@@ -96,6 +160,48 @@ def handle_browser_request(route: RouteProtocol, request: RequestProtocol) -> No
             return
 
     route.continue_()
+
+
+def collect_console_error(
+    console_errors: list[ConsoleErrorEvidence],
+    message: ConsoleMessageProtocol,
+) -> None:
+    if message.type != "error":
+        return
+
+    location = message.location
+    source_url = location.get("url")
+    line_number = location.get("lineNumber")
+    column_number = location.get("columnNumber")
+    console_errors.append(
+        ConsoleErrorEvidence(
+            level=message.type,
+            message=mask_secret_values(message.text),
+            source_url=sanitize_evidence_url(str(source_url)) if source_url else None,
+            line_number=line_number if isinstance(line_number, int) else None,
+            column_number=column_number if isinstance(column_number, int) else None,
+        )
+    )
+
+
+def collect_network_failure(
+    network_failures: list[NetworkFailureEvidence],
+    request: RequestProtocol,
+) -> None:
+    sanitized_url = sanitize_evidence_url(request.url)
+    failure_text = (
+        "Blocked unsafe request URL."
+        if sanitized_url == BLOCKED_URL_PLACEHOLDER
+        else mask_secret_values(request.failure or "Request failed.")
+    )
+    network_failures.append(
+        NetworkFailureEvidence(
+            request_url=sanitized_url or BLOCKED_URL_PLACEHOLDER,
+            method=request.method,
+            resource_type=request.resource_type,
+            failure_text=failure_text,
+        )
+    )
 
 
 def execute_step(page: PageProtocol, step: TestStep) -> None:
@@ -240,6 +346,8 @@ def execute_steps_on_page(
         is_successful=first_critical_failure is None,
         failure_reason=first_critical_failure,
         step_results=step_results,
+        console_errors=[],
+        network_failures=[],
     )
 
 
@@ -250,6 +358,24 @@ def run_playwright_scenario(steps: Sequence[TestStep]) -> ScenarioExecutionResul
             context = browser.new_context()
             context.route("**/*", handle_browser_request)
             page = context.new_page()
-            return execute_steps_on_page(page=page, steps=steps)
+            console_errors: list[ConsoleErrorEvidence] = []
+            network_failures: list[NetworkFailureEvidence] = []
+
+            def on_console_message(message: ConsoleMessage) -> None:
+                collect_console_error(console_errors, message)
+
+            def on_request_failed(request: Request) -> None:
+                collect_network_failure(network_failures, request)
+
+            page.on("console", on_console_message)
+            page.on("requestfailed", on_request_failed)
+            execution_result = execute_steps_on_page(page=page, steps=steps)
+            return ScenarioExecutionResult(
+                is_successful=execution_result.is_successful,
+                failure_reason=execution_result.failure_reason,
+                step_results=execution_result.step_results,
+                console_errors=console_errors,
+                network_failures=network_failures,
+            )
         finally:
             browser.close()

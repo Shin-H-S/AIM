@@ -173,6 +173,31 @@ class StepResultRead(BaseModel):
     updated_at: datetime
 
 
+class ConsoleErrorRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    scenario_run_id: UUID
+    level: str
+    message: str
+    source_url: str | None
+    line_number: int | None
+    column_number: int | None
+    created_at: datetime
+
+
+class NetworkFailureRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    scenario_run_id: UUID
+    request_url: str
+    method: str
+    resource_type: str | None
+    failure_text: str | None
+    created_at: datetime
+
+
 class ScenarioRunRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -193,3 +218,5 @@ class ScenarioRunRead(BaseModel):
 
 class ScenarioRunDetailRead(ScenarioRunRead):
     step_results: list[StepResultRead]
+    console_errors: list[ConsoleErrorRead]
+    network_failures: list[NetworkFailureRead]

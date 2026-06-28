@@ -213,7 +213,7 @@ scenario run 목록을 조회합니다.
 
 ### `GET /projects/{project_id}/scenarios/{scenario_id}/runs/{scenario_run_id}`
 
-scenario run 단건과 step result, console error, failed network request 목록을 조회합니다. Polling 클라이언트는 이 API를 반복 호출해 scenario 실행 상태와 step-level 결과 및 실패 근거를 확인할 수 있습니다.
+scenario run 단건과 step result, console error, failed network request 목록을 조회합니다. Polling 클라이언트는 이 API를 반복 호출해 scenario 실행 상태와 step-level 결과 및 실패 근거를 확인할 수 있습니다. 웹 결과 페이지는 `/projects/{projectId}/scenarios/{scenarioId}/runs/{scenarioRunId}`에서 이 API를 사용합니다.
 
 현재 worker는 저장된 step을 Playwright 브라우저에서 순서대로 실행합니다. `navigate`, `click`, `fill`, `wait`, `assert_element_exists`, `assert_text_exists`, `assert_url`, `take_screenshot` action을 지원합니다. `navigate` 대상과 브라우저의 HTTP/HTTPS 요청 URL은 실행 전 SSRF-safe 검증을 수행합니다.
 

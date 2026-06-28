@@ -184,7 +184,7 @@ scenario run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery q
 
 현재 worker는 scenario run task를 소비하면 상태를 `RUNNING`으로 전환한 뒤 저장된 step을 순서대로 실행합니다. critical step이 실패하면 이후 step은 `SKIPPED`로 기록하고 scenario run을 `FAILED`로 종료합니다. non-critical step 실패는 step result에는 `FAILED`로 남기지만 전체 scenario run은 계속 진행합니다.
 
-ScenarioRun 단건 조회 응답에는 step result와 함께 브라우저 `console.error` 목록과 failed network request 목록이 포함됩니다. 실패한 step에서 screenshot을 캡처할 수 있으면 local artifact 파일로 저장하고 `StepResult.failure_screenshot_artifact_id`를 응답에 포함합니다. evidence message와 URL에 포함될 수 있는 token/password/API key 형태의 값은 저장 전에 마스킹하며, SSRF-safe 검증을 통과하지 못한 URL은 `[blocked-url]`로 저장합니다.
+ScenarioRun 단건 조회 응답에는 step result와 함께 브라우저 `console.error` 목록과 failed network request 목록이 포함됩니다. 실패한 step에서 screenshot을 캡처할 수 있으면 local artifact 파일로 저장하고 `StepResult.failure_screenshot_artifact_id`를 응답에 포함합니다. 웹 결과 페이지는 `/projects/{projectId}/scenarios/{scenarioId}/runs/{scenarioRunId}`에서 이 응답을 polling해 표시합니다. evidence message와 URL에 포함될 수 있는 token/password/API key 형태의 값은 저장 전에 마스킹하며, SSRF-safe 검증을 통과하지 못한 URL은 `[blocked-url]`로 저장합니다.
 
 API 응답은 artifact id만 반환하며, artifact download API는 아직 포함하지 않습니다.
 

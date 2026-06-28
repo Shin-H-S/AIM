@@ -13,6 +13,20 @@ export type CheckRunStatus =
   | "FAILED"
   | "CANCELLED";
 
+export type ScenarioRunStatus = "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+
+export type StepResultStatus = "PASSED" | "FAILED" | "SKIPPED";
+
+export type TestStepAction =
+  | "navigate"
+  | "click"
+  | "fill"
+  | "wait"
+  | "assert_element_exists"
+  | "assert_text_exists"
+  | "assert_url"
+  | "take_screenshot";
+
 export type AvailabilityResult = {
   service_url: string;
   final_url: string | null;
@@ -118,10 +132,82 @@ export type CheckRunDetail = {
   artifacts: Artifact[];
 };
 
+export type StepResult = {
+  id: string;
+  scenario_run_id: string;
+  test_step_id: string | null;
+  step_order: number;
+  action: TestStepAction;
+  target: string | null;
+  status: StepResultStatus;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  error_message: string | null;
+  failure_screenshot_artifact_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ConsoleError = {
+  id: string;
+  scenario_run_id: string;
+  level: string;
+  message: string;
+  source_url: string | null;
+  line_number: number | null;
+  column_number: number | null;
+  created_at: string;
+};
+
+export type NetworkFailure = {
+  id: string;
+  scenario_run_id: string;
+  request_url: string;
+  method: string;
+  resource_type: string | null;
+  failure_text: string | null;
+  created_at: string;
+};
+
+export type ScenarioRunDetail = {
+  id: string;
+  project_id: string;
+  scenario_id: string;
+  requested_by_id: string;
+  status: ScenarioRunStatus;
+  trigger_source: string;
+  failure_reason: string | null;
+  queued_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  created_at: string;
+  updated_at: string;
+  step_results: StepResult[];
+  console_errors: ConsoleError[];
+  network_failures: NetworkFailure[];
+};
+
 export type CheckRunDetailResult =
   | {
       state: "success";
       checkRun: CheckRunDetail;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type ScenarioRunDetailResult =
+  | {
+      state: "success";
+      scenarioRun: ScenarioRunDetail;
     }
   | {
       state: "unauthorized";
@@ -168,6 +254,20 @@ export function getCheckRunDetailUrl(
 ): string {
   return new URL(
     `/projects/${encodeURIComponent(projectId)}/check-runs/${encodeURIComponent(checkRunId)}`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export function getScenarioRunDetailUrl(
+  projectId: string,
+  scenarioId: string,
+  scenarioRunId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/scenarios/${encodeURIComponent(
+      scenarioId
+    )}/runs/${encodeURIComponent(scenarioRunId)}`,
     getApiBaseUrl(apiBaseUrl)
   ).toString();
 }
@@ -236,6 +336,58 @@ export async function fetchCheckRunDetail({
     return {
       state: "success",
       checkRun: (await response.json()) as CheckRunDetail
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchScenarioRunDetail({
+  projectId,
+  scenarioId,
+  scenarioRunId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  scenarioId: string;
+  scenarioRunId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<ScenarioRunDetailResult> {
+  try {
+    const response = await fetcher(
+      getScenarioRunDetailUrl(
+        projectId,
+        scenarioId,
+        scenarioRunId,
+        apiBaseUrl ?? getApiBaseUrl()
+      ),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      scenarioRun: (await response.json()) as ScenarioRunDetail
     };
   } catch {
     return { state: "unavailable" };

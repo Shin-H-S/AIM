@@ -2,9 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   fetchApiHealth,
   fetchCheckRunDetail,
+  fetchScenarioRunDetail,
   getApiBaseUrl,
   getApiHealthUrl,
-  getCheckRunDetailUrl
+  getCheckRunDetailUrl,
+  getScenarioRunDetailUrl
 } from "./api";
 
 describe("getApiBaseUrl", () => {
@@ -31,6 +33,21 @@ describe("getCheckRunDetailUrl", () => {
   it("builds the check run detail endpoint URL", () => {
     expect(getCheckRunDetailUrl("project-id", "check-run-id", "http://localhost:8000")).toBe(
       "http://localhost:8000/projects/project-id/check-runs/check-run-id"
+    );
+  });
+});
+
+describe("getScenarioRunDetailUrl", () => {
+  it("builds the scenario run detail endpoint URL", () => {
+    expect(
+      getScenarioRunDetailUrl(
+        "project-id",
+        "scenario-id",
+        "scenario-run-id",
+        "http://localhost:8000"
+      )
+    ).toBe(
+      "http://localhost:8000/projects/project-id/scenarios/scenario-id/runs/scenario-run-id"
     );
   });
 });
@@ -158,6 +175,133 @@ describe("fetchCheckRunDetail", () => {
       fetchCheckRunDetail({
         projectId: "project-id",
         checkRunId: "check-run-id",
+        accessToken: "token",
+        fetcher: notFoundFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("fetchScenarioRunDetail", () => {
+  it("returns a scenario run detail result when the API request succeeds", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        id: "scenario-run-id",
+        project_id: "project-id",
+        scenario_id: "scenario-id",
+        requested_by_id: "user-id",
+        status: "FAILED",
+        trigger_source: "manual",
+        failure_reason: "Expected element was not found.",
+        queued_at: "2026-06-28T00:00:00Z",
+        started_at: "2026-06-28T00:00:01Z",
+        finished_at: "2026-06-28T00:00:02Z",
+        duration_ms: 1000,
+        created_at: "2026-06-28T00:00:00Z",
+        updated_at: "2026-06-28T00:00:02Z",
+        step_results: [
+          {
+            id: "step-result-id",
+            scenario_run_id: "scenario-run-id",
+            test_step_id: "step-id",
+            step_order: 1,
+            action: "assert_element_exists",
+            target: "#dashboard",
+            status: "FAILED",
+            started_at: "2026-06-28T00:00:01Z",
+            finished_at: "2026-06-28T00:00:02Z",
+            duration_ms: 1000,
+            error_message: "Expected element was not found.",
+            failure_screenshot_artifact_id: "artifact-id",
+            created_at: "2026-06-28T00:00:02Z",
+            updated_at: "2026-06-28T00:00:02Z"
+          }
+        ],
+        console_errors: [],
+        network_failures: []
+      })
+    );
+
+    await expect(
+      fetchScenarioRunDetail({
+        projectId: "project-id",
+        scenarioId: "scenario-id",
+        scenarioRunId: "scenario-run-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      scenarioRun: {
+        id: "scenario-run-id",
+        project_id: "project-id",
+        scenario_id: "scenario-id",
+        requested_by_id: "user-id",
+        status: "FAILED",
+        trigger_source: "manual",
+        failure_reason: "Expected element was not found.",
+        queued_at: "2026-06-28T00:00:00Z",
+        started_at: "2026-06-28T00:00:01Z",
+        finished_at: "2026-06-28T00:00:02Z",
+        duration_ms: 1000,
+        created_at: "2026-06-28T00:00:00Z",
+        updated_at: "2026-06-28T00:00:02Z",
+        step_results: [
+          {
+            id: "step-result-id",
+            scenario_run_id: "scenario-run-id",
+            test_step_id: "step-id",
+            step_order: 1,
+            action: "assert_element_exists",
+            target: "#dashboard",
+            status: "FAILED",
+            started_at: "2026-06-28T00:00:01Z",
+            finished_at: "2026-06-28T00:00:02Z",
+            duration_ms: 1000,
+            error_message: "Expected element was not found.",
+            failure_screenshot_artifact_id: "artifact-id",
+            created_at: "2026-06-28T00:00:02Z",
+            updated_at: "2026-06-28T00:00:02Z"
+          }
+        ],
+        console_errors: [],
+        network_failures: []
+      }
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/scenarios/scenario-id/runs/scenario-run-id",
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+  });
+
+  it("maps scenario run authentication and missing-resource responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const notFoundFetcher = vi.fn(async () => new Response(null, { status: 404 }));
+
+    await expect(
+      fetchScenarioRunDetail({
+        projectId: "project-id",
+        scenarioId: "scenario-id",
+        scenarioRunId: "scenario-run-id",
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      fetchScenarioRunDetail({
+        projectId: "project-id",
+        scenarioId: "scenario-id",
+        scenarioRunId: "scenario-run-id",
         accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"

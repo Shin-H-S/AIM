@@ -59,7 +59,13 @@ CheckRun 결과 페이지는 다음 경로에서 확인할 수 있습니다.
 /projects/{projectId}/check-runs/{checkRunId}
 ```
 
-현재 웹에는 로그인 UI가 없으므로 결과 페이지에서 API 로그인 응답의 Bearer token을 직접 입력해 CheckRun 상태, score/risk, 직전 run 대비 변화, availability/SSL/Lighthouse 결과 및 artifact metadata를 polling합니다.
+ScenarioRun 결과 페이지는 다음 경로에서 확인할 수 있습니다.
+
+```text
+/projects/{projectId}/scenarios/{scenarioId}/runs/{scenarioRunId}
+```
+
+현재 웹에는 로그인 UI가 없으므로 결과 페이지에서 API 로그인 응답의 Bearer token을 직접 입력해 CheckRun 상태, score/risk, 직전 run 대비 변화, availability/SSL/Lighthouse 결과, artifact metadata, ScenarioRun step 결과와 실패 근거를 polling합니다.
 
 ## API 시작하기
 

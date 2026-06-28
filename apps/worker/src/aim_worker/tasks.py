@@ -16,11 +16,12 @@ from aim_worker.artifacts import store_json_artifact
 from aim_worker.availability import scan_http_availability
 from aim_worker.celery_app import celery_app
 from aim_worker.lighthouse import run_lighthouse_scan
+from aim_worker.playwright_runner import run_playwright_scenario
 from aim_worker.ssl_inspection import inspect_ssl_certificate
 
 SCAN_WORKER_FAILED_REASON = "Scan worker failed."
 CHECK_RUN_PROJECT_NOT_FOUND_REASON = "Project for check run was not found."
-SCENARIO_RUNNER_NOT_IMPLEMENTED_REASON = "Playwright scenario runner is not implemented yet."
+SCENARIO_WORKER_FAILED_REASON = "Scenario worker failed."
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]
@@ -42,10 +43,47 @@ def run_scenario_run(scenario_run_id: str) -> None:
         if scenario_run.status != ScenarioRunStatus.RUNNING.value:
             return
 
+        steps = scenario_service.list_steps(session, scenario_id=scenario_run.scenario_id)
+        scenario_service.clear_step_results(
+            session,
+            scenario_run_id=parsed_scenario_run_id,
+        )
+        try:
+            execution_result = run_playwright_scenario(steps)
+        except Exception:
+            scenario_service.mark_scenario_run_failed(
+                session,
+                scenario_run_id=parsed_scenario_run_id,
+                failure_reason=SCENARIO_WORKER_FAILED_REASON,
+            )
+            raise
+
+        for step_result in execution_result.step_results:
+            scenario_service.record_step_result(
+                session,
+                scenario_run_id=parsed_scenario_run_id,
+                test_step_id=step_result.test_step_id,
+                step_order=step_result.step_order,
+                action=step_result.action,
+                target=step_result.target,
+                status=step_result.status,
+                started_at=step_result.started_at,
+                finished_at=step_result.finished_at,
+                duration_ms=step_result.duration_ms,
+                error_message=step_result.error_message,
+            )
+
+        if execution_result.is_successful:
+            scenario_service.mark_scenario_run_completed(
+                session,
+                scenario_run_id=parsed_scenario_run_id,
+            )
+            return
+
         scenario_service.mark_scenario_run_failed(
             session,
             scenario_run_id=parsed_scenario_run_id,
-            failure_reason=SCENARIO_RUNNER_NOT_IMPLEMENTED_REASON,
+            failure_reason=execution_result.failure_reason or "Scenario failed.",
         )
 
 

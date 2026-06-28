@@ -14,13 +14,21 @@ from aim_api.models.scanner_result import (
     ScoreResult,
     SslResult,
 )
-from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus, TestScenario
+from aim_api.models.scenario import (
+    ScenarioRun,
+    ScenarioRunStatus,
+    StepResult,
+    StepResultStatus,
+    TestScenario,
+    TestStep,
+)
 from aim_api.models.user import User
 from aim_api.services import scanner_results, score_results
 from aim_worker import tasks
 from aim_worker.artifacts import StoredArtifact
 from aim_worker.availability import AvailabilityScanResult
 from aim_worker.lighthouse import LighthouseScanResult
+from aim_worker.playwright_runner import ExecutedStepResult, ScenarioExecutionResult
 from aim_worker.ssl_inspection import SslInspectionResult
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -137,6 +145,17 @@ def create_scenario_run(
         is_active=True,
     )
     session.add(scenario)
+    session.flush()
+    step = TestStep(
+        scenario_id=scenario.id,
+        step_order=1,
+        action="navigate",
+        target="https://example.com/login",
+        value=None,
+        timeout_ms=None,
+        is_critical=True,
+    )
+    session.add(step)
     session.flush()
     scenario_run = ScenarioRun(
         project_id=project.id,
@@ -538,18 +557,108 @@ def test_run_check_run_ignores_missing_check_run(session: Session) -> None:
     tasks.run_check_run.run(str(uuid4()))
 
 
-def test_run_scenario_run_marks_failed_until_playwright_executor_exists(
+def test_run_scenario_run_records_successful_execution(
     session: Session,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     scenario_run = create_scenario_run(session, status=ScenarioRunStatus.QUEUED)
+    step = session.scalars(select(TestStep)).one()
+
+    def fake_run_playwright_scenario(steps: list[TestStep]) -> ScenarioExecutionResult:
+        assert [scenario_step.id for scenario_step in steps] == [step.id]
+        return ScenarioExecutionResult(
+            is_successful=True,
+            failure_reason=None,
+            step_results=[
+                ExecutedStepResult(
+                    test_step_id=step.id,
+                    step_order=1,
+                    action="navigate",
+                    target="https://example.com/login",
+                    status=StepResultStatus.PASSED,
+                    started_at=datetime.now(UTC),
+                    finished_at=datetime.now(UTC),
+                    duration_ms=12,
+                    error_message=None,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(tasks, "run_playwright_scenario", fake_run_playwright_scenario)
+
+    tasks.run_scenario_run.run(str(scenario_run.id))
+
+    session.refresh(scenario_run)
+    assert scenario_run.status == ScenarioRunStatus.COMPLETED.value
+    assert scenario_run.started_at is not None
+    assert scenario_run.finished_at is not None
+    assert scenario_run.failure_reason is None
+    step_result = session.scalars(select(StepResult)).one()
+    assert step_result.scenario_run_id == scenario_run.id
+    assert step_result.test_step_id == step.id
+    assert step_result.status == StepResultStatus.PASSED.value
+    assert step_result.duration_ms == 12
+
+
+def test_run_scenario_run_records_failed_execution(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario_run = create_scenario_run(session, status=ScenarioRunStatus.QUEUED)
+    step = session.scalars(select(TestStep)).one()
+
+    def fake_run_playwright_scenario(steps: list[TestStep]) -> ScenarioExecutionResult:
+        assert [scenario_step.id for scenario_step in steps] == [step.id]
+        return ScenarioExecutionResult(
+            is_successful=False,
+            failure_reason="Expected element was not found.",
+            step_results=[
+                ExecutedStepResult(
+                    test_step_id=step.id,
+                    step_order=1,
+                    action="assert_element_exists",
+                    target="#dashboard",
+                    status=StepResultStatus.FAILED,
+                    started_at=datetime.now(UTC),
+                    finished_at=datetime.now(UTC),
+                    duration_ms=20,
+                    error_message="Expected element was not found.",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(tasks, "run_playwright_scenario", fake_run_playwright_scenario)
 
     tasks.run_scenario_run.run(str(scenario_run.id))
 
     session.refresh(scenario_run)
     assert scenario_run.status == ScenarioRunStatus.FAILED.value
-    assert scenario_run.started_at is not None
+    assert scenario_run.failure_reason == "Expected element was not found."
+    step_result = session.scalars(select(StepResult)).one()
+    assert step_result.status == StepResultStatus.FAILED.value
+    assert step_result.error_message == "Expected element was not found."
+
+
+def test_run_scenario_run_records_unexpected_runner_failure(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scenario_run = create_scenario_run(session, status=ScenarioRunStatus.QUEUED)
+
+    def fake_run_playwright_scenario(steps: list[TestStep]) -> ScenarioExecutionResult:
+        _ = steps
+        raise RuntimeError("browser crashed")
+
+    monkeypatch.setattr(tasks, "run_playwright_scenario", fake_run_playwright_scenario)
+
+    with pytest.raises(RuntimeError, match="browser crashed"):
+        tasks.run_scenario_run.run(str(scenario_run.id))
+
+    session.refresh(scenario_run)
+    assert scenario_run.status == ScenarioRunStatus.FAILED.value
+    assert scenario_run.failure_reason == tasks.SCENARIO_WORKER_FAILED_REASON
     assert scenario_run.finished_at is not None
-    assert scenario_run.failure_reason == tasks.SCENARIO_RUNNER_NOT_IMPLEMENTED_REASON
+    assert session.scalars(select(StepResult)).all() == []
 
 
 def test_run_scenario_run_does_not_override_cancelled_run(session: Session) -> None:

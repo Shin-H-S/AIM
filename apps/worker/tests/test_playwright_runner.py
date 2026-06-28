@@ -89,8 +89,31 @@ class FakeRoute:
 
 
 class FakeRequest:
-    def __init__(self, url: str) -> None:
+    def __init__(
+        self,
+        url: str,
+        *,
+        method: str = "GET",
+        resource_type: str = "fetch",
+        failure: str | None = "net::ERR_FAILED",
+    ) -> None:
         self.url = url
+        self.method = method
+        self.resource_type = resource_type
+        self.failure = failure
+
+
+class FakeConsoleMessage:
+    def __init__(
+        self,
+        *,
+        message_type: str,
+        text: str,
+        location: dict[str, str | int],
+    ) -> None:
+        self.type = message_type
+        self.text = text
+        self.location = location
 
 
 def make_step(
@@ -132,6 +155,8 @@ def test_execute_supported_steps(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert result.is_successful is True
     assert result.failure_reason is None
+    assert result.console_errors == []
+    assert result.network_failures == []
     assert [step_result.status for step_result in result.step_results] == [
         StepResultStatus.PASSED,
         StepResultStatus.PASSED,
@@ -231,3 +256,73 @@ def test_browser_request_handler_continues_safe_url(monkeypatch: pytest.MonkeyPa
 
     assert route.aborted is False
     assert route.continued is True
+
+
+def test_collect_console_error_masks_secret_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(playwright_runner, "validate_service_url", lambda _: None)
+    console_errors: list[playwright_runner.ConsoleErrorEvidence] = []
+    message = FakeConsoleMessage(
+        message_type="error",
+        text="Login failed token=abc123 password=super-secret",
+        location={
+            "url": "https://example.com/app.js?api_key=secret-key",
+            "lineNumber": 12,
+            "columnNumber": 3,
+        },
+    )
+
+    playwright_runner.collect_console_error(console_errors, message)
+
+    assert len(console_errors) == 1
+    assert console_errors[0].level == "error"
+    assert console_errors[0].message == "Login failed token=[masked] password=[masked]"
+    assert console_errors[0].source_url == "https://example.com/app.js?api_key=[masked]"
+    assert console_errors[0].line_number == 12
+    assert console_errors[0].column_number == 3
+
+
+def test_collect_console_error_ignores_non_error_messages() -> None:
+    console_errors: list[playwright_runner.ConsoleErrorEvidence] = []
+    message = FakeConsoleMessage(
+        message_type="warning",
+        text="This is only a warning",
+        location={},
+    )
+
+    playwright_runner.collect_console_error(console_errors, message)
+
+    assert console_errors == []
+
+
+def test_collect_network_failure_masks_secret_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(playwright_runner, "validate_service_url", lambda _: None)
+    network_failures: list[playwright_runner.NetworkFailureEvidence] = []
+    request = FakeRequest(
+        "https://example.com/api?token=abc123",
+        method="POST",
+        resource_type="xhr",
+        failure="authorization: Bearer abc123",
+    )
+
+    playwright_runner.collect_network_failure(network_failures, request)
+
+    assert len(network_failures) == 1
+    assert network_failures[0].request_url == "https://example.com/api?token=[masked]"
+    assert network_failures[0].method == "POST"
+    assert network_failures[0].resource_type == "xhr"
+    assert network_failures[0].failure_text == "authorization: Bearer [masked]"
+
+
+def test_collect_network_failure_hides_unsafe_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    def reject_service_url(_: str) -> None:
+        raise UrlValidationError("private IP")
+
+    monkeypatch.setattr(playwright_runner, "validate_service_url", reject_service_url)
+    network_failures: list[playwright_runner.NetworkFailureEvidence] = []
+    request = FakeRequest("http://127.0.0.1/admin")
+
+    playwright_runner.collect_network_failure(network_failures, request)
+
+    assert len(network_failures) == 1
+    assert network_failures[0].request_url == playwright_runner.BLOCKED_URL_PLACEHOLDER
+    assert network_failures[0].failure_text == "Blocked unsafe request URL."

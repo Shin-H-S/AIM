@@ -77,8 +77,18 @@ def build_scenario_run_response(
     scenario_run: ScenarioRun,
 ) -> ScenarioRunDetailRead:
     step_results = scenario_service.list_step_results(session, scenario_run_id=scenario_run.id)
+    console_errors = scenario_service.list_console_errors(session, scenario_run_id=scenario_run.id)
+    network_failures = scenario_service.list_network_failures(
+        session,
+        scenario_run_id=scenario_run.id,
+    )
     scenario_run_body = ScenarioRunRead.model_validate(scenario_run).model_dump()
-    return ScenarioRunDetailRead(**scenario_run_body, step_results=step_results)
+    return ScenarioRunDetailRead(
+        **scenario_run_body,
+        step_results=step_results,
+        console_errors=console_errors,
+        network_failures=network_failures,
+    )
 
 
 def require_project_for_user(

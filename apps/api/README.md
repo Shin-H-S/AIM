@@ -182,7 +182,9 @@ scenario run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery q
 
 현재 worker는 scenario run task를 소비하면 상태를 `RUNNING`으로 전환한 뒤 저장된 step을 순서대로 실행합니다. critical step이 실패하면 이후 step은 `SKIPPED`로 기록하고 scenario run을 `FAILED`로 종료합니다. non-critical step 실패는 step result에는 `FAILED`로 남기지만 전체 scenario run은 계속 진행합니다.
 
-아직 console/network failure 수집과 failure screenshot artifact 저장은 포함하지 않았습니다.
+ScenarioRun 단건 조회 응답에는 step result와 함께 브라우저 `console.error` 목록과 failed network request 목록이 포함됩니다. evidence message와 URL에 포함될 수 있는 token/password/API key 형태의 값은 저장 전에 마스킹하며, SSRF-safe 검증을 통과하지 못한 URL은 `[blocked-url]`로 저장합니다.
+
+아직 failure screenshot artifact 저장은 포함하지 않았습니다.
 
 ## 검증
 

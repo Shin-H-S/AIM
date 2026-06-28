@@ -8,14 +8,23 @@ from aim_api.models.scanner_result import (
     ScoreResult,
     SslResult,
 )
-from aim_api.models.scenario import ScenarioRun, StepResult, TestScenario, TestStep
+from aim_api.models.scenario import (
+    ConsoleError,
+    NetworkFailure,
+    ScenarioRun,
+    StepResult,
+    TestScenario,
+    TestStep,
+)
 from aim_api.models.user import User
 
 __all__ = [
     "Artifact",
     "AvailabilityResult",
     "CheckRun",
+    "ConsoleError",
     "LighthouseResult",
+    "NetworkFailure",
     "Project",
     "RunComparison",
     "ScoreResult",

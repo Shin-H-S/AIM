@@ -15,6 +15,8 @@ from aim_api.models.scanner_result import (
     SslResult,
 )
 from aim_api.models.scenario import (
+    ConsoleError,
+    NetworkFailure,
     ScenarioRun,
     ScenarioRunStatus,
     StepResult,
@@ -28,7 +30,12 @@ from aim_worker import tasks
 from aim_worker.artifacts import StoredArtifact
 from aim_worker.availability import AvailabilityScanResult
 from aim_worker.lighthouse import LighthouseScanResult
-from aim_worker.playwright_runner import ExecutedStepResult, ScenarioExecutionResult
+from aim_worker.playwright_runner import (
+    ConsoleErrorEvidence,
+    ExecutedStepResult,
+    NetworkFailureEvidence,
+    ScenarioExecutionResult,
+)
 from aim_worker.ssl_inspection import SslInspectionResult
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -582,6 +589,23 @@ def test_run_scenario_run_records_successful_execution(
                     error_message=None,
                 )
             ],
+            console_errors=[
+                ConsoleErrorEvidence(
+                    level="error",
+                    message="Client crashed",
+                    source_url="https://example.com/app.js",
+                    line_number=10,
+                    column_number=2,
+                )
+            ],
+            network_failures=[
+                NetworkFailureEvidence(
+                    request_url="https://example.com/api",
+                    method="GET",
+                    resource_type="fetch",
+                    failure_text="net::ERR_FAILED",
+                )
+            ],
         )
 
     monkeypatch.setattr(tasks, "run_playwright_scenario", fake_run_playwright_scenario)
@@ -598,6 +622,14 @@ def test_run_scenario_run_records_successful_execution(
     assert step_result.test_step_id == step.id
     assert step_result.status == StepResultStatus.PASSED.value
     assert step_result.duration_ms == 12
+    console_error = session.scalars(select(ConsoleError)).one()
+    assert console_error.scenario_run_id == scenario_run.id
+    assert console_error.message == "Client crashed"
+    assert console_error.source_url == "https://example.com/app.js"
+    network_failure = session.scalars(select(NetworkFailure)).one()
+    assert network_failure.scenario_run_id == scenario_run.id
+    assert network_failure.request_url == "https://example.com/api"
+    assert network_failure.failure_text == "net::ERR_FAILED"
 
 
 def test_run_scenario_run_records_failed_execution(
@@ -625,6 +657,8 @@ def test_run_scenario_run_records_failed_execution(
                     error_message="Expected element was not found.",
                 )
             ],
+            console_errors=[],
+            network_failures=[],
         )
 
     monkeypatch.setattr(tasks, "run_playwright_scenario", fake_run_playwright_scenario)

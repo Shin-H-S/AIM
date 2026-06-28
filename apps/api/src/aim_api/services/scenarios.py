@@ -5,6 +5,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from aim_api.models.scenario import (
+    ConsoleError,
+    NetworkFailure,
     ScenarioRun,
     ScenarioRunStatus,
     StepResult,
@@ -322,10 +324,80 @@ def clear_step_results(session: Session, *, scenario_run_id: UUID) -> None:
     session.commit()
 
 
+def record_console_error(
+    session: Session,
+    *,
+    scenario_run_id: UUID,
+    level: str,
+    message: str,
+    source_url: str | None,
+    line_number: int | None,
+    column_number: int | None,
+) -> ConsoleError:
+    console_error = ConsoleError(
+        scenario_run_id=scenario_run_id,
+        level=level,
+        message=message,
+        source_url=source_url,
+        line_number=line_number,
+        column_number=column_number,
+    )
+    session.add(console_error)
+    session.commit()
+    session.refresh(console_error)
+    return console_error
+
+
+def record_network_failure(
+    session: Session,
+    *,
+    scenario_run_id: UUID,
+    request_url: str,
+    method: str,
+    resource_type: str | None,
+    failure_text: str | None,
+) -> NetworkFailure:
+    network_failure = NetworkFailure(
+        scenario_run_id=scenario_run_id,
+        request_url=request_url,
+        method=method,
+        resource_type=resource_type,
+        failure_text=failure_text,
+    )
+    session.add(network_failure)
+    session.commit()
+    session.refresh(network_failure)
+    return network_failure
+
+
+def clear_failure_evidence(session: Session, *, scenario_run_id: UUID) -> None:
+    session.execute(delete(ConsoleError).where(ConsoleError.scenario_run_id == scenario_run_id))
+    session.execute(delete(NetworkFailure).where(NetworkFailure.scenario_run_id == scenario_run_id))
+    session.commit()
+
+
 def list_step_results(session: Session, *, scenario_run_id: UUID) -> list[StepResult]:
     statement = (
         select(StepResult)
         .where(StepResult.scenario_run_id == scenario_run_id)
         .order_by(StepResult.step_order.asc())
+    )
+    return list(session.scalars(statement))
+
+
+def list_console_errors(session: Session, *, scenario_run_id: UUID) -> list[ConsoleError]:
+    statement = (
+        select(ConsoleError)
+        .where(ConsoleError.scenario_run_id == scenario_run_id)
+        .order_by(ConsoleError.created_at.asc())
+    )
+    return list(session.scalars(statement))
+
+
+def list_network_failures(session: Session, *, scenario_run_id: UUID) -> list[NetworkFailure]:
+    statement = (
+        select(NetworkFailure)
+        .where(NetworkFailure.scenario_run_id == scenario_run_id)
+        .order_by(NetworkFailure.created_at.asc())
     )
     return list(session.scalars(statement))

@@ -7,6 +7,7 @@ from aim_api.database import Base
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.models.scanner_result import Artifact
+from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus, TestScenario
 from aim_api.models.user import User
 from aim_api.services import artifacts
 from sqlalchemy import create_engine, select
@@ -54,6 +55,40 @@ def create_check_run(session: Session) -> CheckRun:
     session.commit()
     session.refresh(check_run)
     return check_run
+
+
+def create_scenario_run(session: Session) -> ScenarioRun:
+    user = User(email=f"{uuid4()}@example.com", password_hash="hashed-password")
+    session.add(user)
+    session.flush()
+    project = Project(
+        owner_id=user.id,
+        name="AIM Website",
+        service_url="https://example.com",
+        verified_at=datetime.now(UTC),
+        environment="production",
+    )
+    session.add(project)
+    session.flush()
+    scenario = TestScenario(
+        project_id=project.id,
+        name="Login flow",
+        description=None,
+        is_active=True,
+    )
+    session.add(scenario)
+    session.flush()
+    scenario_run = ScenarioRun(
+        project_id=project.id,
+        scenario_id=scenario.id,
+        requested_by_id=user.id,
+        status=ScenarioRunStatus.RUNNING.value,
+        trigger_source="manual",
+    )
+    session.add(scenario_run)
+    session.commit()
+    session.refresh(scenario_run)
+    return scenario_run
 
 
 def test_record_artifact_updates_existing_path(session: Session) -> None:
@@ -112,3 +147,35 @@ def test_list_artifacts_returns_check_run_artifacts(session: Session) -> None:
     )
 
     assert artifacts.list_artifacts(session, check_run_id=check_run.id) == [artifact]
+
+
+def test_record_artifact_supports_scenario_run_owner(session: Session) -> None:
+    scenario_run = create_scenario_run(session)
+
+    artifact = artifacts.record_artifact(
+        session,
+        scenario_run_id=scenario_run.id,
+        artifact_type="scenario_failure_screenshot",
+        storage_backend="local",
+        storage_path=f"scenario-runs/{scenario_run.id}/steps/1/failure.png",
+        content_type="image/png",
+        size_bytes=8,
+        checksum_sha256="c" * 64,
+    )
+
+    assert artifact.check_run_id is None
+    assert artifact.scenario_run_id == scenario_run.id
+    assert artifact.artifact_type == "scenario_failure_screenshot"
+
+
+def test_record_artifact_requires_owner(session: Session) -> None:
+    with pytest.raises(ValueError, match="Artifact must belong"):
+        artifacts.record_artifact(
+            session,
+            artifact_type="orphan",
+            storage_backend="local",
+            storage_path="orphan.txt",
+            content_type="text/plain",
+            size_bytes=1,
+            checksum_sha256="d" * 64,
+        )

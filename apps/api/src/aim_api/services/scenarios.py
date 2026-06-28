@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from aim_api.models.scanner_result import Artifact
 from aim_api.models.scenario import (
     ConsoleError,
     NetworkFailure,
@@ -300,6 +301,7 @@ def record_step_result(
     finished_at: datetime | None,
     duration_ms: int | None,
     error_message: str | None,
+    failure_screenshot_artifact_id: UUID | None = None,
 ) -> StepResult:
     step_result = StepResult(
         scenario_run_id=scenario_run_id,
@@ -312,6 +314,7 @@ def record_step_result(
         finished_at=finished_at,
         duration_ms=duration_ms,
         error_message=error_message,
+        failure_screenshot_artifact_id=failure_screenshot_artifact_id,
     )
     session.add(step_result)
     session.commit()
@@ -373,6 +376,7 @@ def record_network_failure(
 def clear_failure_evidence(session: Session, *, scenario_run_id: UUID) -> None:
     session.execute(delete(ConsoleError).where(ConsoleError.scenario_run_id == scenario_run_id))
     session.execute(delete(NetworkFailure).where(NetworkFailure.scenario_run_id == scenario_run_id))
+    session.execute(delete(Artifact).where(Artifact.scenario_run_id == scenario_run_id))
     session.commit()
 
 

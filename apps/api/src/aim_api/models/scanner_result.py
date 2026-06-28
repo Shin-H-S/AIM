@@ -106,13 +106,22 @@ class Artifact(Base):
             "size_bytes >= 0",
             name="ck_artifacts_size_bytes_non_negative",
         ),
+        CheckConstraint(
+            "check_run_id IS NOT NULL OR scenario_run_id IS NOT NULL",
+            name="ck_artifacts_owner_present",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
-    check_run_id: Mapped[UUID] = mapped_column(
+    check_run_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("check_runs.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    scenario_run_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("scenario_runs.id", ondelete="CASCADE"),
         index=True,
     )
     artifact_type: Mapped[str] = mapped_column(String(64), nullable=False)

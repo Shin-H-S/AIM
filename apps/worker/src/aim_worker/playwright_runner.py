@@ -89,6 +89,7 @@ class ExecutedStepResult:
     finished_at: datetime | None
     duration_ms: int | None
     error_message: str | None
+    failure_screenshot: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -246,12 +247,20 @@ def execute_step(page: PageProtocol, step: TestStep) -> None:
             raise RuntimeError("Unsupported scenario step action.")
 
 
+def capture_failure_screenshot(page: PageProtocol) -> bytes | None:
+    try:
+        return page.screenshot(full_page=True)
+    except Exception:
+        return None
+
+
 def failed_step_result(
     *,
     step: TestStep,
     started_at: datetime,
     finished_at: datetime,
     error_message: str,
+    failure_screenshot: bytes | None,
 ) -> ExecutedStepResult:
     return ExecutedStepResult(
         test_step_id=step.id,
@@ -263,6 +272,7 @@ def failed_step_result(
         finished_at=finished_at,
         duration_ms=calculate_duration_ms(started_at=started_at, finished_at=finished_at),
         error_message=error_message,
+        failure_screenshot=failure_screenshot,
     )
 
 
@@ -321,12 +331,14 @@ def execute_steps_on_page(
         except Exception as exc:
             finished_at = datetime.now(UTC)
             error_message = str(exc) or "Scenario step failed."
+            failure_screenshot = capture_failure_screenshot(page)
             step_results.append(
                 failed_step_result(
                     step=step,
                     started_at=started_at,
                     finished_at=finished_at,
                     error_message=error_message,
+                    failure_screenshot=failure_screenshot,
                 )
             )
             if step.is_critical:

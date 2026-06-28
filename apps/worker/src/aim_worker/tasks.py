@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from aim_api.database import SessionLocal
@@ -12,7 +13,7 @@ from aim_api.services import scenarios as scenario_service
 from aim_api.services import score_results as score_result_service
 from aim_api.services.scan_queue import RUN_CHECK_RUN_TASK_NAME, RUN_SCENARIO_RUN_TASK_NAME
 
-from aim_worker.artifacts import store_json_artifact
+from aim_worker.artifacts import StoredArtifact, store_binary_artifact, store_json_artifact
 from aim_worker.availability import scan_http_availability
 from aim_worker.celery_app import celery_app
 from aim_worker.lighthouse import run_lighthouse_scan
@@ -22,6 +23,25 @@ from aim_worker.ssl_inspection import inspect_ssl_certificate
 SCAN_WORKER_FAILED_REASON = "Scan worker failed."
 CHECK_RUN_PROJECT_NOT_FOUND_REASON = "Project for check run was not found."
 SCENARIO_WORKER_FAILED_REASON = "Scenario worker failed."
+logger = logging.getLogger(__name__)
+
+
+def store_failure_screenshot_artifact(
+    *,
+    scenario_run_id: UUID,
+    step_order: int,
+    payload: bytes | None,
+) -> StoredArtifact | None:
+    if payload is None:
+        return None
+
+    storage_path = f"scenario-runs/{scenario_run_id}/steps/{step_order}/failure.png"
+    return store_binary_artifact(
+        artifact_type="scenario_failure_screenshot",
+        storage_path=storage_path,
+        content_type="image/png",
+        payload=payload,
+    )
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]
@@ -63,6 +83,34 @@ def run_scenario_run(scenario_run_id: str) -> None:
             raise
 
         for step_result in execution_result.step_results:
+            failure_screenshot_artifact_id = None
+            try:
+                stored_screenshot = store_failure_screenshot_artifact(
+                    scenario_run_id=parsed_scenario_run_id,
+                    step_order=step_result.step_order,
+                    payload=step_result.failure_screenshot,
+                )
+                if stored_screenshot is not None:
+                    screenshot_artifact = artifact_service.record_artifact(
+                        session,
+                        scenario_run_id=parsed_scenario_run_id,
+                        artifact_type=stored_screenshot.artifact_type,
+                        storage_backend=stored_screenshot.storage_backend,
+                        storage_path=stored_screenshot.storage_path,
+                        content_type=stored_screenshot.content_type,
+                        size_bytes=stored_screenshot.size_bytes,
+                        checksum_sha256=stored_screenshot.checksum_sha256,
+                    )
+                    failure_screenshot_artifact_id = screenshot_artifact.id
+            except Exception:
+                logger.exception(
+                    "Failed to store scenario failure screenshot.",
+                    extra={
+                        "scenario_run_id": str(parsed_scenario_run_id),
+                        "step_order": step_result.step_order,
+                    },
+                )
+
             scenario_service.record_step_result(
                 session,
                 scenario_run_id=parsed_scenario_run_id,
@@ -75,6 +123,7 @@ def run_scenario_run(scenario_run_id: str) -> None:
                 finished_at=step_result.finished_at,
                 duration_ms=step_result.duration_ms,
                 error_message=step_result.error_message,
+                failure_screenshot_artifact_id=failure_screenshot_artifact_id,
             )
 
         for console_error in execution_result.console_errors:

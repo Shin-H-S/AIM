@@ -189,6 +189,8 @@ def test_critical_failure_skips_remaining_steps() -> None:
         StepResultStatus.FAILED,
         StepResultStatus.SKIPPED,
     ]
+    assert result.step_results[0].failure_screenshot == b"fake-screenshot"
+    assert page.screenshots == 1
 
 
 def test_non_critical_failure_continues_remaining_steps() -> None:
@@ -211,6 +213,8 @@ def test_non_critical_failure_continues_remaining_steps() -> None:
         StepResultStatus.FAILED,
         StepResultStatus.PASSED,
     ]
+    assert result.step_results[0].failure_screenshot == b"fake-screenshot"
+    assert page.screenshots == 1
 
 
 def test_navigate_rejects_unsafe_url(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -229,6 +233,7 @@ def test_navigate_rejects_unsafe_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.is_successful is False
     assert result.step_results[0].status == StepResultStatus.FAILED
     assert result.step_results[0].error_message == "Navigation URL is not allowed."
+    assert result.step_results[0].failure_screenshot == b"fake-screenshot"
     assert page.goto_calls == []
 
 

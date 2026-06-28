@@ -125,7 +125,9 @@ MVP는 HTML meta-tag 방식의 소유권 확인을 지원합니다.
 
 check run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery scan queue에 worker task를 등록합니다. 큐 등록에 실패하면 check run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
 
-현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하며 Lighthouse 실행이 성공하면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료·Lighthouse 실행 실패는 `FAILED`로 기록합니다. HTTP availability, SSL inspection, Lighthouse metric 결과는 각각 `availability_results`, `ssl_results`, `lighthouse_results`에 정규화해 저장합니다. Lighthouse raw JSON은 로컬 artifact 파일로 저장하고 `artifacts` 테이블에는 metadata와 storage path만 기록합니다. 현재 구현된 scanner 결과를 기준으로 `score_results`에 결정론적 score와 deployment risk를 저장하고, 같은 프로젝트의 직전 terminal run이 있으면 `run_comparisons`에 주요 delta를 저장합니다.
+현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하며 Lighthouse 실행이 성공하면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료·Lighthouse 실행 실패는 `FAILED`로 기록합니다. HTTP availability, SSL inspection, Lighthouse metric 결과는 각각 `availability_results`, `ssl_results`, `lighthouse_results`에 정규화해 저장합니다. Lighthouse raw JSON은 로컬 artifact 파일로 저장하고 `artifacts` 테이블에는 metadata와 storage path만 기록합니다. scanner 결과와 같은 프로젝트의 최신 terminal ScenarioRun 결과를 기준으로 `score_results`에 결정론적 score와 deployment risk를 저장하고, 같은 프로젝트의 직전 terminal check run이 있으면 `run_comparisons`에 주요 delta를 저장합니다.
+
+ScenarioRun이 아직 없으면 `functional_stability_score`는 `null`입니다. 최신 terminal ScenarioRun이 모두 성공하면 functional stability는 100점으로 반영되고, 완료된 run에 실패 step이 포함되면 감점됩니다. 최신 terminal ScenarioRun 중 실패한 run이 있으면 deployment risk를 `RISK`로 올리고 grade를 `F`로 제한합니다.
 
 `GET /projects/{project_id}/check-runs/{check_run_id}`는 polling에 사용할 수 있도록 CheckRun 상태와 함께 nullable `availability_result`, `ssl_result`, `lighthouse_result`, `score_result`, `comparison_result`, 그리고 `artifacts` metadata 목록을 반환합니다.
 

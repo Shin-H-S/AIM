@@ -11,8 +11,9 @@ from aim_api.models.scanner_result import (
     ScoreResult,
     SslResult,
 )
+from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus, StepResult, StepResultStatus
 
-SCORING_VERSION = "2026-06-27.partial-v1"
+SCORING_VERSION = "2026-06-28.scenario-v1"
 
 WEIGHTS = {
     "availability_score": 25,
@@ -54,10 +55,18 @@ def calculate_score(
     availability_result: AvailabilityResult | None,
     ssl_result: SslResult | None,
     lighthouse_result: LighthouseResult | None,
+    scenario_runs: list[ScenarioRun] | None = None,
+    step_results_by_run_id: dict[UUID, list[StepResult]] | None = None,
 ) -> CalculatedScore:
+    scenario_runs = scenario_runs or []
+    step_results_by_run_id = step_results_by_run_id or {}
     availability_score = calculate_availability_score(
         availability_result=availability_result,
         response_time_threshold_ms=project.response_time_threshold_ms,
+    )
+    functional_stability_score = calculate_functional_stability_score(
+        scenario_runs=scenario_runs,
+        step_results_by_run_id=step_results_by_run_id,
     )
     web_performance_score = calculate_lighthouse_category_score(
         lighthouse_result,
@@ -71,7 +80,7 @@ def calculate_score(
 
     category_scores = {
         "availability_score": availability_score,
-        "functional_stability_score": None,
+        "functional_stability_score": functional_stability_score,
         "web_performance_score": web_performance_score,
         "accessibility_score": accessibility_score,
         "seo_basic_quality_score": seo_basic_quality_score,
@@ -87,6 +96,7 @@ def calculate_score(
         availability_result=availability_result,
         ssl_result=ssl_result,
         lighthouse_result=lighthouse_result,
+        scenario_runs=scenario_runs,
     )
     if gate is not None:
         deployment_risk, grade_cap, gate_reason = gate
@@ -94,7 +104,7 @@ def calculate_score(
 
     return CalculatedScore(
         availability_score=availability_score,
-        functional_stability_score=None,
+        functional_stability_score=functional_stability_score,
         web_performance_score=web_performance_score,
         accessibility_score=accessibility_score,
         seo_basic_quality_score=seo_basic_quality_score,
@@ -165,6 +175,35 @@ def calculate_seo_basic_quality_score(lighthouse_result: LighthouseResult | None
     return round(sum(scores) / len(scores))
 
 
+def calculate_functional_stability_score(
+    *,
+    scenario_runs: list[ScenarioRun],
+    step_results_by_run_id: dict[UUID, list[StepResult]],
+) -> int | None:
+    if not scenario_runs:
+        return None
+
+    run_scores: list[int] = []
+    for scenario_run in scenario_runs:
+        if scenario_run.status == ScenarioRunStatus.FAILED.value:
+            run_scores.append(0)
+            continue
+
+        if scenario_run.status != ScenarioRunStatus.COMPLETED.value:
+            continue
+
+        step_results = step_results_by_run_id.get(scenario_run.id, [])
+        has_failed_step = any(
+            step_result.status == StepResultStatus.FAILED.value for step_result in step_results
+        )
+        run_scores.append(80 if has_failed_step else 100)
+
+    if not run_scores:
+        return None
+
+    return round(sum(run_scores) / len(run_scores))
+
+
 def calculate_weighted_score(category_scores: dict[str, int | None]) -> tuple[int, int]:
     weighted_total = 0
     evaluated_weight = 0
@@ -188,6 +227,7 @@ def evaluate_gate(
     availability_result: AvailabilityResult | None,
     ssl_result: SslResult | None,
     lighthouse_result: LighthouseResult | None,
+    scenario_runs: list[ScenarioRun],
 ) -> tuple[str, str, str] | None:
     if availability_result is None:
         return "WARNING", "C", "Availability result is missing."
@@ -203,6 +243,21 @@ def evaluate_gate(
 
     if ssl_result is not None and ssl_result.is_applicable and ssl_result.is_valid is False:
         return "RISK", "D", ssl_result.failure_reason or "SSL certificate is invalid."
+
+    failed_scenario_run = next(
+        (
+            scenario_run
+            for scenario_run in scenario_runs
+            if scenario_run.status == ScenarioRunStatus.FAILED.value
+        ),
+        None,
+    )
+    if failed_scenario_run is not None:
+        return (
+            "RISK",
+            "F",
+            failed_scenario_run.failure_reason or "Critical scenario failed.",
+        )
 
     if lighthouse_result is not None and not lighthouse_result.is_successful:
         return "RISK", "D", lighthouse_result.failure_reason or "Lighthouse scan failed."
@@ -242,11 +297,18 @@ def record_score_result(
     ssl_result: SslResult | None,
     lighthouse_result: LighthouseResult | None,
 ) -> ScoreResult:
+    scenario_runs = list_latest_terminal_scenario_runs(session, project_id=project.id)
+    step_results_by_run_id = list_step_results_by_scenario_run_id(
+        session,
+        scenario_run_ids=[scenario_run.id for scenario_run in scenario_runs],
+    )
     calculated_score = calculate_score(
         project=project,
         availability_result=availability_result,
         ssl_result=ssl_result,
         lighthouse_result=lighthouse_result,
+        scenario_runs=scenario_runs,
+        step_results_by_run_id=step_results_by_run_id,
     )
     result = get_score_result(session, check_run_id=check_run_id)
     if result is None:
@@ -276,3 +338,63 @@ def get_score_result(
     check_run_id: UUID,
 ) -> ScoreResult | None:
     return session.scalar(select(ScoreResult).where(ScoreResult.check_run_id == check_run_id))
+
+
+def list_latest_terminal_scenario_runs(
+    session: Session,
+    *,
+    project_id: UUID,
+) -> list[ScenarioRun]:
+    terminal_statuses = {
+        ScenarioRunStatus.COMPLETED.value,
+        ScenarioRunStatus.FAILED.value,
+    }
+    scenario_runs = list(
+        session.scalars(
+            select(ScenarioRun)
+            .where(
+                ScenarioRun.project_id == project_id,
+                ScenarioRun.status.in_(terminal_statuses),
+            )
+            .order_by(
+                ScenarioRun.scenario_id.asc(),
+                ScenarioRun.created_at.desc(),
+                ScenarioRun.id.desc(),
+            )
+        )
+    )
+
+    latest_runs: list[ScenarioRun] = []
+    seen_scenario_ids: set[UUID] = set()
+    for scenario_run in scenario_runs:
+        if scenario_run.scenario_id in seen_scenario_ids:
+            continue
+
+        latest_runs.append(scenario_run)
+        seen_scenario_ids.add(scenario_run.scenario_id)
+
+    return latest_runs
+
+
+def list_step_results_by_scenario_run_id(
+    session: Session,
+    *,
+    scenario_run_ids: list[UUID],
+) -> dict[UUID, list[StepResult]]:
+    if not scenario_run_ids:
+        return {}
+
+    step_results = list(
+        session.scalars(
+            select(StepResult)
+            .where(StepResult.scenario_run_id.in_(scenario_run_ids))
+            .order_by(StepResult.scenario_run_id.asc(), StepResult.step_order.asc())
+        )
+    )
+    grouped_results: dict[UUID, list[StepResult]] = {
+        scenario_run_id: [] for scenario_run_id in scenario_run_ids
+    }
+    for step_result in step_results:
+        grouped_results.setdefault(step_result.scenario_run_id, []).append(step_result)
+
+    return grouped_results

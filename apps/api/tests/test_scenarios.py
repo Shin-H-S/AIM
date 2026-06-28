@@ -299,6 +299,7 @@ def test_create_scenario_run(client: TestClient) -> None:
     assert UUID(body["id"])
     assert body["project_id"] == project["id"]
     assert body["scenario_id"] == scenario["id"]
+    assert body["check_run_id"] is None
     assert UUID(body["requested_by_id"])
     assert body["status"] == "QUEUED"
     assert body["trigger_source"] == "manual"

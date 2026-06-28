@@ -89,7 +89,7 @@ uv run playwright install chromium
 uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
 ```
 
-현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 스캔 대상 URL과 redirect destination은 요청 전마다 SSRF-safe 검증을 수행하며, timeout과 response size 제한을 적용합니다. HTTP scan, SSL inspection, Lighthouse metric 결과는 정규화된 DB 레코드로 저장되며, Lighthouse raw JSON은 로컬 artifact 파일로 저장한 뒤 DB에는 metadata와 storage path만 기록합니다. 이후 애플리케이션 로직이 scanner 결과와 같은 프로젝트의 최신 terminal ScenarioRun 결과를 기준으로 score와 deployment risk를 계산하고, 같은 프로젝트의 직전 terminal check run과 주요 지표를 비교합니다. Playwright 시나리오는 API로 정의·저장하고 ScenarioRun을 큐에 등록할 수 있으며, worker는 저장된 step을 브라우저에서 실행해 StepResult, console error, failed network request, 실패 screenshot artifact metadata를 기록합니다. 단건 CheckRun 및 ScenarioRun 조회 API에서 polling할 수 있습니다.
+현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 스캔 대상 URL과 redirect destination은 요청 전마다 SSRF-safe 검증을 수행하며, timeout과 response size 제한을 적용합니다. HTTP scan, SSL inspection, Lighthouse metric 결과는 정규화된 DB 레코드로 저장되며, Lighthouse raw JSON은 로컬 artifact 파일로 저장한 뒤 DB에는 metadata와 storage path만 기록합니다. CheckRun 생성 시 active scenario에 대한 linked ScenarioRun을 함께 만들고, 애플리케이션 로직이 scanner 결과와 해당 CheckRun에 연결된 terminal ScenarioRun 결과를 기준으로 score와 deployment risk를 계산합니다. 연결된 ScenarioRun이 없던 기존 run은 같은 프로젝트의 최신 terminal ScenarioRun을 fallback으로 사용합니다. 같은 프로젝트의 직전 terminal check run과 주요 지표를 비교합니다. Playwright 시나리오는 API로 정의·저장하고 ScenarioRun을 큐에 등록할 수 있으며, worker는 저장된 step을 브라우저에서 실행해 StepResult, console error, failed network request, 실패 screenshot artifact metadata를 기록합니다. 단건 CheckRun 및 ScenarioRun 조회 API에서 polling할 수 있습니다.
 
 ## API 검증
 
@@ -111,5 +111,5 @@ corepack pnpm web:build
 
 ## 개발 순서
 
-1. Scenario history and result display
-2. Scenario-to-check-run linkage
+1. Artifact download API for local artifacts
+2. Scenario list and run creation UI

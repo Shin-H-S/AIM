@@ -20,7 +20,7 @@ Next.js 기반 AIM 사용자 인터페이스입니다.
 /projects/{projectId}/scenarios/{scenarioId}/runs/{scenarioRunId}
 ```
 
-현재 인증 UI는 아직 없으므로 로그인 API에서 받은 access token을 결과 페이지에 직접 입력합니다. 페이지는 ScenarioRun이 `QUEUED`, `RUNNING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 step 결과, error message, failure screenshot artifact id, browser console error, failed network request를 표시합니다.
+현재 인증 UI는 아직 없으므로 로그인 API에서 받은 access token을 결과 페이지에 직접 입력합니다. 페이지는 ScenarioRun이 `QUEUED`, `RUNNING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 linked CheckRun id, step 결과, error message, failure screenshot artifact id, browser console error, failed network request를 표시합니다.
 
 Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 

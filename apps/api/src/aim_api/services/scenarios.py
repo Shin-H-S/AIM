@@ -99,6 +99,15 @@ def list_scenarios(
     return list(session.scalars(statement))
 
 
+def list_active_scenarios(session: Session, *, project_id: UUID) -> list[TestScenario]:
+    statement = (
+        select(TestScenario)
+        .where(TestScenario.project_id == project_id, TestScenario.is_active.is_(True))
+        .order_by(TestScenario.created_at.asc(), TestScenario.id.asc())
+    )
+    return list(session.scalars(statement))
+
+
 def get_scenario(session: Session, *, project_id: UUID, scenario_id: UUID) -> TestScenario:
     statement = select(TestScenario).where(
         TestScenario.id == scenario_id,
@@ -156,6 +165,8 @@ def create_scenario_run(
     project_id: UUID,
     scenario_id: UUID,
     requested_by_id: UUID,
+    check_run_id: UUID | None = None,
+    trigger_source: str = "manual",
 ) -> ScenarioRun:
     scenario = get_scenario(session, project_id=project_id, scenario_id=scenario_id)
     if not scenario.is_active:
@@ -164,14 +175,54 @@ def create_scenario_run(
     scenario_run = ScenarioRun(
         project_id=project_id,
         scenario_id=scenario_id,
+        check_run_id=check_run_id,
         requested_by_id=requested_by_id,
         status=ScenarioRunStatus.QUEUED.value,
-        trigger_source="manual",
+        trigger_source=trigger_source,
     )
     session.add(scenario_run)
     session.commit()
     session.refresh(scenario_run)
     return scenario_run
+
+
+def create_scenario_runs_for_check_run(
+    session: Session,
+    *,
+    project_id: UUID,
+    check_run_id: UUID,
+    requested_by_id: UUID,
+) -> list[ScenarioRun]:
+    scenario_runs = [
+        ScenarioRun(
+            project_id=project_id,
+            scenario_id=scenario.id,
+            check_run_id=check_run_id,
+            requested_by_id=requested_by_id,
+            status=ScenarioRunStatus.QUEUED.value,
+            trigger_source="check_run",
+        )
+        for scenario in list_active_scenarios(session, project_id=project_id)
+    ]
+    session.add_all(scenario_runs)
+    session.commit()
+    for scenario_run in scenario_runs:
+        session.refresh(scenario_run)
+
+    return scenario_runs
+
+
+def list_scenario_runs_for_check_run(
+    session: Session,
+    *,
+    check_run_id: UUID,
+) -> list[ScenarioRun]:
+    statement = (
+        select(ScenarioRun)
+        .where(ScenarioRun.check_run_id == check_run_id)
+        .order_by(ScenarioRun.created_at.asc(), ScenarioRun.id.asc())
+    )
+    return list(session.scalars(statement))
 
 
 def list_scenario_runs(

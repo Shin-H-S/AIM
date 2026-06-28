@@ -137,6 +137,11 @@ class ScenarioRun(Base):
         nullable=False,
         index=True,
     )
+    check_run_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("check_runs.id", ondelete="CASCADE"),
+        index=True,
+    )
     requested_by_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),

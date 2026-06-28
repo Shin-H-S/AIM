@@ -235,6 +235,7 @@ function StatusSummary({
       </div>
       <dl className="grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
         <Metric label="Trigger" value={scenarioRun.trigger_source} />
+        <Metric label="Linked CheckRun" value={scenarioRun.check_run_id ?? "없음"} />
         <Metric label="Polling" value={shouldPoll ? "자동 새로고침 중" : "중지됨"} />
         <Metric label="Duration" value={formatMilliseconds(scenarioRun.duration_ms)} />
         <Metric label="Failure" value={scenarioRun.failure_reason ?? "없음"} />

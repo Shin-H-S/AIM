@@ -4,7 +4,7 @@ from uuid import UUID
 from aim_api.database import SessionLocal
 from aim_api.models.check_run import CheckRunStatus
 from aim_api.models.project import Project
-from aim_api.models.scenario import ScenarioRunStatus
+from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus
 from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import run_comparisons as run_comparison_service
@@ -12,6 +12,7 @@ from aim_api.services import scanner_results as scanner_result_service
 from aim_api.services import scenarios as scenario_service
 from aim_api.services import score_results as score_result_service
 from aim_api.services.scan_queue import RUN_CHECK_RUN_TASK_NAME, RUN_SCENARIO_RUN_TASK_NAME
+from sqlalchemy.orm import Session
 
 from aim_worker.artifacts import StoredArtifact, store_binary_artifact, store_json_artifact
 from aim_worker.availability import scan_http_availability
@@ -41,6 +42,54 @@ def store_failure_screenshot_artifact(
         storage_path=storage_path,
         content_type="image/png",
         payload=payload,
+    )
+
+
+def refresh_linked_check_run_score(session: Session, *, scenario_run: ScenarioRun) -> None:
+    if scenario_run.check_run_id is None:
+        return
+
+    try:
+        check_run = check_run_service.get_check_run_by_id(
+            session,
+            check_run_id=scenario_run.check_run_id,
+        )
+    except check_run_service.CheckRunNotFoundError:
+        return
+
+    project = session.get(Project, check_run.project_id)
+    if project is None:
+        return
+
+    availability_result = scanner_result_service.get_availability_result(
+        session,
+        check_run_id=check_run.id,
+    )
+    if availability_result is None:
+        return
+
+    ssl_result = scanner_result_service.get_ssl_result(
+        session,
+        check_run_id=check_run.id,
+    )
+    lighthouse_result = scanner_result_service.get_lighthouse_result(
+        session,
+        check_run_id=check_run.id,
+    )
+    score_result = score_result_service.record_score_result(
+        session,
+        check_run_id=check_run.id,
+        project=project,
+        availability_result=availability_result,
+        ssl_result=ssl_result,
+        lighthouse_result=lighthouse_result,
+    )
+    run_comparison_service.record_previous_run_comparison(
+        session,
+        check_run=check_run,
+        current_score_result=score_result,
+        current_availability_result=availability_result,
+        current_lighthouse_result=lighthouse_result,
     )
 
 
@@ -148,17 +197,19 @@ def run_scenario_run(scenario_run_id: str) -> None:
             )
 
         if execution_result.is_successful:
-            scenario_service.mark_scenario_run_completed(
+            completed_scenario_run = scenario_service.mark_scenario_run_completed(
                 session,
                 scenario_run_id=parsed_scenario_run_id,
             )
+            refresh_linked_check_run_score(session, scenario_run=completed_scenario_run)
             return
 
-        scenario_service.mark_scenario_run_failed(
+        failed_scenario_run = scenario_service.mark_scenario_run_failed(
             session,
             scenario_run_id=parsed_scenario_run_id,
             failure_reason=execution_result.failure_reason or "Scenario failed.",
         )
+        refresh_linked_check_run_score(session, scenario_run=failed_scenario_run)
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]

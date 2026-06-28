@@ -297,7 +297,11 @@ def record_score_result(
     ssl_result: SslResult | None,
     lighthouse_result: LighthouseResult | None,
 ) -> ScoreResult:
-    scenario_runs = list_latest_terminal_scenario_runs(session, project_id=project.id)
+    scenario_runs = list_latest_terminal_scenario_runs(
+        session,
+        project_id=project.id,
+        check_run_id=check_run_id,
+    )
     step_results_by_run_id = list_step_results_by_scenario_run_id(
         session,
         scenario_run_ids=[scenario_run.id for scenario_run in scenario_runs],
@@ -344,11 +348,27 @@ def list_latest_terminal_scenario_runs(
     session: Session,
     *,
     project_id: UUID,
+    check_run_id: UUID | None = None,
 ) -> list[ScenarioRun]:
     terminal_statuses = {
         ScenarioRunStatus.COMPLETED.value,
         ScenarioRunStatus.FAILED.value,
     }
+    if check_run_id is not None:
+        linked_scenario_runs = list(
+            session.scalars(
+                select(ScenarioRun)
+                .where(ScenarioRun.check_run_id == check_run_id)
+                .order_by(ScenarioRun.created_at.asc(), ScenarioRun.id.asc())
+            )
+        )
+        if linked_scenario_runs:
+            return [
+                scenario_run
+                for scenario_run in linked_scenario_runs
+                if scenario_run.status in terminal_statuses
+            ]
+
     scenario_runs = list(
         session.scalars(
             select(ScenarioRun)

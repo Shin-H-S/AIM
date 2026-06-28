@@ -205,6 +205,7 @@ class ScenarioRunRead(BaseModel):
     id: UUID
     project_id: UUID
     scenario_id: UUID
+    check_run_id: UUID | None
     requested_by_id: UUID
     status: ScenarioRunStatus
     trigger_source: str

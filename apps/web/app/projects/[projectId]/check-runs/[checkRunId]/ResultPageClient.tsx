@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import {
   fetchCheckRunDetail,
   getApiBaseUrl,
@@ -184,7 +185,7 @@ export function ResultPageClient({
               <AvailabilityCard result={checkRun.availability_result} />
               <SslCard result={checkRun.ssl_result} />
               <LighthouseCard result={checkRun.lighthouse_result} />
-              <ArtifactCard artifacts={checkRun.artifacts} />
+              <ArtifactCard accessToken={trimmedToken} artifacts={checkRun.artifacts} />
             </section>
           </>
         )}
@@ -450,7 +451,13 @@ function LighthouseCard({ result }: { result: LighthouseResult | null }) {
   );
 }
 
-function ArtifactCard({ artifacts }: { artifacts: Artifact[] }) {
+function ArtifactCard({
+  accessToken,
+  artifacts
+}: {
+  accessToken: string;
+  artifacts: Artifact[];
+}) {
   if (artifacts.length === 0) {
     return <EmptyResultCard title="Artifacts" description="아직 저장된 artifact metadata가 없습니다." />;
   }
@@ -479,6 +486,9 @@ function ArtifactCard({ artifacts }: { artifacts: Artifact[] }) {
               <Metric label="Created" value={formatDateTime(artifact.created_at)} />
               <Metric label="SHA-256" value={artifact.checksum_sha256} />
             </dl>
+            <div className="mt-4">
+              <ArtifactDownloadButton artifactId={artifact.id} accessToken={accessToken} />
+            </div>
           </li>
         ))}
       </ul>

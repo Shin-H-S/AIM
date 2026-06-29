@@ -65,7 +65,13 @@ ScenarioRun 결과 페이지는 다음 경로에서 확인할 수 있습니다.
 /projects/{projectId}/scenarios/{scenarioId}/runs/{scenarioRunId}
 ```
 
-현재 웹에는 로그인 UI가 없으므로 결과 페이지에서 API 로그인 응답의 Bearer token을 직접 입력해 CheckRun 상태, score/risk, 직전 run 대비 변화, availability/SSL/Lighthouse 결과, artifact metadata, ScenarioRun step 결과와 실패 근거를 polling합니다.
+Scenario 목록과 수동 실행 생성 페이지는 다음 경로에서 확인할 수 있습니다.
+
+```text
+/projects/{projectId}/scenarios
+```
+
+현재 웹에는 로그인 UI가 없으므로 결과 페이지에서 API 로그인 응답의 Bearer token을 직접 입력해 CheckRun 상태, score/risk, 직전 run 대비 변화, availability/SSL/Lighthouse 결과, artifact metadata, ScenarioRun step 결과와 실패 근거를 polling합니다. Scenario 목록 페이지에서는 등록된 scenario와 step을 확인하고 수동 ScenarioRun을 생성할 수 있습니다.
 
 ## API 시작하기
 
@@ -111,5 +117,5 @@ corepack pnpm web:build
 
 ## 개발 순서
 
-1. Scenario list and run creation UI
-2. Artifact download link in result pages
+1. Artifact download link in result pages
+2. CheckRun detail page에서 linked ScenarioRun 목록 표시

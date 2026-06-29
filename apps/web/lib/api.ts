@@ -170,6 +170,47 @@ export type NetworkFailure = {
   created_at: string;
 };
 
+export type TestStep = {
+  id: string;
+  scenario_id: string;
+  step_order: number;
+  action: TestStepAction;
+  target: string | null;
+  value: string | null;
+  timeout_ms: number | null;
+  is_critical: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TestScenario = {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  steps: TestStep[];
+};
+
+export type ScenarioRun = {
+  id: string;
+  project_id: string;
+  scenario_id: string;
+  check_run_id: string | null;
+  requested_by_id: string;
+  status: ScenarioRunStatus;
+  trigger_source: string;
+  failure_reason: string | null;
+  queued_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ScenarioRunDetail = {
   id: string;
   project_id: string;
@@ -215,6 +256,39 @@ export type ScenarioRunDetailResult =
     }
   | {
       state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type ScenarioListResult =
+  | {
+      state: "success";
+      scenarios: TestScenario[];
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type CreateScenarioRunResult =
+  | {
+      state: "success";
+      scenarioRun: ScenarioRun;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "conflict";
     }
   | {
       state: "unavailable";
@@ -269,6 +343,26 @@ export function getScenarioRunDetailUrl(
     `/projects/${encodeURIComponent(projectId)}/scenarios/${encodeURIComponent(
       scenarioId
     )}/runs/${encodeURIComponent(scenarioRunId)}`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export function getScenariosUrl(projectId: string, apiBaseUrl = getApiBaseUrl()): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/scenarios`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export function getCreateScenarioRunUrl(
+  projectId: string,
+  scenarioId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/scenarios/${encodeURIComponent(
+      scenarioId
+    )}/runs`,
     getApiBaseUrl(apiBaseUrl)
   ).toString();
 }
@@ -389,6 +483,98 @@ export async function fetchScenarioRunDetail({
     return {
       state: "success",
       scenarioRun: (await response.json()) as ScenarioRunDetail
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchScenarios({
+  projectId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<ScenarioListResult> {
+  try {
+    const response = await fetcher(getScenariosUrl(projectId, apiBaseUrl ?? getApiBaseUrl()), {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+
+    if (response.status === 401) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      scenarios: (await response.json()) as TestScenario[]
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function createScenarioRun({
+  projectId,
+  scenarioId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  scenarioId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<CreateScenarioRunResult> {
+  try {
+    const response = await fetcher(
+      getCreateScenarioRunUrl(projectId, scenarioId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: "{}"
+      }
+    );
+
+    if (response.status === 401) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (response.status === 409) {
+      return { state: "conflict" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      scenarioRun: (await response.json()) as ScenarioRun
     };
   } catch {
     return { state: "unavailable" };

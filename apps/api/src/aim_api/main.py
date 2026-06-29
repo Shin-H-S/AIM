@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from aim_api.config import get_settings
+from aim_api.routers.artifacts import router as artifacts_router
 from aim_api.routers.auth import router as auth_router
 from aim_api.routers.check_runs import router as check_runs_router
 from aim_api.routers.database_health import router as database_health_router
@@ -22,6 +23,7 @@ def create_app() -> FastAPI:
     app.include_router(projects_router)
     app.include_router(check_runs_router)
     app.include_router(scenarios_router)
+    app.include_router(artifacts_router)
     return app
 
 

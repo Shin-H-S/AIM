@@ -3,7 +3,13 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from aim_api.models.check_run import CheckRun
 from aim_api.models.scanner_result import Artifact
+from aim_api.models.scenario import ScenarioRun
+
+
+class ArtifactNotFoundError(Exception):
+    """Raised when an artifact does not exist or is not accessible."""
 
 
 def record_artifact(
@@ -77,3 +83,36 @@ def list_artifacts(
             .order_by(Artifact.created_at.asc(), Artifact.id.asc())
         )
     )
+
+
+def get_artifact(session: Session, *, artifact_id: UUID) -> Artifact:
+    artifact = session.get(Artifact, artifact_id)
+    if artifact is None:
+        raise ArtifactNotFoundError
+
+    return artifact
+
+
+def get_accessible_artifact(
+    session: Session,
+    *,
+    artifact_id: UUID,
+    owner_id: UUID,
+) -> Artifact:
+    artifact = get_artifact(session, artifact_id=artifact_id)
+
+    if artifact.check_run_id is not None:
+        check_run_owner_id = session.scalar(
+            select(CheckRun.requested_by_id).where(CheckRun.id == artifact.check_run_id)
+        )
+        if check_run_owner_id == owner_id:
+            return artifact
+
+    if artifact.scenario_run_id is not None:
+        scenario_run_owner_id = session.scalar(
+            select(ScenarioRun.requested_by_id).where(ScenarioRun.id == artifact.scenario_run_id)
+        )
+        if scenario_run_owner_id == owner_id:
+            return artifact
+
+    raise ArtifactNotFoundError

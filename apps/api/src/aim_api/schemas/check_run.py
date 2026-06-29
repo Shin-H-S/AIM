@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 from aim_api.models.check_run import CheckRunStatus
+from aim_api.schemas.scenario import ScenarioRunRead
 
 
 class CheckRunCreate(BaseModel):
@@ -130,3 +131,4 @@ class CheckRunDetailRead(CheckRunRead):
     score_result: ScoreResultRead | None
     comparison_result: RunComparisonRead | None
     artifacts: list[ArtifactRead]
+    linked_scenario_runs: list[ScenarioRunRead]

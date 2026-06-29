@@ -18,6 +18,7 @@ from aim_api.schemas.check_run import (
     ScoreResultRead,
     SslResultRead,
 )
+from aim_api.schemas.scenario import ScenarioRunRead
 from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import projects as project_service
@@ -183,6 +184,10 @@ def get_check_run(
         session,
         check_run_id=check_run.id,
     )
+    linked_scenario_runs = scenario_service.list_scenario_runs_for_check_run(
+        session,
+        check_run_id=check_run.id,
+    )
     check_run_body = CheckRunRead.model_validate(check_run).model_dump()
     return CheckRunDetailRead(
         **check_run_body,
@@ -200,6 +205,9 @@ def get_check_run(
         if comparison_result is not None
         else None,
         artifacts=[ArtifactRead.model_validate(artifact) for artifact in artifacts],
+        linked_scenario_runs=[
+            ScenarioRunRead.model_validate(scenario_run) for scenario_run in linked_scenario_runs
+        ],
     )
 
 

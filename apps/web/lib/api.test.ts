@@ -229,7 +229,25 @@ describe("fetchCheckRunDetail", () => {
         lighthouse_result: null,
         score_result: null,
         comparison_result: null,
-        artifacts: []
+        artifacts: [],
+        linked_scenario_runs: [
+          {
+            id: "scenario-run-id",
+            project_id: "project-id",
+            scenario_id: "scenario-id",
+            check_run_id: "check-run-id",
+            requested_by_id: "user-id",
+            status: "QUEUED",
+            trigger_source: "check_run",
+            failure_reason: null,
+            queued_at: "2026-06-26T00:00:00Z",
+            started_at: null,
+            finished_at: null,
+            duration_ms: null,
+            created_at: "2026-06-26T00:00:00Z",
+            updated_at: "2026-06-26T00:00:00Z"
+          }
+        ]
       })
     );
 
@@ -260,7 +278,25 @@ describe("fetchCheckRunDetail", () => {
         lighthouse_result: null,
         score_result: null,
         comparison_result: null,
-        artifacts: []
+        artifacts: [],
+        linked_scenario_runs: [
+          {
+            id: "scenario-run-id",
+            project_id: "project-id",
+            scenario_id: "scenario-id",
+            check_run_id: "check-run-id",
+            requested_by_id: "user-id",
+            status: "QUEUED",
+            trigger_source: "check_run",
+            failure_reason: null,
+            queued_at: "2026-06-26T00:00:00Z",
+            started_at: null,
+            finished_at: null,
+            duration_ms: null,
+            created_at: "2026-06-26T00:00:00Z",
+            updated_at: "2026-06-26T00:00:00Z"
+          }
+        ]
       }
     });
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
+import { ArtifactImagePreview } from "@/components/ArtifactImagePreview";
 import {
   fetchScenarioRunDetail,
   getApiBaseUrl,
@@ -322,11 +323,16 @@ function StepResultsCard({
               </p>
             )}
             {stepResult.failure_screenshot_artifact_id && (
-              <div className="mt-4">
+              <div className="mt-4 grid gap-3">
                 <ArtifactDownloadButton
                   artifactId={stepResult.failure_screenshot_artifact_id}
                   accessToken={accessToken}
                   label="실패 스크린샷 다운로드"
+                />
+                <ArtifactImagePreview
+                  artifactId={stepResult.failure_screenshot_artifact_id}
+                  accessToken={accessToken}
+                  alt={`Step #${stepResult.step_order} 실패 스크린샷`}
                 />
               </div>
             )}

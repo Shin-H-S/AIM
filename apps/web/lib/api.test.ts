@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  createScenarioRun,
   fetchApiHealth,
   fetchCheckRunDetail,
   fetchScenarioRunDetail,
+  fetchScenarios,
   getApiBaseUrl,
   getApiHealthUrl,
   getCheckRunDetailUrl,
+  getCreateScenarioRunUrl,
+  getScenariosUrl,
   getScenarioRunDetailUrl
 } from "./api";
 
@@ -48,6 +52,22 @@ describe("getScenarioRunDetailUrl", () => {
       )
     ).toBe(
       "http://localhost:8000/projects/project-id/scenarios/scenario-id/runs/scenario-run-id"
+    );
+  });
+});
+
+describe("getScenariosUrl", () => {
+  it("builds the scenario list endpoint URL", () => {
+    expect(getScenariosUrl("project-id", "http://localhost:8000")).toBe(
+      "http://localhost:8000/projects/project-id/scenarios"
+    );
+  });
+});
+
+describe("getCreateScenarioRunUrl", () => {
+  it("builds the scenario run creation endpoint URL", () => {
+    expect(getCreateScenarioRunUrl("project-id", "scenario-id", "http://localhost:8000")).toBe(
+      "http://localhost:8000/projects/project-id/scenarios/scenario-id/runs"
     );
   });
 });
@@ -309,5 +329,161 @@ describe("fetchScenarioRunDetail", () => {
         apiBaseUrl: "http://localhost:8000"
       })
     ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("fetchScenarios", () => {
+  it("returns scenarios when the API request succeeds", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json([
+        {
+          id: "scenario-id",
+          project_id: "project-id",
+          name: "Login flow",
+          description: "Critical flow",
+          is_active: true,
+          created_at: "2026-06-29T00:00:00Z",
+          updated_at: "2026-06-29T00:00:00Z",
+          steps: [
+            {
+              id: "step-id",
+              scenario_id: "scenario-id",
+              step_order: 1,
+              action: "navigate",
+              target: "https://example.com/login",
+              value: null,
+              timeout_ms: null,
+              is_critical: true,
+              created_at: "2026-06-29T00:00:00Z",
+              updated_at: "2026-06-29T00:00:00Z"
+            }
+          ]
+        }
+      ])
+    );
+
+    await expect(
+      fetchScenarios({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      scenarios: [
+        {
+          id: "scenario-id",
+          project_id: "project-id",
+          name: "Login flow",
+          description: "Critical flow",
+          is_active: true,
+          created_at: "2026-06-29T00:00:00Z",
+          updated_at: "2026-06-29T00:00:00Z",
+          steps: [
+            {
+              id: "step-id",
+              scenario_id: "scenario-id",
+              step_order: 1,
+              action: "navigate",
+              target: "https://example.com/login",
+              value: null,
+              timeout_ms: null,
+              is_critical: true,
+              created_at: "2026-06-29T00:00:00Z",
+              updated_at: "2026-06-29T00:00:00Z"
+            }
+          ]
+        }
+      ]
+    });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id/scenarios", {
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token"
+      }
+    });
+  });
+});
+
+describe("createScenarioRun", () => {
+  it("creates a scenario run when the API request succeeds", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json(
+        {
+          id: "scenario-run-id",
+          project_id: "project-id",
+          scenario_id: "scenario-id",
+          check_run_id: null,
+          requested_by_id: "user-id",
+          status: "QUEUED",
+          trigger_source: "manual",
+          failure_reason: null,
+          queued_at: "2026-06-29T00:00:00Z",
+          started_at: null,
+          finished_at: null,
+          duration_ms: null,
+          created_at: "2026-06-29T00:00:00Z",
+          updated_at: "2026-06-29T00:00:00Z"
+        },
+        { status: 201 }
+      )
+    );
+
+    await expect(
+      createScenarioRun({
+        projectId: "project-id",
+        scenarioId: "scenario-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      scenarioRun: {
+        id: "scenario-run-id",
+        project_id: "project-id",
+        scenario_id: "scenario-id",
+        check_run_id: null,
+        requested_by_id: "user-id",
+        status: "QUEUED",
+        trigger_source: "manual",
+        failure_reason: null,
+        queued_at: "2026-06-29T00:00:00Z",
+        started_at: null,
+        finished_at: null,
+        duration_ms: null,
+        created_at: "2026-06-29T00:00:00Z",
+        updated_at: "2026-06-29T00:00:00Z"
+      }
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/scenarios/scenario-id/runs",
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token",
+          "Content-Type": "application/json"
+        },
+        body: "{}"
+      }
+    );
+  });
+
+  it("maps inactive scenario responses to conflict", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 409 }));
+
+    await expect(
+      createScenarioRun({
+        projectId: "project-id",
+        scenarioId: "scenario-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "conflict" });
   });
 });

@@ -379,6 +379,8 @@ function LinkedScenarioRunsCard({
   projectId: string;
   scenarioRuns: ScenarioRun[];
 }) {
+  const summary = summarizeScenarioRuns(scenarioRuns);
+
   if (scenarioRuns.length === 0) {
     return (
       <EmptyResultCard
@@ -401,47 +403,160 @@ function LinkedScenarioRunsCard({
           {scenarioRuns.length}개
         </span>
       </div>
+
+      <div className={`mb-5 rounded-2xl border p-4 ${getScenarioSummaryClassName(summary)}`}>
+        <p className="font-semibold">{getScenarioSummaryTitle(summary)}</p>
+        <p className="mt-2 text-sm opacity-80">{getScenarioSummaryDescription(summary)}</p>
+        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
+          <Metric label="Total" value={`${summary.total}개`} />
+          <Metric label="Failed" value={`${summary.failed}개`} />
+          <Metric label="Active" value={`${summary.active}개`} />
+          <Metric label="Completed" value={`${summary.completed}개`} />
+          <Metric label="Cancelled" value={`${summary.cancelled}개`} />
+        </dl>
+      </div>
+
       <ul className="grid gap-3">
-        {scenarioRuns.map((scenarioRun) => (
-          <li
-            className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300"
-            key={scenarioRun.id}
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold text-slate-100">ScenarioRun</p>
-                <p className="mt-2 break-all font-mono text-xs text-slate-400">
-                  {scenarioRun.id}
-                </p>
-              </div>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${getStatusBadgeClassName(
-                  scenarioRun.status
-                )}`}
-              >
-                {scenarioRunStatusLabels[scenarioRun.status]}
-              </span>
-            </div>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Metric label="Scenario ID" value={scenarioRun.scenario_id} />
-              <Metric label="Trigger" value={scenarioRun.trigger_source} />
-              <Metric label="Duration" value={formatMilliseconds(scenarioRun.duration_ms)} />
-              <Metric label="Queued" value={formatDateTime(scenarioRun.queued_at)} />
-              <Metric label="Started" value={formatDateTime(scenarioRun.started_at)} />
-              <Metric label="Finished" value={formatDateTime(scenarioRun.finished_at)} />
-              <Metric label="Failure" value={scenarioRun.failure_reason ?? "없음"} />
-            </dl>
-            <a
-              className="mt-4 inline-flex rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20"
-              href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs/${scenarioRun.id}`}
+        {scenarioRuns.map((scenarioRun) => {
+          const isFailed = scenarioRun.status === "FAILED";
+
+          return (
+            <li
+              className={`rounded-2xl border p-4 text-sm text-slate-300 ${
+                isFailed
+                  ? "border-rose-400/20 bg-rose-400/10"
+                  : "border-white/10 bg-slate-900/60"
+              }`}
+              key={scenarioRun.id}
             >
-              ScenarioRun 결과 보기
-            </a>
-          </li>
-        ))}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-slate-100">ScenarioRun</p>
+                  <p className="mt-2 break-all font-mono text-xs text-slate-400">
+                    {scenarioRun.id}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${getStatusBadgeClassName(
+                    scenarioRun.status
+                  )}`}
+                >
+                  {scenarioRunStatusLabels[scenarioRun.status]}
+                </span>
+              </div>
+              {isFailed && (
+                <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-950/40 p-3 text-sm text-rose-100">
+                  우선 확인 필요: {scenarioRun.failure_reason ?? "실패 사유가 기록되지 않았습니다."}
+                </p>
+              )}
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Metric label="Scenario ID" value={scenarioRun.scenario_id} />
+                <Metric label="Trigger" value={scenarioRun.trigger_source} />
+                <Metric label="Duration" value={formatMilliseconds(scenarioRun.duration_ms)} />
+                <Metric label="Queued" value={formatDateTime(scenarioRun.queued_at)} />
+                <Metric label="Started" value={formatDateTime(scenarioRun.started_at)} />
+                <Metric label="Finished" value={formatDateTime(scenarioRun.finished_at)} />
+                <Metric label="Failure" value={scenarioRun.failure_reason ?? "없음"} />
+              </dl>
+              <a
+                className="mt-4 inline-flex rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20"
+                href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs/${scenarioRun.id}`}
+              >
+                ScenarioRun 결과 보기
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </article>
   );
+}
+
+type ScenarioRunSummary = {
+  total: number;
+  failed: number;
+  active: number;
+  completed: number;
+  cancelled: number;
+};
+
+function summarizeScenarioRuns(scenarioRuns: ScenarioRun[]): ScenarioRunSummary {
+  return scenarioRuns.reduce<ScenarioRunSummary>(
+    (summary, scenarioRun) => {
+      if (scenarioRun.status === "FAILED") {
+        summary.failed += 1;
+      }
+
+      if (scenarioRun.status === "QUEUED" || scenarioRun.status === "RUNNING") {
+        summary.active += 1;
+      }
+
+      if (scenarioRun.status === "COMPLETED") {
+        summary.completed += 1;
+      }
+
+      if (scenarioRun.status === "CANCELLED") {
+        summary.cancelled += 1;
+      }
+
+      return summary;
+    },
+    {
+      total: scenarioRuns.length,
+      failed: 0,
+      active: 0,
+      completed: 0,
+      cancelled: 0
+    }
+  );
+}
+
+function getScenarioSummaryTitle(summary: ScenarioRunSummary) {
+  if (summary.failed > 0) {
+    return `실패한 ScenarioRun ${summary.failed}개`;
+  }
+
+  if (summary.active > 0) {
+    return "ScenarioRun 실행 대기 또는 진행 중";
+  }
+
+  if (summary.cancelled > 0) {
+    return "취소된 ScenarioRun 포함";
+  }
+
+  return "연결된 ScenarioRun 모두 성공";
+}
+
+function getScenarioSummaryDescription(summary: ScenarioRunSummary) {
+  if (summary.failed > 0) {
+    return "핵심 사용자 흐름 실패는 배포 위험 판단에서 우선 확인해야 할 신호입니다. 상세 step 결과와 screenshot 근거를 확인하세요.";
+  }
+
+  if (summary.active > 0) {
+    return "아직 terminal 상태가 아닌 ScenarioRun이 있어 functional stability 판단이 확정되지 않았습니다.";
+  }
+
+  if (summary.cancelled > 0) {
+    return "취소된 ScenarioRun은 성공 근거로 볼 수 없으므로 수동 확인 또는 재실행이 필요합니다.";
+  }
+
+  return "모든 linked ScenarioRun이 완료되어 functional stability 판단 근거로 사용할 수 있습니다.";
+}
+
+function getScenarioSummaryClassName(summary: ScenarioRunSummary) {
+  if (summary.failed > 0) {
+    return "border-rose-400/20 bg-rose-400/10 text-rose-100";
+  }
+
+  if (summary.active > 0) {
+    return "border-cyan-400/20 bg-cyan-400/10 text-cyan-100";
+  }
+
+  if (summary.cancelled > 0) {
+    return "border-amber-400/20 bg-amber-400/10 text-amber-100";
+  }
+
+  return "border-emerald-400/20 bg-emerald-400/10 text-emerald-100";
 }
 
 function AvailabilityCard({ result }: { result: AvailabilityResult | null }) {

@@ -194,6 +194,11 @@ export function ScenarioRunResultPageClient({
 
             <StepResultsCard accessToken={trimmedToken} stepResults={scenarioRun.step_results} />
 
+            <EvidenceSummaryCard
+              consoleErrors={scenarioRun.console_errors}
+              networkFailures={scenarioRun.network_failures}
+            />
+
             <section className="grid gap-4 lg:grid-cols-2">
               <ConsoleErrorsCard consoleErrors={scenarioRun.console_errors} />
               <NetworkFailuresCard networkFailures={scenarioRun.network_failures} />
@@ -343,6 +348,65 @@ function StepResultsCard({
   );
 }
 
+function EvidenceSummaryCard({
+  consoleErrors,
+  networkFailures
+}: {
+  consoleErrors: ConsoleError[];
+  networkFailures: NetworkFailure[];
+}) {
+  const totalEvidenceCount = consoleErrors.length + networkFailures.length;
+  const hasEvidence = totalEvidenceCount > 0;
+  const className = hasEvidence
+    ? "border-rose-400/20 bg-rose-400/10 text-rose-100"
+    : "border-emerald-400/20 bg-emerald-400/10 text-emerald-100";
+
+  return (
+    <article className={`rounded-3xl border p-6 ${className}`}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] opacity-80">
+            Browser evidence
+          </p>
+          <h2 className="mt-3 text-2xl font-bold">
+            {hasEvidence ? "추가 실패 근거가 수집되었습니다" : "추가 browser evidence 없음"}
+          </h2>
+          <p className="mt-3 text-sm leading-6 opacity-80">
+            {getEvidenceSummaryDescription(consoleErrors, networkFailures)}
+          </p>
+        </div>
+        <span className="rounded-full bg-black/20 px-3 py-1 text-xs font-bold ring-1 ring-white/10">
+          {totalEvidenceCount}개
+        </span>
+      </div>
+      <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-3">
+        <Metric label="Console errors" value={`${consoleErrors.length}개`} />
+        <Metric label="Network failures" value={`${networkFailures.length}개`} />
+        <Metric label="Total evidence" value={`${totalEvidenceCount}개`} />
+      </dl>
+    </article>
+  );
+}
+
+function getEvidenceSummaryDescription(
+  consoleErrors: ConsoleError[],
+  networkFailures: NetworkFailure[]
+) {
+  if (networkFailures.length > 0 && consoleErrors.length > 0) {
+    return "브라우저 console error와 failed network request가 함께 기록되었습니다. 실패 step과 같은 시간대의 요청 실패를 우선 확인하세요.";
+  }
+
+  if (networkFailures.length > 0) {
+    return "failed network request가 기록되었습니다. API, 정적 리소스, redirect, CORS, 차단된 요청 여부를 상세 카드에서 확인하세요.";
+  }
+
+  if (consoleErrors.length > 0) {
+    return "브라우저 console.error가 기록되었습니다. 사용자 흐름 실패와 직접 관련된 client-side 오류인지 상세 카드에서 확인하세요.";
+  }
+
+  return "ScenarioRun 실행 중 저장된 console.error 또는 failed network request가 없습니다.";
+}
+
 function ConsoleErrorsCard({ consoleErrors }: { consoleErrors: ConsoleError[] }) {
   if (consoleErrors.length === 0) {
     return (
@@ -356,7 +420,8 @@ function ConsoleErrorsCard({ consoleErrors }: { consoleErrors: ConsoleError[] })
   return (
     <EvidenceListCard
       count={consoleErrors.length}
-      title="Console errors"
+      description="브라우저에서 수집한 console.error 근거입니다. 메시지, source URL, line/column을 확인해 사용자 흐름 실패와의 연관성을 판단하세요."
+      title="Browser console errors"
       items={consoleErrors.map((consoleError) => ({
         id: consoleError.id,
         title: consoleError.message,
@@ -385,7 +450,8 @@ function NetworkFailuresCard({ networkFailures }: { networkFailures: NetworkFail
   return (
     <EvidenceListCard
       count={networkFailures.length}
-      title="Network failures"
+      description="Playwright 실행 중 실패한 network request 근거입니다. API 요청 실패나 필수 리소스 로딩 실패 여부를 먼저 확인하세요."
+      title="Failed network requests"
       items={networkFailures.map((networkFailure) => ({
         id: networkFailure.id,
         title: networkFailure.request_url,
@@ -403,10 +469,12 @@ function NetworkFailuresCard({ networkFailures }: { networkFailures: NetworkFail
 function EvidenceListCard({
   title,
   count,
+  description,
   items
 }: {
   title: string;
   count: number;
+  description: string;
   items: {
     id: string;
     title: string;
@@ -417,7 +485,13 @@ function EvidenceListCard({
   return (
     <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">{title}</h2>
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-rose-300">
+            Evidence
+          </p>
+          <h2 className="mt-2 text-xl font-semibold">{title}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
+        </div>
         <span className="rounded-full bg-rose-400/10 px-3 py-1 text-xs font-bold text-rose-300 ring-1 ring-rose-400/20">
           {count}개
         </span>
@@ -425,7 +499,7 @@ function EvidenceListCard({
       <ul className="grid gap-3">
         {items.map((item) => (
           <li
-            className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300"
+            className="rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-slate-300"
             key={item.id}
           >
             <p className="break-words font-semibold text-slate-100">{item.title}</p>

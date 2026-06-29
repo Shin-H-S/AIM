@@ -186,7 +186,17 @@ scenario run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 Redis/Celery q
 
 ScenarioRun 단건 조회 응답에는 step result와 함께 브라우저 `console.error` 목록과 failed network request 목록이 포함됩니다. 실패한 step에서 screenshot을 캡처할 수 있으면 local artifact 파일로 저장하고 `StepResult.failure_screenshot_artifact_id`를 응답에 포함합니다. 웹 결과 페이지는 `/projects/{projectId}/scenarios/{scenarioId}/runs/{scenarioRunId}`에서 이 응답을 polling해 표시합니다. evidence message와 URL에 포함될 수 있는 token/password/API key 형태의 값은 저장 전에 마스킹하며, SSRF-safe 검증을 통과하지 못한 URL은 `[blocked-url]`로 저장합니다.
 
-API 응답은 artifact id만 반환하며, artifact download API는 아직 포함하지 않습니다.
+Artifact 파일은 `GET /artifacts/{artifact_id}/download`에서 다운로드할 수 있습니다. 이 API는 Bearer token 인증을 요구하며, 현재 사용자가 생성한 CheckRun 또는 ScenarioRun에 속한 artifact만 반환합니다.
+
+## Artifact API
+
+저장된 local artifact 파일을 다운로드할 수 있습니다.
+
+지원 엔드포인트:
+
+- `GET /artifacts/{artifact_id}/download`
+
+현재는 `ARTIFACT_STORAGE_BACKEND=local`만 다운로드를 지원합니다. artifact metadata가 현재 사용자에게 속하지 않거나, 파일이 없거나, 저장 경로가 `ARTIFACT_LOCAL_ROOT` 밖으로 벗어나면 `404`와 `{"detail": "Artifact not found."}`를 반환합니다. local 이외의 storage backend는 `409`와 `{"detail": "Artifact storage backend is not downloadable."}`를 반환합니다.
 
 ## 검증
 

@@ -13,6 +13,8 @@ import {
   type LighthouseResult,
   type RunComparison,
   type ScoreResult,
+  type ScenarioRun,
+  type ScenarioRunStatus,
   type SslResult
 } from "@/lib/api";
 
@@ -23,6 +25,14 @@ const statusLabels: Record<CheckRunStatus, string> = {
   QUEUED: "대기 중",
   RUNNING: "실행 중",
   ANALYZING: "분석 중",
+  COMPLETED: "완료",
+  FAILED: "실패",
+  CANCELLED: "취소됨"
+};
+
+const scenarioRunStatusLabels: Record<ScenarioRunStatus, string> = {
+  QUEUED: "대기 중",
+  RUNNING: "실행 중",
   COMPLETED: "완료",
   FAILED: "실패",
   CANCELLED: "취소됨"
@@ -180,6 +190,10 @@ export function ResultPageClient({
 
             <ScoreCard result={checkRun.score_result} />
             <ComparisonCard result={checkRun.comparison_result} />
+            <LinkedScenarioRunsCard
+              projectId={projectId}
+              scenarioRuns={checkRun.linked_scenario_runs}
+            />
 
             <section className="grid gap-4 lg:grid-cols-2">
               <AvailabilityCard result={checkRun.availability_result} />
@@ -354,6 +368,78 @@ function ComparisonCard({ result }: { result: RunComparison | null }) {
           value={result.deployment_risk_changed ? "예" : "아니오"}
         />
       </dl>
+    </article>
+  );
+}
+
+function LinkedScenarioRunsCard({
+  projectId,
+  scenarioRuns
+}: {
+  projectId: string;
+  scenarioRuns: ScenarioRun[];
+}) {
+  if (scenarioRuns.length === 0) {
+    return (
+      <EmptyResultCard
+        title="Linked ScenarioRuns"
+        description="이 CheckRun에 연결된 ScenarioRun이 없습니다."
+      />
+    );
+  }
+
+  return (
+    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+            Functional checks
+          </p>
+          <h2 className="mt-2 text-xl font-semibold">연결된 ScenarioRun</h2>
+        </div>
+        <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300 ring-1 ring-cyan-400/20">
+          {scenarioRuns.length}개
+        </span>
+      </div>
+      <ul className="grid gap-3">
+        {scenarioRuns.map((scenarioRun) => (
+          <li
+            className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300"
+            key={scenarioRun.id}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-slate-100">ScenarioRun</p>
+                <p className="mt-2 break-all font-mono text-xs text-slate-400">
+                  {scenarioRun.id}
+                </p>
+              </div>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${getStatusBadgeClassName(
+                  scenarioRun.status
+                )}`}
+              >
+                {scenarioRunStatusLabels[scenarioRun.status]}
+              </span>
+            </div>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Metric label="Scenario ID" value={scenarioRun.scenario_id} />
+              <Metric label="Trigger" value={scenarioRun.trigger_source} />
+              <Metric label="Duration" value={formatMilliseconds(scenarioRun.duration_ms)} />
+              <Metric label="Queued" value={formatDateTime(scenarioRun.queued_at)} />
+              <Metric label="Started" value={formatDateTime(scenarioRun.started_at)} />
+              <Metric label="Finished" value={formatDateTime(scenarioRun.finished_at)} />
+              <Metric label="Failure" value={scenarioRun.failure_reason ?? "없음"} />
+            </dl>
+            <a
+              className="mt-4 inline-flex rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20"
+              href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs/${scenarioRun.id}`}
+            >
+              ScenarioRun 결과 보기
+            </a>
+          </li>
+        ))}
+      </ul>
     </article>
   );
 }
@@ -563,7 +649,7 @@ function Notice({
   );
 }
 
-function getStatusBadgeClassName(status: CheckRunStatus) {
+function getStatusBadgeClassName(status: CheckRunStatus | ScenarioRunStatus) {
   if (status === "COMPLETED") {
     return "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20";
   }

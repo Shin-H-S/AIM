@@ -130,6 +130,7 @@ export type CheckRunDetail = {
   score_result: ScoreResult | null;
   comparison_result: RunComparison | null;
   artifacts: Artifact[];
+  linked_scenario_runs: ScenarioRun[];
 };
 
 export type StepResult = {

@@ -321,6 +321,32 @@ def test_get_check_run(client: TestClient) -> None:
     assert body["score_result"] is None
     assert body["comparison_result"] is None
     assert body["artifacts"] == []
+    assert body["linked_scenario_runs"] == []
+
+
+def test_get_check_run_includes_linked_scenario_runs(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=headers)
+    check_run = create_check_run(client, project["id"], headers)
+
+    response = client.get(
+        f"/projects/{project['id']}/check-runs/{check_run['id']}",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == check_run["id"]
+    assert len(body["linked_scenario_runs"]) == 1
+    linked_scenario_run = body["linked_scenario_runs"][0]
+    assert linked_scenario_run["project_id"] == project["id"]
+    assert linked_scenario_run["scenario_id"] == scenario["id"]
+    assert linked_scenario_run["check_run_id"] == check_run["id"]
+    assert linked_scenario_run["status"] == "QUEUED"
+    assert linked_scenario_run["trigger_source"] == "check_run"
+    assert linked_scenario_run["failure_reason"] is None
+    assert linked_scenario_run["duration_ms"] is None
 
 
 def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
@@ -463,6 +489,7 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
             "created_at": body["artifacts"][0]["created_at"],
         }
     ]
+    assert body["linked_scenario_runs"] == []
 
 
 def test_cancel_check_run(client: TestClient) -> None:

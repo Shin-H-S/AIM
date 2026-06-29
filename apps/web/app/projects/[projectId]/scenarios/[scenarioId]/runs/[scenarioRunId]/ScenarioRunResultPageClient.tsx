@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import {
   fetchScenarioRunDetail,
   getApiBaseUrl,
@@ -190,7 +191,7 @@ export function ScenarioRunResultPageClient({
               <TimelineCard scenarioRun={scenarioRun} />
             </section>
 
-            <StepResultsCard stepResults={scenarioRun.step_results} />
+            <StepResultsCard accessToken={trimmedToken} stepResults={scenarioRun.step_results} />
 
             <section className="grid gap-4 lg:grid-cols-2">
               <ConsoleErrorsCard consoleErrors={scenarioRun.console_errors} />
@@ -259,7 +260,13 @@ function TimelineCard({ scenarioRun }: { scenarioRun: ScenarioRunDetail }) {
   );
 }
 
-function StepResultsCard({ stepResults }: { stepResults: StepResult[] }) {
+function StepResultsCard({
+  accessToken,
+  stepResults
+}: {
+  accessToken: string;
+  stepResults: StepResult[];
+}) {
   if (stepResults.length === 0) {
     return (
       <EmptyResultCard
@@ -313,6 +320,15 @@ function StepResultsCard({ stepResults }: { stepResults: StepResult[] }) {
               <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100">
                 {stepResult.error_message}
               </p>
+            )}
+            {stepResult.failure_screenshot_artifact_id && (
+              <div className="mt-4">
+                <ArtifactDownloadButton
+                  artifactId={stepResult.failure_screenshot_artifact_id}
+                  accessToken={accessToken}
+                  label="실패 스크린샷 다운로드"
+                />
+              </div>
             )}
           </li>
         ))}

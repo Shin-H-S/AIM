@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createScenarioRun,
+  downloadArtifact,
   fetchApiHealth,
   fetchCheckRunDetail,
   fetchScenarioRunDetail,
   fetchScenarios,
   getApiBaseUrl,
   getApiHealthUrl,
+  getArtifactDownloadUrl,
   getCheckRunDetailUrl,
   getCreateScenarioRunUrl,
   getScenariosUrl,
@@ -72,6 +74,14 @@ describe("getCreateScenarioRunUrl", () => {
   });
 });
 
+describe("getArtifactDownloadUrl", () => {
+  it("builds the artifact download endpoint URL", () => {
+    expect(getArtifactDownloadUrl("artifact-id", "http://localhost:8000")).toBe(
+      "http://localhost:8000/artifacts/artifact-id/download"
+    );
+  });
+});
+
 describe("fetchApiHealth", () => {
   it("returns an available result when the API health check succeeds", async () => {
     const fetcher = vi.fn(async () =>
@@ -108,6 +118,94 @@ describe("fetchApiHealth", () => {
     });
 
     expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe("downloadArtifact", () => {
+  it("downloads an artifact blob with the authenticated request", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response("artifact-body", {
+          status: 200,
+          headers: {
+            "content-disposition": 'attachment; filename="lighthouse.json"',
+            "content-type": "application/json"
+          }
+        })
+    );
+
+    const result = await downloadArtifact({
+      artifactId: "artifact-id",
+      accessToken: "token",
+      fetcher,
+      apiBaseUrl: "http://localhost:8000"
+    });
+
+    expect(result.state).toBe("success");
+    if (result.state !== "success") {
+      throw new Error("expected artifact download to succeed");
+    }
+    await expect(result.blob.text()).resolves.toBe("artifact-body");
+    expect(result.filename).toBe("lighthouse.json");
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/artifacts/artifact-id/download",
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+  });
+
+  it("falls back to an artifact based filename", async () => {
+    const fetcher = vi.fn(async () => new Response("artifact-body", { status: 200 }));
+
+    const result = await downloadArtifact({
+      artifactId: "artifact-id",
+      accessToken: "token",
+      fetcher,
+      apiBaseUrl: "http://localhost:8000"
+    });
+
+    expect(result.state).toBe("success");
+    if (result.state !== "success") {
+      throw new Error("expected artifact download to succeed");
+    }
+    expect(result.filename).toBe("artifact-artifact-id");
+  });
+
+  it("maps artifact download error responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const notFoundFetcher = vi.fn(async () => new Response(null, { status: 404 }));
+    const conflictFetcher = vi.fn(async () => new Response(null, { status: 409 }));
+
+    await expect(
+      downloadArtifact({
+        artifactId: "artifact-id",
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      downloadArtifact({
+        artifactId: "missing-id",
+        accessToken: "token",
+        fetcher: notFoundFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+
+    await expect(
+      downloadArtifact({
+        artifactId: "remote-id",
+        accessToken: "token",
+        fetcher: conflictFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "conflict" });
   });
 });
 

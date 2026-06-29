@@ -294,6 +294,25 @@ export type CreateScenarioRunResult =
       state: "unavailable";
     };
 
+export type ArtifactDownloadResult =
+  | {
+      state: "success";
+      blob: Blob;
+      filename: string;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "conflict";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type HealthCheckResult =
   | {
       state: "loading";
@@ -367,6 +386,16 @@ export function getCreateScenarioRunUrl(
   ).toString();
 }
 
+export function getArtifactDownloadUrl(
+  artifactId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return new URL(
+    `/artifacts/${encodeURIComponent(artifactId)}/download`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
 export async function fetchApiHealth(
   fetcher: typeof fetch = fetch,
   apiBaseUrl?: string
@@ -390,6 +419,81 @@ export async function fetchApiHealth(
   } catch {
     return { state: "unavailable" };
   }
+}
+
+export async function downloadArtifact({
+  artifactId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  artifactId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<ArtifactDownloadResult> {
+  try {
+    const response = await fetcher(
+      getArtifactDownloadUrl(artifactId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (response.status === 409) {
+      return { state: "conflict" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      blob: await response.blob(),
+      filename:
+        getFilenameFromContentDisposition(response.headers.get("content-disposition")) ??
+        `artifact-${artifactId}`
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+function getFilenameFromContentDisposition(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const encodedFilenameMatch = /filename\*=UTF-8''([^;]+)/i.exec(value);
+  const encodedFilename = encodedFilenameMatch?.[1];
+  if (encodedFilename) {
+    const normalizedFilename = encodedFilename.trim().replace(/^"|"$/g, "");
+    try {
+      return decodeURIComponent(normalizedFilename);
+    } catch {
+      return normalizedFilename;
+    }
+  }
+
+  const quotedFilenameMatch = /filename="([^"]+)"/i.exec(value);
+  if (quotedFilenameMatch?.[1]) {
+    return quotedFilenameMatch[1];
+  }
+
+  const plainFilenameMatch = /filename=([^;]+)/i.exec(value);
+  return plainFilenameMatch?.[1]?.trim() ?? null;
 }
 
 export async function fetchCheckRunDetail({

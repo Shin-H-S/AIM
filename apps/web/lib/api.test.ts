@@ -3,12 +3,14 @@ import {
   createScenarioRun,
   downloadArtifact,
   fetchApiHealth,
+  fetchCheckRunAIReport,
   fetchCheckRunDetail,
   fetchScenarioRunDetail,
   fetchScenarios,
   getApiBaseUrl,
   getApiHealthUrl,
   getArtifactDownloadUrl,
+  getCheckRunAIReportUrl,
   getCheckRunDetailUrl,
   getCreateScenarioRunUrl,
   getScenariosUrl,
@@ -39,6 +41,14 @@ describe("getCheckRunDetailUrl", () => {
   it("builds the check run detail endpoint URL", () => {
     expect(getCheckRunDetailUrl("project-id", "check-run-id", "http://localhost:8000")).toBe(
       "http://localhost:8000/projects/project-id/check-runs/check-run-id"
+    );
+  });
+});
+
+describe("getCheckRunAIReportUrl", () => {
+  it("builds the check run AI report endpoint URL", () => {
+    expect(getCheckRunAIReportUrl("project-id", "check-run-id", "http://localhost:8000")).toBe(
+      "http://localhost:8000/projects/project-id/check-runs/check-run-id/ai-report"
     );
   });
 });
@@ -351,6 +361,122 @@ describe("fetchCheckRunDetail", () => {
 
     await expect(
       fetchCheckRunDetail({
+        projectId: "project-id",
+        checkRunId: "check-run-id",
+        accessToken: "token",
+        fetcher: notFoundFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("fetchCheckRunAIReport", () => {
+  it("returns an AI report detail result when the API request succeeds", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        id: "ai-report-id",
+        check_run_id: "check-run-id",
+        schema_version: "2026-06-30.ai-diagnosis-report.v1",
+        input_schema_version: "2026-06-29.ai-diagnosis-input.v1",
+        summary: "This run is risky based on collected evidence.",
+        overall_score: 55,
+        grade: "D",
+        deployment_risk: "RISK",
+        gate_reason: "Critical scenario run failed.",
+        generated_at: "2026-06-30T04:00:00Z",
+        created_at: "2026-06-30T04:00:01Z",
+        updated_at: "2026-06-30T04:00:02Z",
+        report_json: {
+          schema_version: "2026-06-30.ai-diagnosis-report.v1",
+          input_schema_version: "2026-06-29.ai-diagnosis-input.v1",
+          project_id: "project-id",
+          check_run_id: "check-run-id",
+          generated_at: "2026-06-30T04:00:00Z",
+          summary: "This run is risky based on collected evidence.",
+          score: {
+            overall_score: 55,
+            grade: "D",
+            deployment_risk: "RISK",
+            gate_reason: "Critical scenario run failed.",
+            evidence_ids: ["score-result"]
+          },
+          top_issues: [
+            {
+              id: "functional-risk",
+              priority: 1,
+              title: "Critical user flow failed",
+              statement_type: "confirmed_observation",
+              severity: "risk",
+              category: "functional_stability",
+              summary: "The linked login scenario failed.",
+              evidence_ids: ["scenario-run"],
+              expected_user_impact: "Users may be blocked from logging in.",
+              recommended_next_action: "Inspect the failed step and screenshot evidence.",
+              unknown_reason: null
+            }
+          ],
+          improved_areas: [],
+          regressed_areas: [
+            {
+              id: "overall_score-regressed",
+              category: "regression",
+              summary: "Overall score regressed by 20 compared with the baseline.",
+              evidence_ids: ["run-comparison"],
+              metric_name: "overall_score",
+              previous_value: 75,
+              current_value: 55,
+              delta: -20
+            }
+          ],
+          generation_warnings: []
+        }
+      })
+    );
+
+    const result = await fetchCheckRunAIReport({
+      projectId: "project-id",
+      checkRunId: "check-run-id",
+      accessToken: "token",
+      fetcher,
+      apiBaseUrl: "http://localhost:8000"
+    });
+
+    expect(result.state).toBe("success");
+    if (result.state !== "success") {
+      throw new Error("expected AI report fetch to succeed");
+    }
+    expect(result.report.report_json.top_issues[0].statement_type).toBe(
+      "confirmed_observation"
+    );
+    expect(result.report.report_json.regressed_areas[0].metric_name).toBe("overall_score");
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/check-runs/check-run-id/ai-report",
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+  });
+
+  it("maps AI report authentication and missing-resource responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const notFoundFetcher = vi.fn(async () => new Response(null, { status: 404 }));
+
+    await expect(
+      fetchCheckRunAIReport({
+        projectId: "project-id",
+        checkRunId: "check-run-id",
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      fetchCheckRunAIReport({
         projectId: "project-id",
         checkRunId: "check-run-id",
         accessToken: "token",

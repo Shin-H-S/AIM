@@ -2,7 +2,7 @@
 
 AIM은 등록된 웹 서비스의 가용성, 품질, 핵심 사용자 흐름을 검사하고 이전 실행과 비교하여 배포 위험을 판단하도록 돕는 AI 기반 품질 평가·모니터링 플랫폼입니다.
 
-현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 기본 인증 API, SSRF-safe URL 검증과 HTML meta-tag 도메인 소유권 확인을 포함한 사용자별 프로젝트 CRUD API, CheckRun 도메인 모델, Redis/Celery 기반 스캔 큐, HTTP availability scanner, SSL inspection, Lighthouse worker, 정규화된 scanner result 저장, 로컬 artifact metadata 저장 및 다운로드 API, 결과 화면 artifact 다운로드 버튼, 결정론적 score/risk 계산, 직전 run 비교, Playwright 시나리오 정의 API, ScenarioRun/StepResult 저장 기반, CheckRun-linked ScenarioRun 실패 요약과 결과 표시, Playwright step action executor, console/network failure evidence 저장 및 요약 표시, 실패 스텝 screenshot artifact 저장 및 미리보기, ScenarioRun 기반 functional stability score 반영, AI diagnosis input 스키마와 builder 서비스, AI diagnosis report output 스키마와 deterministic report generator 서비스, AIReport 저장 모델·마이그레이션·저장·조회 API, CheckRun 상세 AIReport 요약 응답이 포함되어 있습니다.
+현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 기본 인증 API, SSRF-safe URL 검증과 HTML meta-tag 도메인 소유권 확인을 포함한 사용자별 프로젝트 CRUD API, CheckRun 도메인 모델, Redis/Celery 기반 스캔 큐, HTTP availability scanner, SSL inspection, Lighthouse worker, 정규화된 scanner result 저장, 로컬 artifact metadata 저장 및 다운로드 API, 결과 화면 artifact 다운로드 버튼, 결정론적 score/risk 계산, 직전 run 비교, Playwright 시나리오 정의 API, ScenarioRun/StepResult 저장 기반, CheckRun-linked ScenarioRun 실패 요약과 결과 표시, Playwright step action executor, console/network failure evidence 저장 및 요약 표시, 실패 스텝 screenshot artifact 저장 및 미리보기, ScenarioRun 기반 functional stability score 반영, AI diagnosis input 스키마와 builder 서비스, AI diagnosis report output 스키마와 deterministic report generator 서비스, AIReport 저장 모델·마이그레이션·저장·조회 API, CheckRun 상세 AIReport 요약 응답, worker 기반 AIReport 자동 생성·갱신이 포함되어 있습니다.
 
 ## MVP 방향
 
@@ -95,7 +95,7 @@ uv run playwright install chromium
 uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
 ```
 
-현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 스캔 대상 URL과 redirect destination은 요청 전마다 SSRF-safe 검증을 수행하며, timeout과 response size 제한을 적용합니다. HTTP scan, SSL inspection, Lighthouse metric 결과는 정규화된 DB 레코드로 저장되며, Lighthouse raw JSON은 로컬 artifact 파일로 저장한 뒤 DB에는 metadata와 storage path만 기록합니다. CheckRun 생성 시 active scenario에 대한 linked ScenarioRun을 함께 만들고, 애플리케이션 로직이 scanner 결과와 해당 CheckRun에 연결된 terminal ScenarioRun 결과를 기준으로 score와 deployment risk를 계산합니다. 연결된 ScenarioRun이 없던 기존 run은 같은 프로젝트의 최신 terminal ScenarioRun을 fallback으로 사용합니다. 같은 프로젝트의 직전 terminal check run과 주요 지표를 비교합니다. Playwright 시나리오는 API로 정의·저장하고 ScenarioRun을 큐에 등록할 수 있으며, worker는 저장된 step을 브라우저에서 실행해 StepResult, console error, failed network request, 실패 screenshot artifact metadata를 기록합니다. 단건 CheckRun 및 ScenarioRun 조회 API에서 polling할 수 있습니다.
+현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 스캔 대상 URL과 redirect destination은 요청 전마다 SSRF-safe 검증을 수행하며, timeout과 response size 제한을 적용합니다. HTTP scan, SSL inspection, Lighthouse metric 결과는 정규화된 DB 레코드로 저장되며, Lighthouse raw JSON은 로컬 artifact 파일로 저장한 뒤 DB에는 metadata와 storage path만 기록합니다. CheckRun 생성 시 active scenario에 대한 linked ScenarioRun을 함께 만들고, 애플리케이션 로직이 scanner 결과와 해당 CheckRun에 연결된 terminal ScenarioRun 결과를 기준으로 score와 deployment risk를 계산합니다. 연결된 ScenarioRun이 없던 기존 run은 같은 프로젝트의 최신 terminal ScenarioRun을 fallback으로 사용합니다. 같은 프로젝트의 직전 terminal check run과 주요 지표를 비교합니다. CheckRun이 terminal 상태가 되면 worker가 AIReport를 자동 생성하고, linked ScenarioRun 완료로 score가 갱신되면 AIReport도 다시 갱신합니다. Playwright 시나리오는 API로 정의·저장하고 ScenarioRun을 큐에 등록할 수 있으며, worker는 저장된 step을 브라우저에서 실행해 StepResult, console error, failed network request, 실패 screenshot artifact metadata를 기록합니다. 단건 CheckRun 및 ScenarioRun 조회 API에서 polling할 수 있습니다.
 
 ## API 검증
 
@@ -117,6 +117,6 @@ corepack pnpm web:build
 
 ## 개발 순서
 
-1. Worker에서 CheckRun 완료 후 AIReport 생성·저장 연결
-2. 웹 CheckRun 결과 화면에 AIReport 요약 표시
-3. AIReport 상세 화면 또는 상세 패널 연결
+1. 웹 CheckRun 결과 화면에 AIReport 요약 표시
+2. AIReport 상세 화면 또는 상세 패널 연결
+3. AIReport 생성 실패 재시도 작업 분리

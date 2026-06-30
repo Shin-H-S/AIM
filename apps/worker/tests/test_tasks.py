@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from aim_api.database import Base
+from aim_api.models.ai_report import AIReport
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.models.scanner_result import (
@@ -25,6 +26,7 @@ from aim_api.models.scenario import (
     TestStep,
 )
 from aim_api.models.user import User
+from aim_api.services import ai_reports as ai_report_service
 from aim_api.services import scanner_results, score_results
 from aim_worker import tasks
 from aim_worker.artifacts import StoredArtifact
@@ -378,6 +380,12 @@ def test_run_check_run_completes_when_availability_scan_succeeds(
     assert score_result.grade == "A"
     assert score_result.deployment_risk == "STABLE"
     assert session.scalars(select(RunComparison)).all() == []
+    ai_report = session.scalars(select(AIReport)).one()
+    assert ai_report.check_run_id == check_run.id
+    assert ai_report.overall_score == 95
+    assert ai_report.grade == "A"
+    assert ai_report.deployment_risk == "STABLE"
+    assert ai_report.report_json["check_run_id"] == str(check_run.id)
 
 
 def test_run_check_run_records_previous_run_comparison(
@@ -418,6 +426,35 @@ def test_run_check_run_records_previous_run_comparison(
     assert comparison.deployment_risk_changed is False
 
 
+def test_run_check_run_keeps_completed_status_when_ai_report_generation_fails(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check_run = create_check_run(session, status=CheckRunStatus.QUEUED)
+
+    def fake_scan(service_url: str) -> AvailabilityScanResult:
+        return available_result(service_url)
+
+    def fail_generate_ai_report(*, session: Session, check_run_id: UUID) -> None:
+        _ = session, check_run_id
+        raise RuntimeError("AI provider unavailable")
+
+    monkeypatch.setattr(tasks, "scan_http_availability", fake_scan)
+    monkeypatch.setattr(
+        ai_report_service,
+        "generate_and_record_ai_report",
+        fail_generate_ai_report,
+    )
+
+    tasks.run_check_run.run(str(check_run.id))
+
+    session.refresh(check_run)
+    assert check_run.status == CheckRunStatus.COMPLETED.value
+    assert check_run.failure_reason is None
+    assert session.scalars(select(ScoreResult)).one().check_run_id == check_run.id
+    assert session.scalars(select(AIReport)).all() == []
+
+
 def test_run_check_run_fails_when_lighthouse_scan_fails(
     session: Session,
     monkeypatch: pytest.MonkeyPatch,
@@ -448,6 +485,12 @@ def test_run_check_run_fails_when_lighthouse_scan_fails(
     assert score_result.grade == "F"
     assert score_result.deployment_risk == "RISK"
     assert score_result.gate_reason == "Lighthouse CLI failed."
+    ai_report = session.scalars(select(AIReport)).one()
+    assert ai_report.check_run_id == check_run.id
+    assert ai_report.overall_score == 42
+    assert ai_report.grade == "F"
+    assert ai_report.deployment_risk == "RISK"
+    assert ai_report.gate_reason == "Lighthouse CLI failed."
 
 
 def test_run_check_run_records_unexpected_artifact_storage_failure(
@@ -513,6 +556,10 @@ def test_run_check_run_fails_when_ssl_inspection_fails(
     assert score_result.deployment_risk == "RISK"
     assert score_result.grade == "D"
     assert score_result.gate_reason == "SSL certificate is expired."
+    ai_report = session.scalars(select(AIReport)).one()
+    assert ai_report.check_run_id == check_run.id
+    assert ai_report.deployment_risk == "RISK"
+    assert ai_report.gate_reason == "SSL certificate is expired."
 
 
 def test_run_check_run_fails_when_availability_scan_fails(
@@ -541,6 +588,11 @@ def test_run_check_run_fails_when_availability_scan_fails(
     assert score_result.overall_score == 0
     assert score_result.grade == "F"
     assert score_result.deployment_risk == "RISK"
+    ai_report = session.scalars(select(AIReport)).one()
+    assert ai_report.check_run_id == check_run.id
+    assert ai_report.overall_score == 0
+    assert ai_report.grade == "F"
+    assert ai_report.deployment_risk == "RISK"
 
 
 def test_run_check_run_does_not_override_cancelled_run(session: Session) -> None:
@@ -747,6 +799,11 @@ def test_run_scenario_run_refreshes_linked_check_run_score(
     assert score_result.deployment_risk == "RISK"
     assert score_result.grade == "F"
     assert score_result.gate_reason == "Expected element was not found."
+    ai_report = session.scalars(select(AIReport)).one()
+    assert ai_report.check_run_id == check_run.id
+    assert ai_report.deployment_risk == "RISK"
+    assert ai_report.grade == "F"
+    assert ai_report.gate_reason == "Expected element was not found."
 
 
 def test_run_scenario_run_records_unexpected_runner_failure(

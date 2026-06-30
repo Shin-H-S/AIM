@@ -200,11 +200,11 @@ Artifact 파일은 `GET /artifacts/{artifact_id}/download`에서 다운로드할
 
 현재는 `ARTIFACT_STORAGE_BACKEND=local`만 다운로드를 지원합니다. artifact metadata가 현재 사용자에게 속하지 않거나, 파일이 없거나, 저장 경로가 `ARTIFACT_LOCAL_ROOT` 밖으로 벗어나면 `404`와 `{"detail": "Artifact not found."}`를 반환합니다. local 이외의 storage backend는 `409`와 `{"detail": "Artifact storage backend is not downloadable."}`를 반환합니다.
 
-## AI diagnosis input schema
+## AI diagnosis input
 
-현재 API에는 AI diagnosis 실행 엔드포인트나 LLM 호출이 없습니다. 대신 후속 서비스가 사용할 `AIDiagnosisInput` Pydantic 스키마 초안을 제공합니다.
+현재 API에는 AI diagnosis 실행 엔드포인트나 LLM 호출이 없습니다. 대신 후속 서비스가 사용할 `AIDiagnosisInput` Pydantic 스키마와 저장된 CheckRun 결과를 이 스키마로 조립하는 builder 서비스를 제공합니다.
 
-이 스키마는 CheckRun 결과, score/risk, 비교 결과, ScenarioRun evidence, artifact metadata, AI에 전달할 evidence item과 statement를 하나의 입력 계약으로 묶습니다. confirmed observation과 evidence-based inference는 evidence id를 반드시 참조해야 하며, unknown cause statement는 원인을 알 수 없는 이유를 포함해야 합니다.
+`aim_api.services.ai_diagnosis_inputs.build_ai_diagnosis_input`은 CheckRun 결과, score/risk, 비교 결과, ScenarioRun evidence, artifact metadata, AI에 전달할 evidence item과 statement를 하나의 입력 계약으로 묶습니다. confirmed observation과 evidence-based inference는 evidence id를 반드시 참조해야 하며, unknown cause statement는 원인을 알 수 없는 이유를 포함해야 합니다.
 
 자세한 설계 의도는 [AI diagnosis input architecture](../../docs/architecture/ai-diagnosis-input.md)를 참고합니다.
 

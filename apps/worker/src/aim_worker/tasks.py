@@ -5,6 +5,7 @@ from aim_api.database import SessionLocal
 from aim_api.models.check_run import CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus
+from aim_api.services import ai_reports as ai_report_service
 from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import run_comparisons as run_comparison_service
@@ -24,6 +25,7 @@ from aim_worker.ssl_inspection import inspect_ssl_certificate
 SCAN_WORKER_FAILED_REASON = "Scan worker failed."
 CHECK_RUN_PROJECT_NOT_FOUND_REASON = "Project for check run was not found."
 SCENARIO_WORKER_FAILED_REASON = "Scenario worker failed."
+AI_REPORT_GENERATION_FAILED_MESSAGE = "Failed to generate AI report for check run."
 logger = logging.getLogger(__name__)
 
 
@@ -43,6 +45,34 @@ def store_failure_screenshot_artifact(
         content_type="image/png",
         payload=payload,
     )
+
+
+def generate_ai_report_for_terminal_check_run(session: Session, *, check_run_id: UUID) -> None:
+    try:
+        check_run = check_run_service.get_check_run_by_id(
+            session,
+            check_run_id=check_run_id,
+        )
+    except check_run_service.CheckRunNotFoundError:
+        return
+
+    if check_run.status not in {
+        CheckRunStatus.COMPLETED.value,
+        CheckRunStatus.FAILED.value,
+    }:
+        return
+
+    try:
+        ai_report_service.generate_and_record_ai_report(
+            session,
+            check_run_id=check_run_id,
+        )
+    except Exception:
+        session.rollback()
+        logger.exception(
+            AI_REPORT_GENERATION_FAILED_MESSAGE,
+            extra={"check_run_id": str(check_run_id)},
+        )
 
 
 def refresh_linked_check_run_score(session: Session, *, scenario_run: ScenarioRun) -> None:
@@ -91,6 +121,7 @@ def refresh_linked_check_run_score(session: Session, *, scenario_run: ScenarioRu
         current_availability_result=availability_result,
         current_lighthouse_result=lighthouse_result,
     )
+    generate_ai_report_for_terminal_check_run(session, check_run_id=check_run.id)
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]
@@ -299,6 +330,10 @@ def run_check_run(check_run_id: str) -> None:
                     check_run_id=parsed_check_run_id,
                     failure_reason=ssl_result.failure_reason or "SSL certificate is invalid.",
                 )
+                generate_ai_report_for_terminal_check_run(
+                    session,
+                    check_run_id=parsed_check_run_id,
+                )
                 return
 
             check_run_service.mark_check_run_analyzing(
@@ -373,9 +408,17 @@ def run_check_run(check_run_id: str) -> None:
                     check_run_id=parsed_check_run_id,
                     failure_reason=lighthouse_result.failure_reason or "Lighthouse scan failed.",
                 )
+                generate_ai_report_for_terminal_check_run(
+                    session,
+                    check_run_id=parsed_check_run_id,
+                )
                 return
 
             check_run_service.mark_check_run_completed(
+                session,
+                check_run_id=parsed_check_run_id,
+            )
+            generate_ai_report_for_terminal_check_run(
                 session,
                 check_run_id=parsed_check_run_id,
             )
@@ -401,4 +444,8 @@ def run_check_run(check_run_id: str) -> None:
             session,
             check_run_id=parsed_check_run_id,
             failure_reason=failure_reason,
+        )
+        generate_ai_report_for_terminal_check_run(
+            session,
+            check_run_id=parsed_check_run_id,
         )

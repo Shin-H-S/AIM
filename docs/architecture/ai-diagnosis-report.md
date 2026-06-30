@@ -2,7 +2,7 @@
 
 AIM의 AI diagnosis report는 `AIDiagnosisInput`에 포함된 결정론적 scan 결과와 evidence를 사용자가 읽을 수 있는 요약으로 바꾸는 출력 계약입니다.
 
-현재 구현된 범위는 `AIDiagnosisReport` Pydantic 스키마, `build_ai_diagnosis_report` deterministic generator 서비스, AIReport SQLAlchemy 저장 모델, Alembic 마이그레이션, AIReport 저장 서비스, CheckRun별 AIReport 조회 API, CheckRun 상세 응답의 AIReport 요약 필드입니다. LLM 호출과 화면 표시는 아직 포함하지 않습니다.
+현재 구현된 범위는 `AIDiagnosisReport` Pydantic 스키마, `build_ai_diagnosis_report` deterministic generator 서비스, AIReport SQLAlchemy 저장 모델, Alembic 마이그레이션, AIReport 저장 서비스, CheckRun별 AIReport 조회 API, CheckRun 상세 응답의 AIReport 요약 필드, worker 기반 AIReport 자동 생성·갱신입니다. LLM 호출과 화면 표시는 아직 포함하지 않습니다.
 
 Report는 다음 정보를 포함합니다.
 
@@ -54,8 +54,10 @@ AIReport 저장 모델은 CheckRun당 하나의 report만 저장하도록 `check
 
 `aim_api.services.ai_reports.generate_and_record_ai_report`는 CheckRun id를 받아 `AIDiagnosisInput` 생성, deterministic report 생성, `ai_reports` 저장까지 수행합니다. 같은 CheckRun에 report가 이미 있으면 기존 row를 업데이트합니다.
 
+Worker는 CheckRun이 `COMPLETED` 또는 `FAILED` 상태가 된 뒤 AIReport 생성을 시도합니다. linked ScenarioRun이 나중에 끝나 score와 comparison이 다시 계산되면 원본 CheckRun이 terminal 상태일 때 AIReport도 다시 생성해 갱신합니다. AIReport 생성 실패는 scan 결과를 실패로 바꾸지 않으며, worker는 rollback 후 structured log만 남깁니다. 별도 재시도 task는 후속 작업에서 분리합니다.
+
 `GET /projects/{project_id}/check-runs/{check_run_id}/ai-report`는 저장된 AIReport를 사용자에게 반환합니다. 이 API는 Bearer token 인증과 프로젝트 소유권 검사를 거치며, 다른 사용자의 프로젝트 또는 CheckRun에 속한 report를 노출하지 않습니다.
 
 `GET /projects/{project_id}/check-runs/{check_run_id}`는 결과 화면 polling에 필요한 compact `ai_report` 요약을 함께 반환합니다. 이 요약에는 `summary`, `overall_score`, `grade`, `deployment_risk`, `gate_reason`, 생성 시각 등 화면 상단에 필요한 필드만 포함하고 전체 `report_json` payload는 포함하지 않습니다.
 
-후속 작업에서는 Worker에서 CheckRun 완료 후 AIReport를 자동 생성·저장하도록 연결합니다.
+후속 작업에서는 웹 CheckRun 결과 화면에 AIReport 요약을 표시합니다.

@@ -108,6 +108,21 @@ class RunComparisonRead(BaseModel):
     updated_at: datetime
 
 
+class AIReportSummaryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    check_run_id: UUID
+    summary: str
+    overall_score: int
+    grade: str
+    deployment_risk: str
+    gate_reason: str | None
+    generated_at: datetime
+    created_at: datetime
+    updated_at: datetime
+
+
 class CheckRunRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -130,5 +145,6 @@ class CheckRunDetailRead(CheckRunRead):
     lighthouse_result: LighthouseResultRead | None
     score_result: ScoreResultRead | None
     comparison_result: RunComparisonRead | None
+    ai_report: AIReportSummaryRead | None
     artifacts: list[ArtifactRead]
     linked_scenario_runs: list[ScenarioRunRead]

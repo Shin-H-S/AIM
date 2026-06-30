@@ -360,8 +360,39 @@ def test_get_check_run(client: TestClient) -> None:
     assert body["lighthouse_result"] is None
     assert body["score_result"] is None
     assert body["comparison_result"] is None
+    assert body["ai_report"] is None
     assert body["artifacts"] == []
     assert body["linked_scenario_runs"] == []
+
+
+def test_get_check_run_includes_ai_report_summary(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+    check_run = create_check_run(client, project["id"], headers)
+    record_ai_report_for_check_run(check_run["id"])
+
+    response = client.get(
+        f"/projects/{project['id']}/check-runs/{check_run['id']}",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == check_run["id"]
+    assert body["ai_report"] == {
+        "id": body["ai_report"]["id"],
+        "check_run_id": check_run["id"],
+        "summary": "This run is marked as RISK.",
+        "overall_score": 55,
+        "grade": "D",
+        "deployment_risk": "RISK",
+        "gate_reason": "Critical scenario run failed.",
+        "generated_at": "2026-06-30T04:00:00",
+        "created_at": body["ai_report"]["created_at"],
+        "updated_at": body["ai_report"]["updated_at"],
+    }
+    assert UUID(body["ai_report"]["id"])
+    assert "report_json" not in body["ai_report"]
 
 
 def test_get_check_run_includes_linked_scenario_runs(client: TestClient) -> None:
@@ -529,6 +560,7 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
             "created_at": body["artifacts"][0]["created_at"],
         }
     ]
+    assert body["ai_report"] is None
     assert body["linked_scenario_runs"] == []
 
 

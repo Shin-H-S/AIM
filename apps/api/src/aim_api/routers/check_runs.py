@@ -9,6 +9,7 @@ from aim_api.dependencies import get_current_user
 from aim_api.models.user import User
 from aim_api.schemas.ai_diagnosis import AIReportRead
 from aim_api.schemas.check_run import (
+    AIReportSummaryRead,
     ArtifactRead,
     AvailabilityResultRead,
     CheckRunCreate,
@@ -219,6 +220,10 @@ def get_check_run(
         session,
         check_run_id=check_run.id,
     )
+    ai_report = ai_report_service.get_ai_report_or_none(
+        session,
+        check_run_id=check_run.id,
+    )
     linked_scenario_runs = scenario_service.list_scenario_runs_for_check_run(
         session,
         check_run_id=check_run.id,
@@ -239,6 +244,7 @@ def get_check_run(
         comparison_result=RunComparisonRead.model_validate(comparison_result)
         if comparison_result is not None
         else None,
+        ai_report=AIReportSummaryRead.model_validate(ai_report) if ai_report is not None else None,
         artifacts=[ArtifactRead.model_validate(artifact) for artifact in artifacts],
         linked_scenario_runs=[
             ScenarioRunRead.model_validate(scenario_run) for scenario_run in linked_scenario_runs

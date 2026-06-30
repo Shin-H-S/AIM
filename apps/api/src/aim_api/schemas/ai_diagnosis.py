@@ -22,6 +22,7 @@ from aim_api.schemas.scenario import (
 )
 
 AI_DIAGNOSIS_INPUT_SCHEMA_VERSION: Final = "2026-06-29.ai-diagnosis-input.v1"
+AI_DIAGNOSIS_REPORT_SCHEMA_VERSION: Final = "2026-06-30.ai-diagnosis-report.v1"
 
 DEFAULT_GENERATION_RULES: Final[tuple[str, ...]] = (
     "Use deterministic score_result as the authoritative score and deployment risk.",
@@ -55,6 +56,12 @@ class AIDiagnosisSeverity(StrEnum):
     INFO = "info"
     WARNING = "warning"
     RISK = "risk"
+
+
+class AIDiagnosisDeploymentRisk(StrEnum):
+    STABLE = "STABLE"
+    WARNING = "WARNING"
+    RISK = "RISK"
 
 
 class AIDiagnosisStatementType(StrEnum):
@@ -123,3 +130,81 @@ class AIDiagnosisInput(AIDiagnosisBaseModel):
     evidence_items: list[AIDiagnosisEvidenceItem] = Field(default_factory=list)
     statements: list[AIDiagnosisStatement] = Field(default_factory=list)
     generation_rules: list[str] = Field(default_factory=lambda: list(DEFAULT_GENERATION_RULES))
+
+
+class AIDiagnosisReportScore(AIDiagnosisBaseModel):
+    overall_score: int = Field(ge=0, le=100)
+    grade: Literal["A", "B", "C", "D", "F"]
+    deployment_risk: AIDiagnosisDeploymentRisk
+    gate_reason: str | None = Field(default=None, max_length=1000)
+    evidence_ids: list[str] = Field(min_length=1, max_length=20)
+
+
+class AIDiagnosisReportIssue(AIDiagnosisBaseModel):
+    id: str = Field(min_length=1, max_length=120)
+    priority: int = Field(ge=1, le=20)
+    title: str = Field(min_length=1, max_length=200)
+    statement_type: AIDiagnosisStatementType
+    severity: AIDiagnosisSeverity
+    category: str = Field(min_length=1, max_length=80)
+    summary: str = Field(min_length=1, max_length=2000)
+    evidence_ids: list[str] = Field(default_factory=list, max_length=20)
+    expected_user_impact: str = Field(min_length=1, max_length=2000)
+    recommended_next_action: str = Field(min_length=1, max_length=2000)
+    unknown_reason: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def validate_evidence_and_unknown_reason(self) -> Self:
+        if self.statement_type != AIDiagnosisStatementType.UNKNOWN_CAUSE and not self.evidence_ids:
+            raise ValueError(
+                "Report issues based on observations or inferences must reference evidence."
+            )
+
+        if (
+            self.statement_type == AIDiagnosisStatementType.UNKNOWN_CAUSE
+            and self.unknown_reason is None
+        ):
+            raise ValueError("Unknown-cause report issues must explain why the cause is unknown.")
+
+        return self
+
+
+class AIDiagnosisReportChange(AIDiagnosisBaseModel):
+    id: str = Field(min_length=1, max_length=120)
+    category: str = Field(min_length=1, max_length=80)
+    summary: str = Field(min_length=1, max_length=2000)
+    evidence_ids: list[str] = Field(min_length=1, max_length=20)
+    metric_name: str | None = Field(default=None, max_length=120)
+    previous_value: str | int | float | bool | None = None
+    current_value: str | int | float | bool | None = None
+    delta: str | int | float | bool | None = None
+
+
+class AIDiagnosisReport(AIDiagnosisBaseModel):
+    schema_version: Literal["2026-06-30.ai-diagnosis-report.v1"] = (
+        AI_DIAGNOSIS_REPORT_SCHEMA_VERSION
+    )
+    input_schema_version: str = Field(default=AI_DIAGNOSIS_INPUT_SCHEMA_VERSION, max_length=80)
+    project_id: UUID
+    check_run_id: UUID
+    generated_at: datetime
+    summary: str = Field(min_length=1, max_length=2000)
+    score: AIDiagnosisReportScore
+    top_issues: list[AIDiagnosisReportIssue] = Field(default_factory=list, max_length=20)
+    improved_areas: list[AIDiagnosisReportChange] = Field(default_factory=list, max_length=20)
+    regressed_areas: list[AIDiagnosisReportChange] = Field(default_factory=list, max_length=20)
+    generation_warnings: list[str] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def validate_report_consistency(self) -> Self:
+        priorities = [issue.priority for issue in self.top_issues]
+        if len(priorities) != len(set(priorities)):
+            raise ValueError("Top issue priorities must be unique.")
+
+        if priorities != sorted(priorities):
+            raise ValueError("Top issues must be ordered by priority.")
+
+        if self.score.deployment_risk != AIDiagnosisDeploymentRisk.STABLE and not self.top_issues:
+            raise ValueError("WARNING or RISK reports must include at least one top issue.")
+
+        return self

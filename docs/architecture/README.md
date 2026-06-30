@@ -7,3 +7,4 @@ AIM의 시스템 구조, 주요 데이터 흐름, 보안 경계와 운영 방식
 ## 문서
 
 - [AI diagnosis input](ai-diagnosis-input.md)
+- [AI diagnosis report](ai-diagnosis-report.md)

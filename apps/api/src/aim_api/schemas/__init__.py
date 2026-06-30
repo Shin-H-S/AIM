@@ -1,4 +1,4 @@
-from aim_api.schemas.ai_diagnosis import AIDiagnosisInput
+from aim_api.schemas.ai_diagnosis import AIDiagnosisInput, AIDiagnosisReport
 from aim_api.schemas.auth import AccessToken, UserCreate, UserLogin, UserRead
 from aim_api.schemas.check_run import CheckRunCreate, CheckRunRead
 from aim_api.schemas.project import (
@@ -13,6 +13,7 @@ from aim_api.schemas.project import (
 __all__ = [
     "AccessToken",
     "AIDiagnosisInput",
+    "AIDiagnosisReport",
     "CheckRunCreate",
     "CheckRunRead",
     "ProjectCreate",

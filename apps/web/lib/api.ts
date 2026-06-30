@@ -125,6 +125,66 @@ export type AIReportSummary = {
   updated_at: string;
 };
 
+export type AIReportStatementType =
+  | "confirmed_observation"
+  | "evidence_based_inference"
+  | "unknown_cause";
+
+export type AIReportSeverity = "info" | "warning" | "risk";
+
+export type AIReportScore = {
+  overall_score: number;
+  grade: "A" | "B" | "C" | "D" | "F";
+  deployment_risk: "STABLE" | "WARNING" | "RISK";
+  gate_reason: string | null;
+  evidence_ids: string[];
+};
+
+export type AIReportIssue = {
+  id: string;
+  priority: number;
+  title: string;
+  statement_type: AIReportStatementType;
+  severity: AIReportSeverity;
+  category: string;
+  summary: string;
+  evidence_ids: string[];
+  expected_user_impact: string;
+  recommended_next_action: string;
+  unknown_reason: string | null;
+};
+
+export type AIReportChange = {
+  id: string;
+  category: string;
+  summary: string;
+  evidence_ids: string[];
+  metric_name: string | null;
+  previous_value: string | number | boolean | null;
+  current_value: string | number | boolean | null;
+  delta: string | number | boolean | null;
+};
+
+export type AIReportPayload = {
+  schema_version: string;
+  input_schema_version: string;
+  project_id: string;
+  check_run_id: string;
+  generated_at: string;
+  summary: string;
+  score: AIReportScore;
+  top_issues: AIReportIssue[];
+  improved_areas: AIReportChange[];
+  regressed_areas: AIReportChange[];
+  generation_warnings: string[];
+};
+
+export type AIReportDetail = AIReportSummary & {
+  schema_version: string;
+  input_schema_version: string;
+  report_json: AIReportPayload;
+};
+
 export type CheckRunDetail = {
   id: string;
   project_id: string;
@@ -261,6 +321,21 @@ export type CheckRunDetailResult =
       state: "unavailable";
     };
 
+export type AIReportDetailResult =
+  | {
+      state: "success";
+      report: AIReportDetail;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type ScenarioRunDetailResult =
   | {
       state: "success";
@@ -363,6 +438,19 @@ export function getCheckRunDetailUrl(
 ): string {
   return new URL(
     `/projects/${encodeURIComponent(projectId)}/check-runs/${encodeURIComponent(checkRunId)}`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export function getCheckRunAIReportUrl(
+  projectId: string,
+  checkRunId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/check-runs/${encodeURIComponent(
+      checkRunId
+    )}/ai-report`,
     getApiBaseUrl(apiBaseUrl)
   ).toString();
 }
@@ -550,6 +638,51 @@ export async function fetchCheckRunDetail({
     return {
       state: "success",
       checkRun: (await response.json()) as CheckRunDetail
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchCheckRunAIReport({
+  projectId,
+  checkRunId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  checkRunId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<AIReportDetailResult> {
+  try {
+    const response = await fetcher(
+      getCheckRunAIReportUrl(projectId, checkRunId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      report: (await response.json()) as AIReportDetail
     };
   } catch {
     return { state: "unavailable" };

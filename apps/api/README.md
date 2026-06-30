@@ -206,7 +206,7 @@ Artifact 파일은 `GET /artifacts/{artifact_id}/download`에서 다운로드할
 
 `aim_api.services.ai_diagnosis_inputs.build_ai_diagnosis_input`은 CheckRun 결과, score/risk, 비교 결과, ScenarioRun evidence, artifact metadata, AI에 전달할 evidence item과 statement를 하나의 입력 계약으로 묶습니다. confirmed observation과 evidence-based inference는 evidence id를 반드시 참조해야 하며, unknown cause statement는 원인을 알 수 없는 이유를 포함해야 합니다.
 
-또한 `AIDiagnosisReport` output 스키마 초안을 제공합니다. Report는 결정론적 score/risk를 authoritative summary로 포함하고, top issue, improved area, regressed area가 입력 evidence id를 참조하도록 제한합니다. `WARNING` 또는 `RISK` report는 최소 1개의 top issue를 포함해야 합니다.
+또한 `AIDiagnosisReport` output 스키마와 `aim_api.services.ai_diagnosis_reports.build_ai_diagnosis_report` deterministic generator 서비스를 제공합니다. Report는 결정론적 score/risk를 authoritative summary로 포함하고, top issue, improved area, regressed area가 입력 evidence id를 참조하도록 제한합니다. `WARNING` 또는 `RISK` report는 최소 1개의 top issue를 포함해야 합니다. Generator는 `score_result`가 없거나 score evidence가 없으면 report를 생성하지 않습니다.
 
 자세한 설계 의도는 [AI diagnosis input architecture](../../docs/architecture/ai-diagnosis-input.md)와 [AI diagnosis report architecture](../../docs/architecture/ai-diagnosis-report.md)를 참고합니다.
 

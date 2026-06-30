@@ -2,7 +2,7 @@
 
 AIM의 AI diagnosis report는 `AIDiagnosisInput`에 포함된 결정론적 scan 결과와 evidence를 사용자가 읽을 수 있는 요약으로 바꾸는 출력 계약입니다.
 
-현재 구현된 범위는 `AIDiagnosisReport` Pydantic 스키마, `build_ai_diagnosis_report` deterministic generator 서비스, AIReport SQLAlchemy 저장 모델과 Alembic 마이그레이션입니다. LLM 호출, 자동 저장 서비스, API 응답 모델, 화면 표시는 아직 포함하지 않습니다.
+현재 구현된 범위는 `AIDiagnosisReport` Pydantic 스키마, `build_ai_diagnosis_report` deterministic generator 서비스, AIReport SQLAlchemy 저장 모델, Alembic 마이그레이션, AIReport 저장 서비스입니다. LLM 호출, API 응답 모델, 화면 표시는 아직 포함하지 않습니다.
 
 Report는 다음 정보를 포함합니다.
 
@@ -52,4 +52,6 @@ Report는 다음 정보를 포함합니다.
 
 AIReport 저장 모델은 CheckRun당 하나의 report만 저장하도록 `check_run_id`에 unique index를 둡니다. 전체 report는 JSON payload로 보존하되, 목록/상세 조회에서 자주 필요한 score와 deployment risk는 별도 컬럼으로 둡니다.
 
-후속 작업에서는 생성된 `AIDiagnosisReport`를 `ai_reports` 테이블에 기록하는 저장 서비스를 추가합니다.
+`aim_api.services.ai_reports.generate_and_record_ai_report`는 CheckRun id를 받아 `AIDiagnosisInput` 생성, deterministic report 생성, `ai_reports` 저장까지 수행합니다. 같은 CheckRun에 report가 이미 있으면 기존 row를 업데이트합니다.
+
+후속 작업에서는 저장된 AIReport를 사용자에게 반환하는 조회 API를 추가합니다.

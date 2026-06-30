@@ -2,7 +2,7 @@
 
 AIM은 등록된 웹 서비스의 가용성, 품질, 핵심 사용자 흐름을 검사하고 이전 실행과 비교하여 배포 위험을 판단하도록 돕는 AI 기반 품질 평가·모니터링 플랫폼입니다.
 
-현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 기본 인증 API, SSRF-safe URL 검증과 HTML meta-tag 도메인 소유권 확인을 포함한 사용자별 프로젝트 CRUD API, CheckRun 도메인 모델, Redis/Celery 기반 스캔 큐, HTTP availability scanner, SSL inspection, Lighthouse worker, 정규화된 scanner result 저장, 로컬 artifact metadata 저장 및 다운로드 API, 결과 화면 artifact 다운로드 버튼, 결정론적 score/risk 계산, 직전 run 비교, Playwright 시나리오 정의 API, ScenarioRun/StepResult 저장 기반, CheckRun-linked ScenarioRun 실패 요약과 결과 표시, Playwright step action executor, console/network failure evidence 저장 및 요약 표시, 실패 스텝 screenshot artifact 저장 및 미리보기, ScenarioRun 기반 functional stability score 반영, AI diagnosis input 스키마와 builder 서비스, AI diagnosis report output 스키마와 deterministic report generator 서비스, AIReport 저장 모델과 마이그레이션이 포함되어 있습니다.
+현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 기본 인증 API, SSRF-safe URL 검증과 HTML meta-tag 도메인 소유권 확인을 포함한 사용자별 프로젝트 CRUD API, CheckRun 도메인 모델, Redis/Celery 기반 스캔 큐, HTTP availability scanner, SSL inspection, Lighthouse worker, 정규화된 scanner result 저장, 로컬 artifact metadata 저장 및 다운로드 API, 결과 화면 artifact 다운로드 버튼, 결정론적 score/risk 계산, 직전 run 비교, Playwright 시나리오 정의 API, ScenarioRun/StepResult 저장 기반, CheckRun-linked ScenarioRun 실패 요약과 결과 표시, Playwright step action executor, console/network failure evidence 저장 및 요약 표시, 실패 스텝 screenshot artifact 저장 및 미리보기, ScenarioRun 기반 functional stability score 반영, AI diagnosis input 스키마와 builder 서비스, AI diagnosis report output 스키마와 deterministic report generator 서비스, AIReport 저장 모델·마이그레이션·저장 서비스가 포함되어 있습니다.
 
 ## MVP 방향
 
@@ -117,5 +117,5 @@ corepack pnpm web:build
 
 ## 개발 순서
 
-1. AI diagnosis report 생성 결과 저장 서비스 추가
-2. AIReport 조회 API 추가
+1. AIReport 조회 API 추가
+2. CheckRun 상세 응답에 AIReport 요약 연결

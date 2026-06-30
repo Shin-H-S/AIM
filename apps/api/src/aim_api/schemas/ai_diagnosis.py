@@ -208,3 +208,21 @@ class AIDiagnosisReport(AIDiagnosisBaseModel):
             raise ValueError("WARNING or RISK reports must include at least one top issue.")
 
         return self
+
+
+class AIReportRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    check_run_id: UUID
+    schema_version: str
+    input_schema_version: str
+    summary: str
+    overall_score: int
+    grade: str
+    deployment_risk: str
+    gate_reason: str | None
+    report_json: dict[str, object]
+    generated_at: datetime
+    created_at: datetime
+    updated_at: datetime

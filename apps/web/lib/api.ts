@@ -112,6 +112,19 @@ export type RunComparison = {
   updated_at: string;
 };
 
+export type AIReportSummary = {
+  id: string;
+  check_run_id: string;
+  summary: string;
+  overall_score: number;
+  grade: "A" | "B" | "C" | "D" | "F";
+  deployment_risk: "STABLE" | "WARNING" | "RISK";
+  gate_reason: string | null;
+  generated_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type CheckRunDetail = {
   id: string;
   project_id: string;
@@ -129,6 +142,7 @@ export type CheckRunDetail = {
   lighthouse_result: LighthouseResult | null;
   score_result: ScoreResult | null;
   comparison_result: RunComparison | null;
+  ai_report: AIReportSummary | null;
   artifacts: Artifact[];
   linked_scenario_runs: ScenarioRun[];
 };

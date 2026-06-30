@@ -1,21 +1,100 @@
 # AIM
 
-AIM은 등록된 웹 서비스의 가용성, 품질, 핵심 사용자 흐름을 검사하고 이전 실행과 비교하여 배포 위험을 판단하도록 돕는 AI 기반 품질 평가·모니터링 플랫폼입니다.
+AIM은 배포 후 웹서비스가 실제로 더 안정적이고 좋아졌는지 근거 기반으로 판단해주는 AI 품질 모니터링 플랫폼입니다.
 
-현재는 MVP 기반을 구현하는 단계이며 FastAPI 애플리케이션, PostgreSQL 연결, Alembic 마이그레이션, Next.js 웹 애플리케이션 골격, 기본 인증 API, SSRF-safe URL 검증과 HTML meta-tag 도메인 소유권 확인을 포함한 사용자별 프로젝트 CRUD API, CheckRun 도메인 모델, Redis/Celery 기반 스캔 큐, HTTP availability scanner, SSL inspection, Lighthouse worker, 정규화된 scanner result 저장, 로컬 artifact metadata 저장 및 다운로드 API, 결과 화면 artifact 다운로드 버튼, 결정론적 score/risk 계산, 직전 run 비교, Playwright 시나리오 정의 API, ScenarioRun/StepResult 저장 기반, CheckRun-linked ScenarioRun 실패 요약과 결과 표시, Playwright step action executor, console/network failure evidence 저장 및 요약 표시, 실패 스텝 screenshot artifact 저장 및 미리보기, ScenarioRun 기반 functional stability score 반영, AI diagnosis input 스키마와 builder 서비스, AI diagnosis report output 스키마와 deterministic report generator 서비스, AIReport 저장 모델·마이그레이션·저장·조회 API, CheckRun 상세 AIReport 요약 응답, worker 기반 AIReport 자동 생성·갱신이 포함되어 있습니다.
+단순 uptime checker가 아니라, 서비스 가용성·웹 품질·핵심 사용자 흐름·이전 실행 대비 회귀 여부를 함께 보고 배포 위험을 판단하는 것을 목표로 합니다.
 
-## MVP 방향
+## 현재 목표
 
-- HTTP 가용성, 응답 시간, 리다이렉트 및 SSL 검사
-- Lighthouse 기반 성능·접근성·SEO·Best Practices 평가
-- Playwright 기반 핵심 사용자 시나리오 검사
-- 실행 결과와 아티팩트 저장
-- 이전 실행 및 기준 실행과의 회귀 비교
-- 결정론적 점수와 배포 위험 산정
-- 수집한 근거에 기반한 AI 진단
-- 임계값 위반 및 복구 이메일 알림
+AIM은 1인 개발자, 사이드 프로젝트 팀, 초기 스타트업처럼 전담 QA 인력이 부족한 팀이 다음 질문에 답할 수 있게 돕습니다.
+
+> “이번 배포가 이전보다 실제로 더 안정적인가?”
+
+MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
+
+1. 사용자가 프로젝트와 서비스 URL을 등록합니다.
+2. AIM이 URL과 도메인 소유권을 검증합니다.
+3. 사용자가 CheckRun을 요청합니다.
+4. Worker가 availability, SSL, Lighthouse, Playwright scenario를 실행합니다.
+5. AIM이 결과와 artifact를 저장합니다.
+6. AIM이 score, deployment risk, 이전 run 대비 변화를 계산합니다.
+7. AIM이 수집 근거 기반 AI 진단 요약을 생성합니다.
+8. Web 화면이 상태, 결과, 회귀, 우선 확인 항목을 보여줍니다.
 
 상세 제품 범위와 개발 규칙은 [AGENTS.md](AGENTS.md)를 기준으로 합니다.
+
+## 현재 구현 상태
+
+### Foundation
+
+- FastAPI API skeleton
+- Next.js App Router 기반 Web skeleton
+- PostgreSQL, Redis Docker Compose 개발 환경
+- Alembic migration
+- Email/password signup, login, logout, JWT 인증
+- 사용자별 Project CRUD
+- SSRF-safe URL validation
+- HTML meta-tag 기반 도메인 소유권 확인
+
+### Scan pipeline
+
+- CheckRun 생성, 조회, 취소 API
+- Redis/Celery 기반 비동기 scan queue
+- HTTP availability scan
+- SSL certificate inspection
+- Lighthouse mobile scan
+- 정규화된 availability, SSL, Lighthouse result 저장
+- Lighthouse raw JSON local artifact 저장
+- Artifact metadata 저장 및 다운로드 API
+- CheckRun result polling API
+
+### Functional testing
+
+- Playwright scenario 정의 API
+- 지원 step action:
+  - `navigate`
+  - `click`
+  - `fill`
+  - `wait`
+  - `assert_element_exists`
+  - `assert_text_exists`
+  - `assert_url`
+  - `take_screenshot`
+- ScenarioRun 생성 및 worker 실행
+- StepResult 저장
+- Browser console error 저장
+- Failed network request 저장
+- 실패 step screenshot artifact 저장
+- CheckRun-linked ScenarioRun 실패 요약
+
+### Scoring, comparison, diagnosis
+
+- 결정론적 score/risk 계산
+- Service unavailable, SSL failure, Lighthouse failure, critical scenario failure risk gate
+- 직전 terminal CheckRun 대비 comparison 저장
+- AI diagnosis input schema와 builder
+- AI diagnosis report output schema
+- deterministic AIReport generator
+- AIReport DB 저장 모델과 migration
+- CheckRun별 AIReport 조회 API
+- CheckRun 상세 응답의 AIReport 요약 필드
+- Worker 기반 AIReport 자동 생성 및 linked ScenarioRun 완료 후 갱신
+
+### Web UI
+
+- API health 상태 확인
+- CheckRun 결과 페이지
+- CheckRun score/risk 표시
+- AIReport 요약 표시
+- 직전 run 대비 변화 표시
+- linked ScenarioRun 실패 요약과 상세 페이지 링크
+- Availability, SSL, Lighthouse 결과 표시
+- Artifact 다운로드 버튼
+- Scenario 목록 및 수동 ScenarioRun 생성 페이지
+- ScenarioRun 결과 페이지
+- Step 결과, console/network evidence, 실패 screenshot 미리보기
+
+현재 Web에는 로그인 UI가 없습니다. API 로그인 응답의 Bearer token을 각 페이지에 직접 입력해 결과를 조회합니다.
 
 ## 저장소 구조
 
@@ -36,68 +115,131 @@ scripts/          반복 가능한 개발 자동화
 tests/            저장소 수준 통합·E2E 테스트
 ```
 
-API 이외의 영역은 실제 구현이 시작될 때 필요한 설정과 소스 코드를 추가합니다.
+## 로컬 실행
 
-## Web 시작하기
-
-Node.js와 `pnpm`이 필요합니다. `pnpm`이 없다면 Node.js에 포함된 Corepack으로 활성화할 수 있습니다.
+### 1. 의존성 설치
 
 ```powershell
-corepack enable
-corepack prepare pnpm@11.9.0 --activate
+uv sync
 corepack pnpm install
+```
+
+### 2. PostgreSQL과 Redis 실행
+
+```powershell
+docker compose -f infra/compose.dev.yaml up -d postgres redis
+```
+
+### 3. DB migration 적용
+
+```powershell
+uv run alembic -c migrations/alembic.ini upgrade head
+```
+
+### 4. API 실행
+
+```powershell
+uv run uvicorn aim_api.main:app --app-dir apps/api/src --reload
+```
+
+상태 확인:
+
+```text
+GET http://localhost:8000/health
+GET http://localhost:8000/health/database
+```
+
+### 5. Worker 실행
+
+처음 한 번 Chromium browser를 설치합니다.
+
+```powershell
+uv run playwright install chromium
+```
+
+Redis가 실행 중인 상태에서 worker를 시작합니다.
+
+```powershell
+uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
+```
+
+### 6. Web 실행
+
+```powershell
 corepack pnpm web:dev
 ```
 
-Lighthouse worker 실행에는 루트 Node 의존성에 포함된 Lighthouse CLI가 필요합니다. `corepack pnpm install` 후 worker는 기본적으로 `corepack pnpm exec lighthouse`를 사용합니다.
+기본 API 주소는 다음 환경 변수를 사용합니다.
 
-웹 애플리케이션은 기본적으로 `NEXT_PUBLIC_API_URL=http://localhost:8000`의 `GET /health` 응답을 확인합니다.
+```powershell
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
-CheckRun 결과 페이지는 다음 경로에서 확인할 수 있습니다.
+## 주요 화면
+
+### CheckRun 결과
 
 ```text
 /projects/{projectId}/check-runs/{checkRunId}
 ```
 
-ScenarioRun 결과 페이지는 다음 경로에서 확인할 수 있습니다.
+표시 항목:
 
-```text
-/projects/{projectId}/scenarios/{scenarioId}/runs/{scenarioRunId}
-```
+- CheckRun 상태와 polling 상태
+- score, grade, deployment risk
+- AI 진단 요약
+- risk gate reason
+- 이전 run 대비 변화
+- linked ScenarioRun 요약
+- availability, SSL, Lighthouse 결과
+- artifact metadata와 다운로드 버튼
 
-Scenario 목록과 수동 실행 생성 페이지는 다음 경로에서 확인할 수 있습니다.
+### Scenario 목록
 
 ```text
 /projects/{projectId}/scenarios
 ```
 
-현재 웹에는 로그인 UI가 없으므로 결과 페이지에서 API 로그인 응답의 Bearer token을 직접 입력해 CheckRun 상태, score/risk, 직전 run 대비 변화, 연결된 ScenarioRun 실패 요약과 목록, availability/SSL/Lighthouse 결과, artifact metadata와 다운로드 버튼, ScenarioRun step 결과, console/network evidence 요약, 실패 근거 및 실패 screenshot 미리보기를 polling합니다. Scenario 목록 페이지에서는 등록된 scenario와 step을 확인하고 수동 ScenarioRun을 생성할 수 있습니다.
+표시 항목:
 
-## API 시작하기
+- 등록된 scenario 목록
+- step 정의
+- active scenario 수동 실행
+- 생성된 ScenarioRun 결과 페이지 링크
 
-Python 3.12와 `uv`가 필요합니다.
+### ScenarioRun 결과
 
-```powershell
-uv sync
-docker compose -f infra/compose.dev.yaml up -d postgres redis
-uv run alembic -c migrations/alembic.ini upgrade head
-uv run uvicorn aim_api.main:app --app-dir apps/api/src --reload
+```text
+/projects/{projectId}/scenarios/{scenarioId}/runs/{scenarioRunId}
 ```
 
-상태 확인 API는 `GET http://localhost:8000/health`, 데이터베이스 연결 확인은 `GET http://localhost:8000/health/database`에서 사용할 수 있습니다. 인증은 `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`에서 사용할 수 있습니다. 프로젝트 CRUD는 `POST /projects`, `GET /projects`, `GET /projects/{project_id}`, `PATCH /projects/{project_id}`, `DELETE /projects/{project_id}`에서 사용할 수 있습니다. 도메인 소유권 확인은 `GET /projects/{project_id}/verification`, `POST /projects/{project_id}/verify`에서 사용할 수 있습니다. CheckRun은 `POST /projects/{project_id}/check-runs`, `GET /projects/{project_id}/check-runs`, `GET /projects/{project_id}/check-runs/{check_run_id}`, `GET /projects/{project_id}/check-runs/{check_run_id}/ai-report`, `POST /projects/{project_id}/check-runs/{check_run_id}/cancel`에서 사용할 수 있습니다. Playwright 시나리오 정의는 `POST /projects/{project_id}/scenarios`, `GET /projects/{project_id}/scenarios`, `GET /projects/{project_id}/scenarios/{scenario_id}`, `PATCH /projects/{project_id}/scenarios/{scenario_id}`, `DELETE /projects/{project_id}/scenarios/{scenario_id}`에서 사용할 수 있습니다. ScenarioRun은 `POST /projects/{project_id}/scenarios/{scenario_id}/runs`, `GET /projects/{project_id}/scenarios/{scenario_id}/runs`, `GET /projects/{project_id}/scenarios/{scenario_id}/runs/{scenario_run_id}`에서 사용할 수 있습니다. Artifact 다운로드는 `GET /artifacts/{artifact_id}/download`에서 사용할 수 있습니다. 자세한 내용은 [API README](apps/api/README.md)를 참고합니다.
+표시 항목:
 
-## Worker 시작하기
+- ScenarioRun 상태
+- step-level pass/fail/skip 결과
+- error message
+- browser console error
+- failed network request
+- failure screenshot 다운로드와 미리보기
 
-Redis가 실행 중인 상태에서 Celery worker를 실행합니다.
+## 주요 API
 
-```powershell
-uv run playwright install chromium
-uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
-```
+자세한 API 설명은 [apps/api/README.md](apps/api/README.md)를 참고합니다.
 
-현재 worker는 큐에서 CheckRun task를 소비하고 상태를 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 스캔 대상 URL과 redirect destination은 요청 전마다 SSRF-safe 검증을 수행하며, timeout과 response size 제한을 적용합니다. HTTP scan, SSL inspection, Lighthouse metric 결과는 정규화된 DB 레코드로 저장되며, Lighthouse raw JSON은 로컬 artifact 파일로 저장한 뒤 DB에는 metadata와 storage path만 기록합니다. CheckRun 생성 시 active scenario에 대한 linked ScenarioRun을 함께 만들고, 애플리케이션 로직이 scanner 결과와 해당 CheckRun에 연결된 terminal ScenarioRun 결과를 기준으로 score와 deployment risk를 계산합니다. 연결된 ScenarioRun이 없던 기존 run은 같은 프로젝트의 최신 terminal ScenarioRun을 fallback으로 사용합니다. 같은 프로젝트의 직전 terminal check run과 주요 지표를 비교합니다. CheckRun이 terminal 상태가 되면 worker가 AIReport를 자동 생성하고, linked ScenarioRun 완료로 score가 갱신되면 AIReport도 다시 갱신합니다. Playwright 시나리오는 API로 정의·저장하고 ScenarioRun을 큐에 등록할 수 있으며, worker는 저장된 step을 브라우저에서 실행해 StepResult, console error, failed network request, 실패 screenshot artifact metadata를 기록합니다. 단건 CheckRun 및 ScenarioRun 조회 API에서 polling할 수 있습니다.
+현재 사용할 수 있는 주요 API는 다음과 같습니다.
 
-## API 검증
+- Auth: `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
+- Projects: `POST /projects`, `GET /projects`, `GET /projects/{project_id}`, `PATCH /projects/{project_id}`, `DELETE /projects/{project_id}`
+- Verification: `GET /projects/{project_id}/verification`, `POST /projects/{project_id}/verify`
+- CheckRuns: `POST /projects/{project_id}/check-runs`, `GET /projects/{project_id}/check-runs`, `GET /projects/{project_id}/check-runs/{check_run_id}`, `POST /projects/{project_id}/check-runs/{check_run_id}/cancel`
+- AIReport: `GET /projects/{project_id}/check-runs/{check_run_id}/ai-report`
+- Scenarios: `POST /projects/{project_id}/scenarios`, `GET /projects/{project_id}/scenarios`, `GET /projects/{project_id}/scenarios/{scenario_id}`, `PATCH /projects/{project_id}/scenarios/{scenario_id}`, `DELETE /projects/{project_id}/scenarios/{scenario_id}`
+- ScenarioRuns: `POST /projects/{project_id}/scenarios/{scenario_id}/runs`, `GET /projects/{project_id}/scenarios/{scenario_id}/runs`, `GET /projects/{project_id}/scenarios/{scenario_id}/runs/{scenario_run_id}`
+- Artifacts: `GET /artifacts/{artifact_id}/download`
+
+## 검증
+
+### API와 Worker
 
 ```powershell
 uv run ruff check .
@@ -106,7 +248,7 @@ uv run mypy .
 uv run pytest
 ```
 
-## Web 검증
+### Web
 
 ```powershell
 corepack pnpm web:lint
@@ -115,8 +257,12 @@ corepack pnpm web:test
 corepack pnpm web:build
 ```
 
-## 개발 순서
+## 다음 개발 우선순위
 
-1. 웹 CheckRun 결과 화면에 AIReport 요약 표시
-2. AIReport 상세 화면 또는 상세 패널 연결
-3. AIReport 생성 실패 재시도 작업 분리
+1. AIReport 상세 화면 또는 상세 패널 연결
+2. AIReport 생성 실패 재시도 task 분리
+3. Email alert와 incident/recovery 기록
+4. Dashboard에서 project별 최신 CheckRun 목록 표시
+5. 로그인 UI와 기본 project 관리 화면 연결
+
+MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

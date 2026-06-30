@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 import pytest
 from aim_api.database import Base, get_db
 from aim_api.main import app
+from aim_api.models.ai_report import AIReport
 from aim_api.models.check_run import CheckRun
 from aim_api.models.project import Project
 from aim_api.models.scenario import ScenarioRun
@@ -150,6 +151,45 @@ def create_check_run(
     response = client.post(f"/projects/{project_id}/check-runs", json={}, headers=headers)
     assert response.status_code == 201
     return cast(dict[str, Any], response.json())
+
+
+def record_ai_report_for_check_run(check_run_id: str) -> None:
+    with get_testing_session() as session:
+        check_run = session.get(CheckRun, UUID(check_run_id))
+        assert check_run is not None
+        ai_report = AIReport(
+            check_run_id=check_run.id,
+            schema_version="2026-06-30.ai-diagnosis-report.v1",
+            input_schema_version="2026-06-29.ai-diagnosis-input.v1",
+            summary="This run is marked as RISK.",
+            overall_score=55,
+            grade="D",
+            deployment_risk="RISK",
+            gate_reason="Critical scenario run failed.",
+            report_json={
+                "schema_version": "2026-06-30.ai-diagnosis-report.v1",
+                "input_schema_version": "2026-06-29.ai-diagnosis-input.v1",
+                "project_id": str(check_run.project_id),
+                "check_run_id": str(check_run.id),
+                "summary": "This run is marked as RISK.",
+                "score": {
+                    "overall_score": 55,
+                    "grade": "D",
+                    "deployment_risk": "RISK",
+                    "evidence_ids": ["score-result"],
+                },
+                "top_issues": [
+                    {
+                        "id": "deployment-risk-score-result",
+                        "priority": 1,
+                        "evidence_ids": ["score-result"],
+                    }
+                ],
+            },
+            generated_at=datetime(2026, 6, 30, 4, tzinfo=UTC),
+        )
+        session.add(ai_report)
+        session.commit()
 
 
 def test_create_check_run_requires_authentication(client: TestClient) -> None:
@@ -492,6 +532,66 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
     assert body["linked_scenario_runs"] == []
 
 
+def test_get_check_run_ai_report(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+    check_run = create_check_run(client, project["id"], headers)
+    record_ai_report_for_check_run(check_run["id"])
+
+    response = client.get(
+        f"/projects/{project['id']}/check-runs/{check_run['id']}/ai-report",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert UUID(body["id"])
+    assert body["check_run_id"] == check_run["id"]
+    assert body["schema_version"] == "2026-06-30.ai-diagnosis-report.v1"
+    assert body["input_schema_version"] == "2026-06-29.ai-diagnosis-input.v1"
+    assert body["summary"] == "This run is marked as RISK."
+    assert body["overall_score"] == 55
+    assert body["grade"] == "D"
+    assert body["deployment_risk"] == "RISK"
+    assert body["gate_reason"] == "Critical scenario run failed."
+    assert body["generated_at"] == "2026-06-30T04:00:00"
+    assert body["created_at"]
+    assert body["updated_at"]
+    assert body["report_json"]["check_run_id"] == check_run["id"]
+    assert body["report_json"]["score"]["deployment_risk"] == "RISK"
+
+
+def test_get_check_run_ai_report_returns_404_when_report_is_missing(
+    client: TestClient,
+) -> None:
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+    check_run = create_check_run(client, project["id"], headers)
+
+    response = client.get(
+        f"/projects/{project['id']}/check-runs/{check_run['id']}/ai-report",
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "AI report not found."}
+
+
+def test_get_check_run_ai_report_returns_404_for_missing_check_run(
+    client: TestClient,
+) -> None:
+    headers = authenticated_headers(client)
+    project = create_verified_project(client, headers)
+
+    response = client.get(
+        f"/projects/{project['id']}/check-runs/{uuid4()}/ai-report",
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Check run not found."}
+
+
 def test_cancel_check_run(client: TestClient) -> None:
     headers = authenticated_headers(client)
     project = create_verified_project(client, headers)
@@ -527,6 +627,22 @@ def test_other_user_cannot_read_check_run(client: TestClient) -> None:
 
     response = client.get(
         f"/projects/{project['id']}/check-runs/{check_run['id']}",
+        headers=other_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Project not found."}
+
+
+def test_other_user_cannot_read_check_run_ai_report(client: TestClient) -> None:
+    owner_headers = authenticated_headers(client, "owner@example.com")
+    other_headers = authenticated_headers(client, "other@example.com")
+    project = create_verified_project(client, owner_headers)
+    check_run = create_check_run(client, project["id"], owner_headers)
+    record_ai_report_for_check_run(check_run["id"])
+
+    response = client.get(
+        f"/projects/{project['id']}/check-runs/{check_run['id']}/ai-report",
         headers=other_headers,
     )
 

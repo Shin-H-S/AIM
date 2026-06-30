@@ -208,7 +208,7 @@ Artifact 파일은 `GET /artifacts/{artifact_id}/download`에서 다운로드할
 
 또한 `AIDiagnosisReport` output 스키마와 `aim_api.services.ai_diagnosis_reports.build_ai_diagnosis_report` deterministic generator 서비스를 제공합니다. Report는 결정론적 score/risk를 authoritative summary로 포함하고, top issue, improved area, regressed area가 입력 evidence id를 참조하도록 제한합니다. `WARNING` 또는 `RISK` report는 최소 1개의 top issue를 포함해야 합니다. Generator는 `score_result`가 없거나 score evidence가 없으면 report를 생성하지 않습니다.
 
-AIReport 저장을 위한 `ai_reports` 테이블과 SQLAlchemy 모델도 제공합니다. `ai_reports`는 CheckRun당 하나의 report를 저장하며, 조회와 필터링에 필요한 score/risk 요약 컬럼과 전체 report JSON payload를 함께 보존합니다. 아직 생성 결과를 자동 저장하는 서비스와 사용자-facing 조회 API는 포함하지 않습니다.
+AIReport 저장을 위한 `ai_reports` 테이블, SQLAlchemy 모델, `aim_api.services.ai_reports.generate_and_record_ai_report` 저장 서비스도 제공합니다. `ai_reports`는 CheckRun당 하나의 report를 저장하며, 조회와 필터링에 필요한 score/risk 요약 컬럼과 전체 report JSON payload를 함께 보존합니다. 아직 사용자-facing 조회 API는 포함하지 않습니다.
 
 자세한 설계 의도는 [AI diagnosis input architecture](../../docs/architecture/ai-diagnosis-input.md)와 [AI diagnosis report architecture](../../docs/architecture/ai-diagnosis-report.md)를 참고합니다.
 

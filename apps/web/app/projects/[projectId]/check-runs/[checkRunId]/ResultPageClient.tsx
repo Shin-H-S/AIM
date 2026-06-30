@@ -5,6 +5,7 @@ import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import {
   fetchCheckRunDetail,
   getApiBaseUrl,
+  type AIReportSummary,
   type Artifact,
   type AvailabilityResult,
   type CheckRunDetail,
@@ -189,6 +190,7 @@ export function ResultPageClient({
             </section>
 
             <ScoreCard result={checkRun.score_result} />
+            <AIReportSummaryCard report={checkRun.ai_report} />
             <ComparisonCard result={checkRun.comparison_result} />
             <LinkedScenarioRunsCard
               projectId={projectId}
@@ -317,6 +319,58 @@ function ScoreCard({ result }: { result: ScoreResult | null }) {
         <Metric label="Scoring version" value={result.scoring_version} />
         <Metric label="Updated" value={formatDateTime(result.updated_at)} />
       </dl>
+    </article>
+  );
+}
+
+function AIReportSummaryCard({ report }: { report: AIReportSummary | null }) {
+  if (!report) {
+    return (
+      <EmptyResultCard
+        title="AI diagnosis"
+        description="아직 저장된 AI 진단 요약이 없습니다. CheckRun이 terminal 상태가 된 뒤 worker가 리포트를 생성합니다."
+      />
+    );
+  }
+
+  const riskClassName = getRiskBadgeClassName(report.deployment_risk);
+
+  return (
+    <article className="rounded-3xl border border-cyan-300/20 bg-cyan-300/[0.04] p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+            AI diagnosis
+          </p>
+          <h2 className="mt-3 text-2xl font-bold">근거 기반 진단 요약</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">{report.summary}</p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${riskClassName}`}>
+          {riskLabels[report.deployment_risk]}
+        </span>
+      </div>
+
+      {report.gate_reason && (
+        <div className="mt-5">
+          <Notice
+            tone={report.deployment_risk === "RISK" ? "danger" : "info"}
+            title="진단 근거"
+            description={report.gate_reason}
+          />
+        </div>
+      )}
+
+      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric label="Grade" value={report.grade} />
+        <Metric label="Overall score" value={`${report.overall_score}/100`} />
+        <Metric label="Generated" value={formatDateTime(report.generated_at)} />
+        <Metric label="Updated" value={formatDateTime(report.updated_at)} />
+      </dl>
+
+      <p className="mt-5 rounded-2xl border border-white/10 bg-slate-950/40 p-4 text-xs leading-5 text-slate-400">
+        이 요약은 AIM이 수집한 score, scanner result, scenario evidence를 바탕으로 생성됩니다.
+        내부 원인이나 소스 코드 위치를 확정 사실처럼 표시하지 않습니다.
+      </p>
     </article>
   );
 }

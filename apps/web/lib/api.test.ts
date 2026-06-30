@@ -229,6 +229,18 @@ describe("fetchCheckRunDetail", () => {
         lighthouse_result: null,
         score_result: null,
         comparison_result: null,
+        ai_report: {
+          id: "ai-report-id",
+          check_run_id: "check-run-id",
+          summary: "This run is stable based on collected evidence.",
+          overall_score: 95,
+          grade: "A",
+          deployment_risk: "STABLE",
+          gate_reason: null,
+          generated_at: "2026-06-26T00:00:03Z",
+          created_at: "2026-06-26T00:00:03Z",
+          updated_at: "2026-06-26T00:00:03Z"
+        },
         artifacts: [],
         linked_scenario_runs: [
           {
@@ -278,6 +290,18 @@ describe("fetchCheckRunDetail", () => {
         lighthouse_result: null,
         score_result: null,
         comparison_result: null,
+        ai_report: {
+          id: "ai-report-id",
+          check_run_id: "check-run-id",
+          summary: "This run is stable based on collected evidence.",
+          overall_score: 95,
+          grade: "A",
+          deployment_risk: "STABLE",
+          gate_reason: null,
+          generated_at: "2026-06-26T00:00:03Z",
+          created_at: "2026-06-26T00:00:03Z",
+          updated_at: "2026-06-26T00:00:03Z"
+        },
         artifacts: [],
         linked_scenario_runs: [
           {

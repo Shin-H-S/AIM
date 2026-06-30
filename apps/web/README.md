@@ -10,7 +10,7 @@ Next.js 기반 AIM 사용자 인터페이스입니다.
 /projects/{projectId}/check-runs/{checkRunId}
 ```
 
-현재 인증 UI는 아직 없으므로 로그인 API에서 받은 access token을 결과 페이지에 직접 입력합니다. 페이지는 CheckRun이 `QUEUED`, `RUNNING`, `ANALYZING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 결정론적 score/risk, 직전 run 대비 변화, 연결된 ScenarioRun 실패 요약과 결과 페이지 링크, availability, SSL, Lighthouse metric 결과와 artifact metadata 및 다운로드 버튼을 표시합니다.
+현재 인증 UI는 아직 없으므로 로그인 API에서 받은 access token을 결과 페이지에 직접 입력합니다. 페이지는 CheckRun이 `QUEUED`, `RUNNING`, `ANALYZING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 결정론적 score/risk, AI 진단 요약, 직전 run 대비 변화, 연결된 ScenarioRun 실패 요약과 결과 페이지 링크, availability, SSL, Lighthouse metric 결과와 artifact metadata 및 다운로드 버튼을 표시합니다.
 
 ## ScenarioRun 결과 페이지
 
@@ -45,6 +45,7 @@ Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 - 로딩, 성공, 실패 상태 표시
 - Vitest 기반 API 상태 확인 유틸리티 테스트
 - CheckRun 결과 페이지
+- CheckRun AI 진단 요약 표시
 - Scenario 목록 및 수동 실행 생성 페이지
 - ScenarioRun 결과 페이지
 

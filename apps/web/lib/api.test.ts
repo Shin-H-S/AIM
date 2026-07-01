@@ -6,6 +6,7 @@ import {
   fetchCheckRuns,
   fetchCheckRunAIReport,
   fetchCheckRunDetail,
+  fetchCurrentUser,
   fetchProjects,
   fetchScenarioRunDetail,
   fetchScenarios,
@@ -15,10 +16,15 @@ import {
   getCheckRunsUrl,
   getCheckRunAIReportUrl,
   getCheckRunDetailUrl,
+  getCurrentUserUrl,
   getCreateScenarioRunUrl,
+  getLoginUrl,
+  getLogoutUrl,
   getProjectsUrl,
   getScenariosUrl,
-  getScenarioRunDetailUrl
+  getScenarioRunDetailUrl,
+  loginUser,
+  logoutUser
 } from "./api";
 
 describe("getApiBaseUrl", () => {
@@ -38,6 +44,14 @@ describe("getApiBaseUrl", () => {
 describe("getApiHealthUrl", () => {
   it("builds the health endpoint URL", () => {
     expect(getApiHealthUrl("http://localhost:8000")).toBe("http://localhost:8000/health");
+  });
+});
+
+describe("auth endpoint URL builders", () => {
+  it("builds auth endpoint URLs", () => {
+    expect(getLoginUrl("http://localhost:8000")).toBe("http://localhost:8000/auth/login");
+    expect(getCurrentUserUrl("http://localhost:8000")).toBe("http://localhost:8000/auth/me");
+    expect(getLogoutUrl("http://localhost:8000")).toBe("http://localhost:8000/auth/logout");
   });
 });
 
@@ -148,6 +162,167 @@ describe("fetchApiHealth", () => {
     });
 
     expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe("loginUser", () => {
+  it("returns an access token when login succeeds", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        access_token: " access-token ",
+        token_type: "bearer"
+      })
+    );
+
+    await expect(
+      loginUser({
+        email: "user@example.com",
+        password: "password",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      accessToken: "access-token",
+      tokenType: "bearer"
+    });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/auth/login", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email: "user@example.com",
+        password: "password"
+      })
+    });
+  });
+
+  it("maps invalid credentials and unavailable login responses", async () => {
+    const invalidFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const unavailableFetcher = vi.fn(async () => new Response(null, { status: 503 }));
+
+    await expect(
+      loginUser({
+        email: "user@example.com",
+        password: "wrong-password",
+        fetcher: invalidFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "invalid-credentials" });
+
+    await expect(
+      loginUser({
+        email: "user@example.com",
+        password: "password",
+        fetcher: unavailableFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
+  });
+});
+
+describe("fetchCurrentUser", () => {
+  it("returns the current user with the authenticated request", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        id: "user-id",
+        email: "user@example.com",
+        is_active: true,
+        created_at: "2026-07-01T00:00:00Z",
+        updated_at: "2026-07-01T00:00:00Z"
+      })
+    );
+
+    await expect(
+      fetchCurrentUser({
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      user: {
+        id: "user-id",
+        email: "user@example.com",
+        is_active: true,
+        created_at: "2026-07-01T00:00:00Z",
+        updated_at: "2026-07-01T00:00:00Z"
+      }
+    });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/auth/me", {
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token"
+      }
+    });
+  });
+
+  it("maps current-user authentication and unavailable responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const unavailableFetcher = vi.fn(async () => new Response(null, { status: 503 }));
+
+    await expect(
+      fetchCurrentUser({
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      fetchCurrentUser({
+        accessToken: "token",
+        fetcher: unavailableFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
+  });
+});
+
+describe("logoutUser", () => {
+  it("logs out with the authenticated request", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 204 }));
+
+    await expect(
+      logoutUser({
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "success" });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/auth/logout", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token"
+      }
+    });
+  });
+
+  it("maps logout authentication and unavailable responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const unavailableFetcher = vi.fn(async () => new Response(null, { status: 503 }));
+
+    await expect(
+      logoutUser({
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      logoutUser({
+        accessToken: "token",
+        fetcher: unavailableFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
   });
 });
 

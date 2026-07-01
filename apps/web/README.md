@@ -10,7 +10,17 @@ Next.js 기반 AIM 사용자 인터페이스입니다.
 /
 ```
 
-현재 인증 UI는 아직 없으므로 로그인 API에서 받은 access token을 dashboard에 직접 입력합니다. Dashboard는 프로젝트 목록을 조회한 뒤 각 프로젝트의 최신 CheckRun 1개를 병렬로 가져와 service URL, environment, verification 상태, 최신 CheckRun 상태와 실패 사유, 결과 페이지 링크를 표시합니다.
+로그인 페이지에서 저장한 access token을 자동으로 사용합니다. 필요한 경우 access token을 직접 입력해 Dashboard를 갱신할 수도 있습니다. Dashboard는 현재 사용자 정보를 확인한 뒤 프로젝트 목록을 조회하고, 각 프로젝트의 최신 CheckRun 1개를 병렬로 가져와 service URL, environment, verification 상태, 최신 CheckRun 상태와 실패 사유, 결과 페이지 링크를 표시합니다.
+
+## Login
+
+다음 경로에서 이메일·비밀번호 로그인을 수행할 수 있습니다.
+
+```text
+/login
+```
+
+로그인 성공 시 Auth API에서 받은 JWT access token을 브라우저 저장소에 저장하고 Project dashboard로 이동합니다. 회원가입 UI는 아직 없으므로 계정 생성은 API의 `POST /auth/signup`을 사용합니다.
 
 ## CheckRun 결과 페이지
 
@@ -20,7 +30,7 @@ Next.js 기반 AIM 사용자 인터페이스입니다.
 /projects/{projectId}/check-runs/{checkRunId}
 ```
 
-현재 인증 UI는 아직 없으므로 로그인 API에서 받은 access token을 결과 페이지에 직접 입력합니다. 페이지는 CheckRun이 `QUEUED`, `RUNNING`, `ANALYZING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 결정론적 score/risk, AI 진단 요약과 상세 패널, 직전 run 대비 변화, 연결된 ScenarioRun 실패 요약과 결과 페이지 링크, availability, SSL, Lighthouse metric 결과와 artifact metadata 및 다운로드 버튼을 표시합니다.
+현재 결과 페이지는 로그인 페이지에서 저장한 access token을 자동으로 읽지는 못하므로, access token을 직접 입력합니다. 페이지는 CheckRun이 `QUEUED`, `RUNNING`, `ANALYZING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 결정론적 score/risk, AI 진단 요약과 상세 패널, 직전 run 대비 변화, 연결된 ScenarioRun 실패 요약과 결과 페이지 링크, availability, SSL, Lighthouse metric 결과와 artifact metadata 및 다운로드 버튼을 표시합니다.
 
 ## ScenarioRun 결과 페이지
 
@@ -30,7 +40,7 @@ Next.js 기반 AIM 사용자 인터페이스입니다.
 /projects/{projectId}/scenarios/{scenarioId}/runs/{scenarioRunId}
 ```
 
-현재 인증 UI는 아직 없으므로 로그인 API에서 받은 access token을 결과 페이지에 직접 입력합니다. 페이지는 ScenarioRun이 `QUEUED`, `RUNNING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 linked CheckRun id, step 결과, error message, failure screenshot artifact id와 다운로드 버튼 및 미리보기, browser console error와 failed network request의 요약 및 상세 evidence를 표시합니다.
+현재 결과 페이지는 로그인 페이지에서 저장한 access token을 자동으로 읽지는 못하므로, access token을 직접 입력합니다. 페이지는 ScenarioRun이 `QUEUED`, `RUNNING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 linked CheckRun id, step 결과, error message, failure screenshot artifact id와 다운로드 버튼 및 미리보기, browser console error와 failed network request의 요약 및 상세 evidence를 표시합니다.
 
 ## Scenario 목록 페이지
 
@@ -40,7 +50,7 @@ Next.js 기반 AIM 사용자 인터페이스입니다.
 /projects/{projectId}/scenarios
 ```
 
-현재 인증 UI는 아직 없으므로 로그인 API에서 받은 access token을 페이지에 직접 입력합니다. 페이지는 등록된 scenario 목록과 step을 표시하고, active scenario에 대해 수동 ScenarioRun을 생성합니다. 생성 성공 후 ScenarioRun 결과 페이지 링크를 제공합니다.
+현재 Scenario 목록 페이지는 로그인 페이지에서 저장한 access token을 자동으로 읽지는 못하므로, access token을 직접 입력합니다. 페이지는 등록된 scenario 목록과 step을 표시하고, active scenario에 대해 수동 ScenarioRun을 생성합니다. 생성 성공 후 ScenarioRun 결과 페이지 링크를 제공합니다.
 
 Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 
@@ -53,6 +63,7 @@ Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 - Tailwind CSS
 - `NEXT_PUBLIC_API_URL` 기반 FastAPI `/health` 상태 확인
 - 로딩, 성공, 실패 상태 표시
+- Login 화면과 access token 저장
 - Vitest 기반 API 상태 확인 유틸리티 테스트
 - Project dashboard와 프로젝트별 최신 CheckRun 표시
 - CheckRun 결과 페이지

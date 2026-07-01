@@ -93,6 +93,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 ### Web UI
 
 - API health 상태 확인
+- Login 화면과 access token 저장
 - Project dashboard에서 프로젝트별 최신 CheckRun 목록 표시
 - CheckRun 결과 페이지
 - CheckRun score/risk 표시
@@ -105,7 +106,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - ScenarioRun 결과 페이지
 - Step 결과, console/network evidence, 실패 screenshot 미리보기
 
-현재 Web에는 로그인 UI가 없습니다. API 로그인 응답의 Bearer token을 각 페이지에 직접 입력해 결과를 조회합니다.
+현재 Web에는 로그인 UI와 Project dashboard 세션 연결이 있습니다. 회원가입 UI와 Project 생성·수정 UI는 아직 없으므로, 계정 생성과 프로젝트 등록은 API를 통해 수행합니다.
 
 ## 저장소 구조
 
@@ -197,11 +198,24 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 표시 항목:
 
 - API health 상태
-- access token 기반 프로젝트 목록 조회
+- 로그인 세션 또는 직접 입력한 access token 기반 프로젝트 목록 조회
 - 프로젝트별 service URL, environment, verification 상태
 - 프로젝트별 최신 CheckRun 상태와 실패 사유
 - 최신 CheckRun 결과 페이지 링크
 - Scenario 목록 페이지 링크
+
+### Login
+
+```text
+/login
+```
+
+표시 항목:
+
+- 이메일·비밀번호 로그인
+- JWT access token 저장
+- 로그인 성공 후 Project dashboard 이동
+- 인증 실패와 API 연결 실패 안내
 
 ### CheckRun 결과
 
@@ -286,7 +300,7 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. 로그인 UI와 기본 project 관리 화면 연결
-2. Project 생성·수정 화면과 domain verification 안내 연결
+1. Project 생성·수정 화면과 domain verification 안내 연결
+2. CheckRun 생성 버튼과 scan status polling 흐름 개선
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

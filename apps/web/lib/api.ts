@@ -5,6 +5,19 @@ type ApiHealthPayload = {
   service?: string;
 };
 
+type AccessTokenPayload = {
+  access_token?: string;
+  token_type?: string;
+};
+
+export type User = {
+  id: string;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type CheckRunStatus =
   | "QUEUED"
   | "RUNNING"
@@ -362,6 +375,42 @@ export type ProjectListResult =
       state: "unavailable";
     };
 
+export type LoginResult =
+  | {
+      state: "success";
+      accessToken: string;
+      tokenType: string;
+    }
+  | {
+      state: "invalid-credentials";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type CurrentUserResult =
+  | {
+      state: "success";
+      user: User;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type LogoutResult =
+  | {
+      state: "success";
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type CheckRunListResult =
   | {
       state: "success";
@@ -487,6 +536,18 @@ export function getApiHealthUrl(apiBaseUrl = getApiBaseUrl()): string {
   return new URL("/health", getApiBaseUrl(apiBaseUrl)).toString();
 }
 
+export function getLoginUrl(apiBaseUrl = getApiBaseUrl()): string {
+  return new URL("/auth/login", getApiBaseUrl(apiBaseUrl)).toString();
+}
+
+export function getCurrentUserUrl(apiBaseUrl = getApiBaseUrl()): string {
+  return new URL("/auth/me", getApiBaseUrl(apiBaseUrl)).toString();
+}
+
+export function getLogoutUrl(apiBaseUrl = getApiBaseUrl()): string {
+  return new URL("/auth/logout", getApiBaseUrl(apiBaseUrl)).toString();
+}
+
 export type PaginationParams = {
   limit?: number;
   offset?: number;
@@ -610,6 +671,118 @@ export async function fetchApiHealth(
       status: payload.status ?? "unknown",
       service: payload.service ?? "aim-api"
     };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function loginUser({
+  email,
+  password,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  email: string;
+  password: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<LoginResult> {
+  try {
+    const response = await fetcher(getLoginUrl(apiBaseUrl ?? getApiBaseUrl()), {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (response.status === 401) {
+      return { state: "invalid-credentials" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    const payload = (await response.json()) as AccessTokenPayload;
+    const accessToken = payload.access_token?.trim();
+
+    if (!accessToken) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      accessToken,
+      tokenType: payload.token_type ?? "bearer"
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchCurrentUser({
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<CurrentUserResult> {
+  try {
+    const response = await fetcher(getCurrentUserUrl(apiBaseUrl ?? getApiBaseUrl()), {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      user: (await response.json()) as User
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function logoutUser({
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<LogoutResult> {
+  try {
+    const response = await fetcher(getLogoutUrl(apiBaseUrl ?? getApiBaseUrl()), {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return { state: "success" };
   } catch {
     return { state: "unavailable" };
   }

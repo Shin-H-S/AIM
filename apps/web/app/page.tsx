@@ -1,18 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchApiHealth,
   fetchCheckRuns,
+  fetchCurrentUser,
   fetchProjects,
   getApiBaseUrl,
+  logoutUser,
   type CheckRunListResult,
   type CheckRunStatus,
   type CheckRunSummary,
   type HealthCheckResult,
-  type Project
+  type Project,
+  type User
 } from "@/lib/api";
+import { clearStoredAccessToken, getStoredAccessToken, storeAccessToken } from "@/lib/auth";
 
 const PROJECT_DASHBOARD_LIMIT = 20;
 const ACTIVE_CHECK_RUN_STATUSES: CheckRunStatus[] = ["QUEUED", "RUNNING", "ANALYZING"];
@@ -61,9 +65,77 @@ export default function Home() {
     state: "loading"
   });
   const [accessToken, setAccessToken] = useState("");
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [dashboard, setDashboard] = useState<DashboardState>({ state: "idle" });
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const trimmedToken = accessToken.trim();
+
+  const loadDashboardWithToken = useCallback(async (token: string) => {
+    const normalizedToken = token.trim();
+
+    if (!normalizedToken) {
+      clearStoredAccessToken();
+      setCurrentUser(null);
+      setDashboard({ state: "idle" });
+      setLastUpdatedAt(null);
+      return;
+    }
+
+    setDashboard({ state: "loading" });
+
+    const currentUserResult = await fetchCurrentUser({
+      accessToken: normalizedToken
+    });
+
+    if (currentUserResult.state !== "success") {
+      if (currentUserResult.state === "unauthorized") {
+        clearStoredAccessToken();
+      }
+
+      setCurrentUser(null);
+      setDashboard({ state: currentUserResult.state });
+      setLastUpdatedAt(null);
+      return;
+    }
+
+    setCurrentUser(currentUserResult.user);
+    storeAccessToken(normalizedToken);
+
+    const projectsResult = await fetchProjects({
+      accessToken: normalizedToken,
+      limit: PROJECT_DASHBOARD_LIMIT
+    });
+
+    if (projectsResult.state !== "success") {
+      if (projectsResult.state === "unauthorized") {
+        clearStoredAccessToken();
+        setCurrentUser(null);
+      }
+
+      setDashboard({ state: projectsResult.state });
+      setLastUpdatedAt(null);
+      return;
+    }
+
+    const projects = await Promise.all(
+      projectsResult.projects.map(async (project) => {
+        const checkRunsResult = await fetchCheckRuns({
+          projectId: project.id,
+          accessToken: normalizedToken,
+          limit: 1
+        });
+
+        return {
+          project,
+          latestCheckRun:
+            checkRunsResult.state === "success" ? (checkRunsResult.checkRuns[0] ?? null) : null,
+          latestCheckRunState: checkRunsResult.state
+        };
+      })
+    );
+    setDashboard({ state: "success", projects });
+    setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -78,6 +150,19 @@ export default function Home() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const storedAccessToken = getStoredAccessToken();
+
+    if (!storedAccessToken) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      setAccessToken(storedAccessToken);
+      void loadDashboardWithToken(storedAccessToken);
+    });
+  }, [loadDashboardWithToken]);
 
   const dashboardSummary = useMemo(() => {
     if (dashboard.state !== "success") {
@@ -100,46 +185,23 @@ export default function Home() {
     };
   }, [dashboard]);
 
-  async function loadDashboard() {
-    if (!trimmedToken) {
-      setDashboard({ state: "idle" });
-      return;
-    }
-
-    setDashboard({ state: "loading" });
-    const projectsResult = await fetchProjects({
-      accessToken: trimmedToken,
-      limit: PROJECT_DASHBOARD_LIMIT
-    });
-
-    if (projectsResult.state !== "success") {
-      setDashboard({ state: projectsResult.state });
-      return;
-    }
-
-    const projects = await Promise.all(
-      projectsResult.projects.map(async (project) => {
-        const checkRunsResult = await fetchCheckRuns({
-          projectId: project.id,
-          accessToken: trimmedToken,
-          limit: 1
-        });
-
-        return {
-          project,
-          latestCheckRun:
-            checkRunsResult.state === "success" ? (checkRunsResult.checkRuns[0] ?? null) : null,
-          latestCheckRunState: checkRunsResult.state
-        };
-      })
-    );
-    setDashboard({ state: "success", projects });
-    setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
-  }
-
   function handleDashboardSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void loadDashboard();
+    void loadDashboardWithToken(trimmedToken);
+  }
+
+  function handleLogout() {
+    if (trimmedToken) {
+      void logoutUser({
+        accessToken: trimmedToken
+      });
+    }
+
+    clearStoredAccessToken();
+    setAccessToken("");
+    setCurrentUser(null);
+    setDashboard({ state: "idle" });
+    setLastUpdatedAt(null);
   }
 
   return (
@@ -175,13 +237,16 @@ export default function Home() {
 
         <DashboardPanel
           accessToken={accessToken}
+          currentUser={currentUser}
           dashboard={dashboard}
           lastUpdatedAt={lastUpdatedAt}
           onAccessTokenChange={(value) => {
             setAccessToken(value);
+            setCurrentUser(null);
             setDashboard({ state: "idle" });
             setLastUpdatedAt(null);
           }}
+          onLogout={handleLogout}
           onSubmit={handleDashboardSubmit}
           trimmedToken={trimmedToken}
         />
@@ -192,16 +257,20 @@ export default function Home() {
 
 function DashboardPanel({
   accessToken,
+  currentUser,
   dashboard,
   lastUpdatedAt,
   onAccessTokenChange,
+  onLogout,
   onSubmit,
   trimmedToken
 }: {
   accessToken: string;
+  currentUser: User | null;
   dashboard: DashboardState;
   lastUpdatedAt: string | null;
   onAccessTokenChange: (value: string) => void;
+  onLogout: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   trimmedToken: string;
 }) {
@@ -211,9 +280,32 @@ function DashboardPanel({
         <div>
           <h2 className="text-2xl font-bold text-slate-100">Project dashboard</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-            로그인 UI가 붙기 전까지는 Auth API에서 받은 access token을 직접 입력합니다.
-            Dashboard는 프로젝트 목록을 가져온 뒤 각 프로젝트의 최신 CheckRun 1개를 조회합니다.
+            로그인 페이지에서 저장한 access token을 자동으로 사용합니다. 필요하면 access
+            token을 직접 입력해 Dashboard를 갱신할 수도 있습니다.
           </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {currentUser ? (
+              <>
+                <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-200 ring-1 ring-emerald-400/20">
+                  로그인됨: {currentUser.email}
+                </span>
+                <button
+                  className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-slate-300 transition hover:border-cyan-300/50 hover:text-cyan-100"
+                  onClick={onLogout}
+                  type="button"
+                >
+                  로그아웃
+                </button>
+              </>
+            ) : (
+              <Link
+                className="rounded-full bg-cyan-300 px-3 py-1 text-xs font-bold text-slate-950 transition hover:bg-cyan-200"
+                href="/login"
+              >
+                로그인하기
+              </Link>
+            )}
+          </div>
           {lastUpdatedAt && <p className="mt-2 text-xs text-slate-500">마지막 갱신: {lastUpdatedAt}</p>}
         </div>
 
@@ -252,7 +344,7 @@ function DashboardContent({ dashboard }: { dashboard: DashboardState }) {
   if (dashboard.state === "idle") {
     return (
       <EmptyState
-        description="프로젝트별 최신 CheckRun을 보려면 access token을 입력하고 Dashboard를 갱신하세요."
+        description="로그인 페이지에서 로그인하거나 access token을 직접 입력하고 Dashboard를 갱신하세요."
         title="Dashboard 대기 중"
       />
     );
@@ -265,7 +357,7 @@ function DashboardContent({ dashboard }: { dashboard: DashboardState }) {
   if (dashboard.state === "unauthorized") {
     return (
       <Notice
-        description="토큰이 없거나 만료되었습니다. Auth API에서 새 access token을 발급받아 다시 시도하세요."
+        description="토큰이 없거나 만료되었습니다. 로그인 페이지에서 다시 로그인하세요."
         title="인증 실패"
         tone="danger"
       />

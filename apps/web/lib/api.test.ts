@@ -3,16 +3,20 @@ import {
   createScenarioRun,
   downloadArtifact,
   fetchApiHealth,
+  fetchCheckRuns,
   fetchCheckRunAIReport,
   fetchCheckRunDetail,
+  fetchProjects,
   fetchScenarioRunDetail,
   fetchScenarios,
   getApiBaseUrl,
   getApiHealthUrl,
   getArtifactDownloadUrl,
+  getCheckRunsUrl,
   getCheckRunAIReportUrl,
   getCheckRunDetailUrl,
   getCreateScenarioRunUrl,
+  getProjectsUrl,
   getScenariosUrl,
   getScenarioRunDetailUrl
 } from "./api";
@@ -34,6 +38,22 @@ describe("getApiBaseUrl", () => {
 describe("getApiHealthUrl", () => {
   it("builds the health endpoint URL", () => {
     expect(getApiHealthUrl("http://localhost:8000")).toBe("http://localhost:8000/health");
+  });
+});
+
+describe("getProjectsUrl", () => {
+  it("builds the project list endpoint URL with pagination", () => {
+    expect(getProjectsUrl("http://localhost:8000", { limit: 20, offset: 5 })).toBe(
+      "http://localhost:8000/projects?limit=20&offset=5"
+    );
+  });
+});
+
+describe("getCheckRunsUrl", () => {
+  it("builds the check run list endpoint URL with pagination", () => {
+    expect(getCheckRunsUrl("project-id", "http://localhost:8000", { limit: 1 })).toBe(
+      "http://localhost:8000/projects/project-id/check-runs?limit=1"
+    );
   });
 });
 
@@ -128,6 +148,164 @@ describe("fetchApiHealth", () => {
     });
 
     expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe("fetchProjects", () => {
+  it("returns projects when the API request succeeds", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json([
+        {
+          id: "project-id",
+          owner_id: "user-id",
+          name: "AIM Website",
+          service_url: "https://example.com",
+          description: "Production site",
+          environment: "production",
+          scan_interval_minutes: 60,
+          response_time_threshold_ms: 2000,
+          quality_score_threshold: 80,
+          is_verified: true,
+          created_at: "2026-07-01T00:00:00Z",
+          updated_at: "2026-07-01T00:00:00Z"
+        }
+      ])
+    );
+
+    await expect(
+      fetchProjects({
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000",
+        limit: 20
+      })
+    ).resolves.toEqual({
+      state: "success",
+      projects: [
+        {
+          id: "project-id",
+          owner_id: "user-id",
+          name: "AIM Website",
+          service_url: "https://example.com",
+          description: "Production site",
+          environment: "production",
+          scan_interval_minutes: 60,
+          response_time_threshold_ms: 2000,
+          quality_score_threshold: 80,
+          is_verified: true,
+          created_at: "2026-07-01T00:00:00Z",
+          updated_at: "2026-07-01T00:00:00Z"
+        }
+      ]
+    });
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects?limit=20", {
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token"
+      }
+    });
+  });
+
+  it("maps project list authentication and unavailable responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const unavailableFetcher = vi.fn(async () => new Response(null, { status: 503 }));
+
+    await expect(
+      fetchProjects({
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      fetchProjects({
+        accessToken: "token",
+        fetcher: unavailableFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
+  });
+});
+
+describe("fetchCheckRuns", () => {
+  it("returns check runs when the API request succeeds", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json([
+        {
+          id: "check-run-id",
+          project_id: "project-id",
+          requested_by_id: "user-id",
+          status: "FAILED",
+          trigger_source: "manual",
+          failure_reason: "Service returned HTTP 503.",
+          queued_at: "2026-07-01T00:00:00Z",
+          started_at: "2026-07-01T00:00:01Z",
+          finished_at: "2026-07-01T00:00:02Z",
+          created_at: "2026-07-01T00:00:00Z",
+          updated_at: "2026-07-01T00:00:02Z"
+        }
+      ])
+    );
+
+    await expect(
+      fetchCheckRuns({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000",
+        limit: 1
+      })
+    ).resolves.toEqual({
+      state: "success",
+      checkRuns: [
+        {
+          id: "check-run-id",
+          project_id: "project-id",
+          requested_by_id: "user-id",
+          status: "FAILED",
+          trigger_source: "manual",
+          failure_reason: "Service returned HTTP 503.",
+          queued_at: "2026-07-01T00:00:00Z",
+          started_at: "2026-07-01T00:00:01Z",
+          finished_at: "2026-07-01T00:00:02Z",
+          created_at: "2026-07-01T00:00:00Z",
+          updated_at: "2026-07-01T00:00:02Z"
+        }
+      ]
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/check-runs?limit=1",
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+  });
+
+  it("maps check run list authentication and missing-project responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const notFoundFetcher = vi.fn(async () => new Response(null, { status: 404 }));
+
+    await expect(
+      fetchCheckRuns({
+        projectId: "project-id",
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      fetchCheckRuns({
+        projectId: "missing-project",
+        accessToken: "token",
+        fetcher: notFoundFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
   });
 });
 

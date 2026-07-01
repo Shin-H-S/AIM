@@ -88,6 +88,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - Service connection failure, repeated 5xx, critical scenario failure alert trigger
 - Performance score와 response time threshold alert trigger
 - 복구 감지 시 recovery alert 기록
+- SMTP 설정 기반 pending email Alert 발송 worker task
 
 ### Web UI
 
@@ -269,9 +270,8 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. Pending email alert 실제 발송 worker와 SMTP 설정
-2. Dashboard에서 project별 최신 CheckRun 목록 표시
-3. 로그인 UI와 기본 project 관리 화면 연결
-4. Project 생성·수정 화면과 domain verification 안내 연결
+1. Dashboard에서 project별 최신 CheckRun 목록 표시
+2. 로그인 UI와 기본 project 관리 화면 연결
+3. Project 생성·수정 화면과 domain verification 안내 연결
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

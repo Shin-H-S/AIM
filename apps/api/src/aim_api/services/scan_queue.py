@@ -7,6 +7,7 @@ from aim_api.config import get_settings
 RUN_CHECK_RUN_TASK_NAME = "aim_worker.run_check_run"
 RUN_SCENARIO_RUN_TASK_NAME = "aim_worker.run_scenario_run"
 RUN_AI_REPORT_TASK_NAME = "aim_worker.generate_ai_report"
+DELIVER_EMAIL_ALERTS_TASK_NAME = "aim_worker.deliver_pending_email_alerts"
 
 
 class ScanQueueUnavailableError(Exception):
@@ -59,6 +60,20 @@ def enqueue_ai_report(*, check_run_id: UUID) -> str:
         result = celery_client.send_task(
             RUN_AI_REPORT_TASK_NAME,
             args=[str(check_run_id)],
+            task_id=task_id,
+        )
+    except Exception as exc:
+        raise ScanQueueUnavailableError from exc
+
+    return str(result.id)
+
+
+def enqueue_email_alert_delivery(*, check_run_id: UUID) -> str:
+    task_id = f"email-alerts:{check_run_id}"
+    celery_client = build_celery_client()
+    try:
+        result = celery_client.send_task(
+            DELIVER_EMAIL_ALERTS_TASK_NAME,
             task_id=task_id,
         )
     except Exception as exc:

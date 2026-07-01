@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
+import { AIReportDetailPanel } from "./AIReportDetailPanel";
 import {
+  fetchCheckRunAIReport,
   fetchCheckRunDetail,
   getApiBaseUrl,
+  type AIReportDetailResult,
   type AIReportSummary,
   type Artifact,
   type AvailabilityResult,
@@ -55,10 +58,19 @@ export function ResultPageClient({
   const [accessToken, setAccessToken] = useState("");
   const [result, setResult] = useState<CheckRunDetailResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [aiReportDetailResult, setAIReportDetailResult] =
+    useState<AIReportDetailResult | null>(null);
+  const [isAIReportDetailLoading, setIsAIReportDetailLoading] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const trimmedToken = accessToken.trim();
   const checkRun = result?.state === "success" ? result.checkRun : null;
   const shouldPoll = checkRun ? ACTIVE_STATUSES.has(checkRun.status) : false;
+  const visibleAIReportDetailResult =
+    checkRun?.ai_report &&
+    aiReportDetailResult?.state === "success" &&
+    aiReportDetailResult.report.id !== checkRun.ai_report.id
+      ? null
+      : aiReportDetailResult;
 
   const refresh = useCallback(async () => {
     if (!trimmedToken) {
@@ -73,8 +85,27 @@ export function ResultPageClient({
       accessToken: trimmedToken
     });
     setResult(nextResult);
+    if (nextResult.state !== "success" || nextResult.checkRun.ai_report === null) {
+      setAIReportDetailResult(null);
+    }
     setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
     setIsLoading(false);
+  }, [checkRunId, projectId, trimmedToken]);
+
+  const loadAIReportDetail = useCallback(async () => {
+    if (!trimmedToken) {
+      setAIReportDetailResult(null);
+      return;
+    }
+
+    setIsAIReportDetailLoading(true);
+    const nextResult = await fetchCheckRunAIReport({
+      projectId,
+      checkRunId,
+      accessToken: trimmedToken
+    });
+    setAIReportDetailResult(nextResult);
+    setIsAIReportDetailLoading(false);
   }, [checkRunId, projectId, trimmedToken]);
 
   useEffect(() => {
@@ -133,7 +164,10 @@ export function ResultPageClient({
                 type="password"
                 value={accessToken}
                 placeholder="로그인 API에서 받은 access_token을 입력하세요"
-                onChange={(event) => setAccessToken(event.target.value)}
+                onChange={(event) => {
+                  setAccessToken(event.target.value);
+                  setAIReportDetailResult(null);
+                }}
               />
             </label>
             <button
@@ -190,7 +224,12 @@ export function ResultPageClient({
             </section>
 
             <ScoreCard result={checkRun.score_result} />
-            <AIReportSummaryCard report={checkRun.ai_report} />
+            <AIReportSummaryCard
+              detailResult={visibleAIReportDetailResult}
+              isLoadingDetail={isAIReportDetailLoading}
+              onLoadDetail={loadAIReportDetail}
+              report={checkRun.ai_report}
+            />
             <ComparisonCard result={checkRun.comparison_result} />
             <LinkedScenarioRunsCard
               projectId={projectId}
@@ -323,7 +362,17 @@ function ScoreCard({ result }: { result: ScoreResult | null }) {
   );
 }
 
-function AIReportSummaryCard({ report }: { report: AIReportSummary | null }) {
+function AIReportSummaryCard({
+  detailResult,
+  isLoadingDetail,
+  onLoadDetail,
+  report
+}: {
+  detailResult: AIReportDetailResult | null;
+  isLoadingDetail: boolean;
+  onLoadDetail: () => void;
+  report: AIReportSummary | null;
+}) {
   if (!report) {
     return (
       <EmptyResultCard
@@ -371,6 +420,55 @@ function AIReportSummaryCard({ report }: { report: AIReportSummary | null }) {
         이 요약은 AIM이 수집한 score, scanner result, scenario evidence를 바탕으로 생성됩니다.
         내부 원인이나 소스 코드 위치를 확정 사실처럼 표시하지 않습니다.
       </p>
+
+      <div className="mt-5">
+        <button
+          className="rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isLoadingDetail}
+          onClick={onLoadDetail}
+          type="button"
+        >
+          {isLoadingDetail
+            ? "상세 진단 불러오는 중"
+            : detailResult?.state === "success"
+              ? "상세 진단 새로고침"
+              : "상세 진단 보기"}
+        </button>
+      </div>
+
+      {detailResult?.state === "unauthorized" && (
+        <div className="mt-5">
+          <Notice
+            tone="danger"
+            title="AIReport 인증 실패"
+            description="토큰이 없거나 만료되었거나, 이 리포트에 접근할 권한이 없습니다."
+          />
+        </div>
+      )}
+
+      {detailResult?.state === "not-found" && (
+        <div className="mt-5">
+          <Notice
+            tone="info"
+            title="AIReport 상세 없음"
+            description="요약은 있지만 전체 리포트가 아직 저장되지 않았거나, CheckRun 권한을 다시 확인해야 합니다."
+          />
+        </div>
+      )}
+
+      {detailResult?.state === "unavailable" && (
+        <div className="mt-5">
+          <Notice
+            tone="danger"
+            title="AIReport 요청 실패"
+            description="API 서버 상태와 네트워크 연결을 확인한 뒤 다시 시도하세요."
+          />
+        </div>
+      )}
+
+      {detailResult?.state === "success" && (
+        <AIReportDetailPanel report={detailResult.report} />
+      )}
     </article>
   );
 }

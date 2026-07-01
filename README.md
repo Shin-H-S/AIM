@@ -86,7 +86,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - API health 상태 확인
 - CheckRun 결과 페이지
 - CheckRun score/risk 표시
-- AIReport 요약 표시
+- AIReport 요약 및 상세 패널 표시
 - 직전 run 대비 변화 표시
 - linked ScenarioRun 실패 요약과 상세 페이지 링크
 - Availability, SSL, Lighthouse 결과 표시
@@ -189,6 +189,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - CheckRun 상태와 polling 상태
 - score, grade, deployment risk
 - AI 진단 요약
+- AI 진단 상세 패널의 top issues, 개선/회귀 영역, generation warning
 - risk gate reason
 - 이전 run 대비 변화
 - linked ScenarioRun 요약
@@ -260,10 +261,9 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. AIReport 상세 화면 또는 상세 패널 연결
-2. Email alert와 incident/recovery 기록
-3. Dashboard에서 project별 최신 CheckRun 목록 표시
-4. 로그인 UI와 기본 project 관리 화면 연결
-5. Project 생성·수정 화면과 domain verification 안내 연결
+1. Email alert와 incident/recovery 기록
+2. Dashboard에서 project별 최신 CheckRun 목록 표시
+3. 로그인 UI와 기본 project 관리 화면 연결
+4. Project 생성·수정 화면과 domain verification 안내 연결
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

@@ -29,7 +29,9 @@ from aim_api.models.scenario import (
 )
 from aim_api.models.user import User
 from aim_api.services import ai_reports as ai_report_service
+from aim_api.services import alert_delivery as alert_delivery_service
 from aim_api.services import scan_queue, scanner_results, score_results
+from aim_api.services.alert_delivery import AlertDeliveryResult
 from aim_worker import tasks
 from aim_worker.artifacts import StoredArtifact
 from aim_worker.availability import AvailabilityScanResult
@@ -133,6 +135,22 @@ def ai_report_generation_queue(monkeypatch: pytest.MonkeyPatch) -> None:
         "enqueue_ai_report_generation",
         fake_enqueue_ai_report_generation,
     )
+
+
+@pytest.fixture(autouse=True)
+def email_alert_delivery_queue(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    enqueued_check_run_ids: list[str] = []
+
+    def fake_enqueue_email_alert_delivery(*, check_run_id: UUID) -> str:
+        enqueued_check_run_ids.append(str(check_run_id))
+        return f"email-alerts:{check_run_id}"
+
+    monkeypatch.setattr(
+        tasks,
+        "enqueue_email_alert_delivery",
+        fake_enqueue_email_alert_delivery,
+    )
+    return enqueued_check_run_ids
 
 
 def create_check_run(
@@ -676,6 +694,7 @@ def test_run_check_run_fails_when_availability_scan_fails(
 
 def test_run_check_run_records_connection_failure_incident(
     session: Session,
+    email_alert_delivery_queue: list[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     check_run = create_check_run(session, status=CheckRunStatus.QUEUED)
@@ -698,6 +717,34 @@ def test_run_check_run_records_connection_failure_incident(
     assert alert.incident_id == incident.id
     assert alert.check_run_id == check_run.id
     assert alert.recipient_email is not None
+    assert email_alert_delivery_queue == [str(check_run.id)]
+
+
+def test_deliver_pending_email_alerts_task_returns_delivery_counts(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _ = session
+
+    def fake_deliver_pending_email_alerts(session: Session) -> AlertDeliveryResult:
+        _ = session
+        return AlertDeliveryResult(
+            sent_count=1,
+            failed_count=2,
+            skipped_count=3,
+        )
+
+    monkeypatch.setattr(
+        alert_delivery_service,
+        "deliver_pending_email_alerts",
+        fake_deliver_pending_email_alerts,
+    )
+
+    assert tasks.deliver_pending_email_alerts.run() == {
+        "sent_count": 1,
+        "failed_count": 2,
+        "skipped_count": 3,
+    }
 
 
 def test_run_check_run_does_not_override_cancelled_run(session: Session) -> None:

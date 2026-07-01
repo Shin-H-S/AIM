@@ -7,6 +7,7 @@ from aim_api.models.project import Project
 from aim_api.models.scanner_result import AvailabilityResult, LighthouseResult, ScoreResult
 from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus
 from aim_api.services import ai_reports as ai_report_service
+from aim_api.services import alert_delivery as alert_delivery_service
 from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import incidents as incident_service
@@ -16,6 +17,7 @@ from aim_api.services import scanner_results as scanner_result_service
 from aim_api.services import scenarios as scenario_service
 from aim_api.services import score_results as score_result_service
 from aim_api.services.scan_queue import (
+    DELIVER_EMAIL_ALERTS_TASK_NAME,
     RUN_AI_REPORT_TASK_NAME,
     RUN_CHECK_RUN_TASK_NAME,
     RUN_SCENARIO_RUN_TASK_NAME,
@@ -35,6 +37,8 @@ SCENARIO_WORKER_FAILED_REASON = "Scenario worker failed."
 AI_REPORT_GENERATION_FAILED_MESSAGE = "Failed to generate AI report for check run."
 AI_REPORT_ENQUEUE_FAILED_MESSAGE = "Failed to enqueue AI report generation task."
 INCIDENT_SYNC_FAILED_MESSAGE = "Failed to sync incidents for check run."
+EMAIL_ALERT_DELIVERY_FAILED_MESSAGE = "Failed to deliver pending email alerts."
+EMAIL_ALERT_DELIVERY_ENQUEUE_FAILED_MESSAGE = "Failed to enqueue email alert delivery task."
 logger = logging.getLogger(__name__)
 
 
@@ -81,6 +85,10 @@ def enqueue_ai_report_generation(*, check_run_id: UUID) -> str:
     return scan_queue.enqueue_ai_report(check_run_id=check_run_id)
 
 
+def enqueue_email_alert_delivery(*, check_run_id: UUID) -> str:
+    return scan_queue.enqueue_email_alert_delivery(check_run_id=check_run_id)
+
+
 def enqueue_ai_report_for_terminal_check_run(session: Session, *, check_run_id: UUID) -> None:
     try:
         check_run = check_run_service.get_check_run_by_id(
@@ -101,6 +109,16 @@ def enqueue_ai_report_for_terminal_check_run(session: Session, *, check_run_id: 
     except scan_queue.ScanQueueUnavailableError:
         logger.exception(
             AI_REPORT_ENQUEUE_FAILED_MESSAGE,
+            extra={"check_run_id": str(check_run_id)},
+        )
+
+
+def enqueue_email_alert_delivery_for_check_run(*, check_run_id: UUID) -> None:
+    try:
+        enqueue_email_alert_delivery(check_run_id=check_run_id)
+    except scan_queue.ScanQueueUnavailableError:
+        logger.exception(
+            EMAIL_ALERT_DELIVERY_ENQUEUE_FAILED_MESSAGE,
             extra={"check_run_id": str(check_run_id)},
         )
 
@@ -129,7 +147,7 @@ def sync_check_run_incidents(
         return
 
     try:
-        incident_service.sync_incidents_for_check_run(
+        sync_result = incident_service.sync_incidents_for_check_run(
             session,
             check_run=check_run,
             project=project,
@@ -137,12 +155,35 @@ def sync_check_run_incidents(
             lighthouse_result=lighthouse_result,
             score_result=score_result,
         )
+        if sync_result.alerts:
+            enqueue_email_alert_delivery_for_check_run(check_run_id=check_run_id)
     except Exception:
         session.rollback()
         logger.exception(
             INCIDENT_SYNC_FAILED_MESSAGE,
             extra={"check_run_id": str(check_run_id), "project_id": str(project.id)},
         )
+
+
+@celery_app.task(  # type: ignore[untyped-decorator]
+    name=DELIVER_EMAIL_ALERTS_TASK_NAME,
+    soft_time_limit=60,
+    time_limit=90,
+)
+def deliver_pending_email_alerts() -> dict[str, int]:
+    with SessionLocal() as session:
+        try:
+            result = alert_delivery_service.deliver_pending_email_alerts(session)
+        except Exception:
+            session.rollback()
+            logger.exception(EMAIL_ALERT_DELIVERY_FAILED_MESSAGE)
+            raise
+
+    return {
+        "sent_count": result.sent_count,
+        "failed_count": result.failed_count,
+        "skipped_count": result.skipped_count,
+    }
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]

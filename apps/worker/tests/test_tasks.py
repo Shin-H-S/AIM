@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from contextlib import suppress
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -27,7 +28,7 @@ from aim_api.models.scenario import (
 )
 from aim_api.models.user import User
 from aim_api.services import ai_reports as ai_report_service
-from aim_api.services import scanner_results, score_results
+from aim_api.services import scan_queue, scanner_results, score_results
 from aim_worker import tasks
 from aim_worker.artifacts import StoredArtifact
 from aim_worker.availability import AvailabilityScanResult
@@ -116,6 +117,21 @@ def artifact_storage(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     monkeypatch.setattr(tasks, "store_binary_artifact", fake_store_binary_artifact)
+
+
+@pytest.fixture(autouse=True)
+def ai_report_generation_queue(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_enqueue_ai_report_generation(*, check_run_id: UUID) -> str:
+        with suppress(Exception):
+            tasks.generate_ai_report.run(str(check_run_id))
+
+        return f"ai-report:{check_run_id}"
+
+    monkeypatch.setattr(
+        tasks,
+        "enqueue_ai_report_generation",
+        fake_enqueue_ai_report_generation,
+    )
 
 
 def create_check_run(
@@ -426,7 +442,7 @@ def test_run_check_run_records_previous_run_comparison(
     assert comparison.deployment_risk_changed is False
 
 
-def test_run_check_run_keeps_completed_status_when_ai_report_generation_fails(
+def test_run_check_run_keeps_completed_status_when_ai_report_enqueue_fails(
     session: Session,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -435,15 +451,15 @@ def test_run_check_run_keeps_completed_status_when_ai_report_generation_fails(
     def fake_scan(service_url: str) -> AvailabilityScanResult:
         return available_result(service_url)
 
-    def fail_generate_ai_report(*, session: Session, check_run_id: UUID) -> None:
-        _ = session, check_run_id
-        raise RuntimeError("AI provider unavailable")
+    def fail_enqueue_ai_report_generation(*, check_run_id: UUID) -> str:
+        _ = check_run_id
+        raise scan_queue.ScanQueueUnavailableError
 
     monkeypatch.setattr(tasks, "scan_http_availability", fake_scan)
     monkeypatch.setattr(
-        ai_report_service,
-        "generate_and_record_ai_report",
-        fail_generate_ai_report,
+        tasks,
+        "enqueue_ai_report_generation",
+        fail_enqueue_ai_report_generation,
     )
 
     tasks.run_check_run.run(str(check_run.id))
@@ -452,6 +468,54 @@ def test_run_check_run_keeps_completed_status_when_ai_report_generation_fails(
     assert check_run.status == CheckRunStatus.COMPLETED.value
     assert check_run.failure_reason is None
     assert session.scalars(select(ScoreResult)).one().check_run_id == check_run.id
+    assert session.scalars(select(AIReport)).all() == []
+
+
+def test_generate_ai_report_task_records_report_for_terminal_check_run(
+    session: Session,
+) -> None:
+    check_run = create_check_run(session, status=CheckRunStatus.COMPLETED)
+    record_completed_baseline_result(session, check_run=check_run)
+
+    tasks.generate_ai_report.run(str(check_run.id))
+
+    ai_report = session.scalars(select(AIReport)).one()
+    assert ai_report.check_run_id == check_run.id
+    assert ai_report.overall_score == 92
+    assert ai_report.deployment_risk == "STABLE"
+
+
+def test_generate_ai_report_task_skips_non_terminal_check_run(session: Session) -> None:
+    check_run = create_check_run(session, status=CheckRunStatus.RUNNING)
+
+    tasks.generate_ai_report.run(str(check_run.id))
+
+    assert session.scalars(select(AIReport)).all() == []
+
+
+def test_generate_ai_report_task_failure_does_not_change_check_run_status(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check_run = create_check_run(session, status=CheckRunStatus.COMPLETED)
+    record_completed_baseline_result(session, check_run=check_run)
+
+    def fail_generate_ai_report(session: Session, *, check_run_id: UUID) -> None:
+        _ = session, check_run_id
+        raise RuntimeError("AI provider unavailable")
+
+    monkeypatch.setattr(
+        ai_report_service,
+        "generate_and_record_ai_report",
+        fail_generate_ai_report,
+    )
+
+    with pytest.raises(Exception, match="AI provider unavailable"):
+        tasks.generate_ai_report.run(str(check_run.id))
+
+    session.refresh(check_run)
+    assert check_run.status == CheckRunStatus.COMPLETED.value
+    assert check_run.failure_reason is None
     assert session.scalars(select(AIReport)).all() == []
 
 

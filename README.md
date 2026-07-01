@@ -79,6 +79,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - CheckRun별 AIReport 조회 API
 - CheckRun 상세 응답의 AIReport 요약 필드
 - Worker 기반 AIReport 자동 생성 및 linked ScenarioRun 완료 후 갱신
+- AIReport 생성 실패 재시도를 위한 별도 worker task
 
 ### Web UI
 
@@ -260,10 +261,9 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. AIReport 생성 실패 재시도 task 분리
-2. Email alert와 incident/recovery 기록
-3. Dashboard에서 project별 최신 CheckRun 목록 표시
-4. 로그인 UI와 기본 project 관리 화면 연결
-5. Project 생성·수정 화면과 domain verification 안내 연결
+1. Email alert와 incident/recovery 기록
+2. Dashboard에서 project별 최신 CheckRun 목록 표시
+3. 로그인 UI와 기본 project 관리 화면 연결
+4. Project 생성·수정 화면과 domain verification 안내 연결
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

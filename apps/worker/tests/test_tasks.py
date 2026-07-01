@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 import pytest
 from aim_api.database import Base
 from aim_api.models.ai_report import AIReport
+from aim_api.models.alert import Alert, Incident, IncidentStatus, IncidentTriggerType
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.models.scanner_result import (
@@ -295,6 +296,20 @@ def unavailable_result(service_url: str) -> AvailabilityScanResult:
         uses_https=True,
         timed_out=False,
         failure_reason="Service returned HTTP 503.",
+    )
+
+
+def connection_failure_result(service_url: str) -> AvailabilityScanResult:
+    return AvailabilityScanResult(
+        service_url=service_url,
+        final_url=None,
+        is_available=False,
+        status_code=None,
+        response_time_ms=None,
+        redirect_count=0,
+        uses_https=service_url.startswith("https://"),
+        timed_out=True,
+        failure_reason="Connection timed out.",
     )
 
 
@@ -657,6 +672,32 @@ def test_run_check_run_fails_when_availability_scan_fails(
     assert ai_report.overall_score == 0
     assert ai_report.grade == "F"
     assert ai_report.deployment_risk == "RISK"
+
+
+def test_run_check_run_records_connection_failure_incident(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check_run = create_check_run(session, status=CheckRunStatus.QUEUED)
+
+    def fake_scan(service_url: str) -> AvailabilityScanResult:
+        return connection_failure_result(service_url)
+
+    monkeypatch.setattr(tasks, "scan_http_availability", fake_scan)
+
+    tasks.run_check_run.run(str(check_run.id))
+
+    session.refresh(check_run)
+    assert check_run.status == CheckRunStatus.FAILED.value
+    incident = session.scalars(select(Incident)).one()
+    assert incident.project_id == check_run.project_id
+    assert incident.opened_check_run_id == check_run.id
+    assert incident.trigger_type == IncidentTriggerType.SERVICE_CONNECTION_FAILURE.value
+    assert incident.status == IncidentStatus.OPEN.value
+    alert = session.scalars(select(Alert)).one()
+    assert alert.incident_id == incident.id
+    assert alert.check_run_id == check_run.id
+    assert alert.recipient_email is not None
 
 
 def test_run_check_run_does_not_override_cancelled_run(session: Session) -> None:

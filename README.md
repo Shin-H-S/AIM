@@ -81,6 +81,14 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - Worker 기반 AIReport 자동 생성 및 linked ScenarioRun 완료 후 갱신
 - AIReport 생성 실패 재시도를 위한 별도 worker task
 
+### Alerts and incidents
+
+- Incident와 pending email Alert 저장 모델 및 migration
+- terminal CheckRun 결과 기반 incident open/recovery 기록
+- Service connection failure, repeated 5xx, critical scenario failure alert trigger
+- Performance score와 response time threshold alert trigger
+- 복구 감지 시 recovery alert 기록
+
 ### Web UI
 
 - API health 상태 확인
@@ -261,7 +269,7 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. Email alert와 incident/recovery 기록
+1. Pending email alert 실제 발송 worker와 SMTP 설정
 2. Dashboard에서 project별 최신 CheckRun 목록 표시
 3. 로그인 UI와 기본 project 관리 화면 연결
 4. Project 생성·수정 화면과 domain verification 안내 연결

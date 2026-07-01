@@ -4,10 +4,12 @@ from uuid import UUID
 from aim_api.database import SessionLocal
 from aim_api.models.check_run import CheckRunStatus
 from aim_api.models.project import Project
+from aim_api.models.scanner_result import AvailabilityResult, LighthouseResult, ScoreResult
 from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus
 from aim_api.services import ai_reports as ai_report_service
 from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
+from aim_api.services import incidents as incident_service
 from aim_api.services import run_comparisons as run_comparison_service
 from aim_api.services import scan_queue
 from aim_api.services import scanner_results as scanner_result_service
@@ -32,6 +34,7 @@ CHECK_RUN_PROJECT_NOT_FOUND_REASON = "Project for check run was not found."
 SCENARIO_WORKER_FAILED_REASON = "Scenario worker failed."
 AI_REPORT_GENERATION_FAILED_MESSAGE = "Failed to generate AI report for check run."
 AI_REPORT_ENQUEUE_FAILED_MESSAGE = "Failed to enqueue AI report generation task."
+INCIDENT_SYNC_FAILED_MESSAGE = "Failed to sync incidents for check run."
 logger = logging.getLogger(__name__)
 
 
@@ -99,6 +102,46 @@ def enqueue_ai_report_for_terminal_check_run(session: Session, *, check_run_id: 
         logger.exception(
             AI_REPORT_ENQUEUE_FAILED_MESSAGE,
             extra={"check_run_id": str(check_run_id)},
+        )
+
+
+def sync_check_run_incidents(
+    session: Session,
+    *,
+    check_run_id: UUID,
+    project: Project,
+    availability_result: AvailabilityResult | None,
+    lighthouse_result: LighthouseResult | None,
+    score_result: ScoreResult,
+) -> None:
+    try:
+        check_run = check_run_service.get_check_run_by_id(
+            session,
+            check_run_id=check_run_id,
+        )
+    except check_run_service.CheckRunNotFoundError:
+        return
+
+    if check_run.status not in {
+        CheckRunStatus.COMPLETED.value,
+        CheckRunStatus.FAILED.value,
+    }:
+        return
+
+    try:
+        incident_service.sync_incidents_for_check_run(
+            session,
+            check_run=check_run,
+            project=project,
+            availability_result=availability_result,
+            lighthouse_result=lighthouse_result,
+            score_result=score_result,
+        )
+    except Exception:
+        session.rollback()
+        logger.exception(
+            INCIDENT_SYNC_FAILED_MESSAGE,
+            extra={"check_run_id": str(check_run_id), "project_id": str(project.id)},
         )
 
 
@@ -173,6 +216,14 @@ def refresh_linked_check_run_score(session: Session, *, scenario_run: ScenarioRu
         current_score_result=score_result,
         current_availability_result=availability_result,
         current_lighthouse_result=lighthouse_result,
+    )
+    sync_check_run_incidents(
+        session,
+        check_run_id=check_run.id,
+        project=project,
+        availability_result=availability_result,
+        lighthouse_result=lighthouse_result,
+        score_result=score_result,
     )
     enqueue_ai_report_for_terminal_check_run(session, check_run_id=check_run.id)
 
@@ -378,10 +429,18 @@ def run_check_run(check_run_id: str) -> None:
                     current_availability_result=saved_availability_result,
                     current_lighthouse_result=None,
                 )
-                check_run_service.mark_check_run_failed(
+                terminal_check_run = check_run_service.mark_check_run_failed(
                     session,
                     check_run_id=parsed_check_run_id,
                     failure_reason=ssl_result.failure_reason or "SSL certificate is invalid.",
+                )
+                sync_check_run_incidents(
+                    session,
+                    check_run_id=terminal_check_run.id,
+                    project=project,
+                    availability_result=saved_availability_result,
+                    lighthouse_result=None,
+                    score_result=score_result,
                 )
                 enqueue_ai_report_for_terminal_check_run(
                     session,
@@ -456,10 +515,18 @@ def run_check_run(check_run_id: str) -> None:
                 current_lighthouse_result=saved_lighthouse_result,
             )
             if not lighthouse_result.is_successful:
-                check_run_service.mark_check_run_failed(
+                terminal_check_run = check_run_service.mark_check_run_failed(
                     session,
                     check_run_id=parsed_check_run_id,
                     failure_reason=lighthouse_result.failure_reason or "Lighthouse scan failed.",
+                )
+                sync_check_run_incidents(
+                    session,
+                    check_run_id=terminal_check_run.id,
+                    project=project,
+                    availability_result=saved_availability_result,
+                    lighthouse_result=saved_lighthouse_result,
+                    score_result=score_result,
                 )
                 enqueue_ai_report_for_terminal_check_run(
                     session,
@@ -467,9 +534,17 @@ def run_check_run(check_run_id: str) -> None:
                 )
                 return
 
-            check_run_service.mark_check_run_completed(
+            terminal_check_run = check_run_service.mark_check_run_completed(
                 session,
                 check_run_id=parsed_check_run_id,
+            )
+            sync_check_run_incidents(
+                session,
+                check_run_id=terminal_check_run.id,
+                project=project,
+                availability_result=saved_availability_result,
+                lighthouse_result=saved_lighthouse_result,
+                score_result=score_result,
             )
             enqueue_ai_report_for_terminal_check_run(
                 session,
@@ -493,10 +568,18 @@ def run_check_run(check_run_id: str) -> None:
             current_availability_result=saved_availability_result,
             current_lighthouse_result=None,
         )
-        check_run_service.mark_check_run_failed(
+        terminal_check_run = check_run_service.mark_check_run_failed(
             session,
             check_run_id=parsed_check_run_id,
             failure_reason=failure_reason,
+        )
+        sync_check_run_incidents(
+            session,
+            check_run_id=terminal_check_run.id,
+            project=project,
+            availability_result=saved_availability_result,
+            lighthouse_result=None,
+            score_result=score_result,
         )
         enqueue_ai_report_for_terminal_check_run(
             session,

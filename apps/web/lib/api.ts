@@ -27,6 +27,21 @@ export type TestStepAction =
   | "assert_url"
   | "take_screenshot";
 
+export type Project = {
+  id: string;
+  owner_id: string;
+  name: string;
+  service_url: string;
+  description: string | null;
+  environment: "development" | "staging" | "production";
+  scan_interval_minutes: number;
+  response_time_threshold_ms: number;
+  quality_score_threshold: number;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type AvailabilityResult = {
   service_url: string;
   final_url: string | null;
@@ -207,6 +222,20 @@ export type CheckRunDetail = {
   linked_scenario_runs: ScenarioRun[];
 };
 
+export type CheckRunSummary = {
+  id: string;
+  project_id: string;
+  requested_by_id: string;
+  status: CheckRunStatus;
+  trigger_source: string;
+  failure_reason: string | null;
+  queued_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type StepResult = {
   id: string;
   scenario_run_id: string;
@@ -310,6 +339,33 @@ export type CheckRunDetailResult =
   | {
       state: "success";
       checkRun: CheckRunDetail;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type ProjectListResult =
+  | {
+      state: "success";
+      projects: Project[];
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type CheckRunListResult =
+  | {
+      state: "success";
+      checkRuns: CheckRunSummary[];
     }
   | {
       state: "unauthorized";
@@ -431,6 +487,41 @@ export function getApiHealthUrl(apiBaseUrl = getApiBaseUrl()): string {
   return new URL("/health", getApiBaseUrl(apiBaseUrl)).toString();
 }
 
+export type PaginationParams = {
+  limit?: number;
+  offset?: number;
+};
+
+function applyPagination(url: URL, pagination: PaginationParams): URL {
+  if (pagination.limit !== undefined) {
+    url.searchParams.set("limit", String(pagination.limit));
+  }
+
+  if (pagination.offset !== undefined) {
+    url.searchParams.set("offset", String(pagination.offset));
+  }
+
+  return url;
+}
+
+export function getProjectsUrl(
+  apiBaseUrl = getApiBaseUrl(),
+  pagination: PaginationParams = {}
+): string {
+  return applyPagination(new URL("/projects", getApiBaseUrl(apiBaseUrl)), pagination).toString();
+}
+
+export function getCheckRunsUrl(
+  projectId: string,
+  apiBaseUrl = getApiBaseUrl(),
+  pagination: PaginationParams = {}
+): string {
+  return applyPagination(
+    new URL(`/projects/${encodeURIComponent(projectId)}/check-runs`, getApiBaseUrl(apiBaseUrl)),
+    pagination
+  ).toString();
+}
+
 export function getCheckRunDetailUrl(
   projectId: string,
   checkRunId: string,
@@ -518,6 +609,94 @@ export async function fetchApiHealth(
       state: "available",
       status: payload.status ?? "unknown",
       service: payload.service ?? "aim-api"
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchProjects({
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl,
+  limit,
+  offset
+}: {
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ProjectListResult> {
+  try {
+    const response = await fetcher(
+      getProjectsUrl(apiBaseUrl ?? getApiBaseUrl(), { limit, offset }),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401) {
+      return { state: "unauthorized" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      projects: (await response.json()) as Project[]
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchCheckRuns({
+  projectId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl,
+  limit,
+  offset
+}: {
+  projectId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<CheckRunListResult> {
+  try {
+    const response = await fetcher(
+      getCheckRunsUrl(projectId, apiBaseUrl ?? getApiBaseUrl(), { limit, offset }),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      checkRuns: (await response.json()) as CheckRunSummary[]
     };
   } catch {
     return { state: "unavailable" };

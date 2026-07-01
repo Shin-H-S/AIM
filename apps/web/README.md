@@ -2,6 +2,16 @@
 
 Next.js 기반 AIM 사용자 인터페이스입니다.
 
+## Project dashboard
+
+다음 경로에서 프로젝트별 최신 CheckRun 상태를 확인할 수 있습니다.
+
+```text
+/
+```
+
+현재 인증 UI는 아직 없으므로 로그인 API에서 받은 access token을 dashboard에 직접 입력합니다. Dashboard는 프로젝트 목록을 조회한 뒤 각 프로젝트의 최신 CheckRun 1개를 병렬로 가져와 service URL, environment, verification 상태, 최신 CheckRun 상태와 실패 사유, 결과 페이지 링크를 표시합니다.
+
 ## CheckRun 결과 페이지
 
 다음 경로에서 CheckRun 상태와 기본 scanner result를 확인할 수 있습니다.
@@ -44,6 +54,7 @@ Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 - `NEXT_PUBLIC_API_URL` 기반 FastAPI `/health` 상태 확인
 - 로딩, 성공, 실패 상태 표시
 - Vitest 기반 API 상태 확인 유틸리티 테스트
+- Project dashboard와 프로젝트별 최신 CheckRun 표시
 - CheckRun 결과 페이지
 - CheckRun AI 진단 요약 표시
 - CheckRun AI 진단 상세 패널 표시

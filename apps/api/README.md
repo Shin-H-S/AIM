@@ -125,9 +125,9 @@ MVP는 HTML meta-tag 방식의 소유권 확인을 지원합니다.
 
 check run 생성은 `QUEUED` 상태의 레코드를 만든 뒤 active scenario별 linked ScenarioRun을 함께 생성하고 Redis/Celery queue에 CheckRun task와 ScenarioRun task를 등록합니다. 큐 등록에 실패하면 check run과 linked scenario run을 `FAILED`로 기록하고 `503`과 `{"detail": "Scan queue is unavailable."}`를 반환합니다.
 
-현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하며 Lighthouse 실행이 성공하면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료·Lighthouse 실행 실패는 `FAILED`로 기록합니다. HTTP availability, SSL inspection, Lighthouse metric 결과는 각각 `availability_results`, `ssl_results`, `lighthouse_results`에 정규화해 저장합니다. Lighthouse raw JSON은 로컬 artifact 파일로 저장하고 `artifacts` 테이블에는 metadata와 storage path만 기록합니다. scanner 결과와 해당 CheckRun에 연결된 terminal ScenarioRun 결과를 기준으로 `score_results`에 결정론적 score와 deployment risk를 저장하고, 같은 프로젝트의 직전 terminal check run이 있으면 `run_comparisons`에 주요 delta를 저장합니다. CheckRun이 terminal 상태가 되면 worker는 별도 AIReport task를 queue에 등록하고, 이 task가 저장된 score와 evidence를 기준으로 AIReport를 생성합니다. 연결된 ScenarioRun이 없던 기존 run은 같은 프로젝트의 최신 terminal ScenarioRun을 fallback으로 사용합니다.
+현재 worker는 task를 소비하면 check run을 `RUNNING`으로 전환한 뒤 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. 최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하며 Lighthouse 실행이 성공하면 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료·Lighthouse 실행 실패는 `FAILED`로 기록합니다. HTTP availability, SSL inspection, Lighthouse metric 결과는 각각 `availability_results`, `ssl_results`, `lighthouse_results`에 정규화해 저장합니다. Lighthouse raw JSON은 로컬 artifact 파일로 저장하고 `artifacts` 테이블에는 metadata와 storage path만 기록합니다. scanner 결과와 해당 CheckRun에 연결된 terminal ScenarioRun 결과를 기준으로 `score_results`에 결정론적 score와 deployment risk를 저장하고, 같은 프로젝트의 직전 terminal check run이 있으면 `run_comparisons`에 주요 delta를 저장합니다. CheckRun이 terminal 상태가 되면 worker는 incident open/recovery 상태와 pending email alert를 동기화한 뒤 별도 AIReport task를 queue에 등록하고, 이 task가 저장된 score와 evidence를 기준으로 AIReport를 생성합니다. 연결된 ScenarioRun이 없던 기존 run은 같은 프로젝트의 최신 terminal ScenarioRun을 fallback으로 사용합니다.
 
-연결된 ScenarioRun이 아직 terminal 상태가 아니거나 ScenarioRun이 없으면 `functional_stability_score`는 `null`입니다. linked terminal ScenarioRun이 모두 성공하면 functional stability는 100점으로 반영되고, 완료된 run에 실패 step이 포함되면 감점됩니다. linked terminal ScenarioRun 중 실패한 run이 있으면 deployment risk를 `RISK`로 올리고 grade를 `F`로 제한합니다. ScenarioRun worker는 linked run 완료 후 scanner 결과가 이미 저장된 CheckRun의 score와 comparison을 다시 계산하고, CheckRun이 이미 terminal 상태라면 AIReport task도 다시 queue에 등록해 기존 report를 갱신합니다.
+연결된 ScenarioRun이 아직 terminal 상태가 아니거나 ScenarioRun이 없으면 `functional_stability_score`는 `null`입니다. linked terminal ScenarioRun이 모두 성공하면 functional stability는 100점으로 반영되고, 완료된 run에 실패 step이 포함되면 감점됩니다. linked terminal ScenarioRun 중 실패한 run이 있으면 deployment risk를 `RISK`로 올리고 grade를 `F`로 제한합니다. ScenarioRun worker는 linked run 완료 후 scanner 결과가 이미 저장된 CheckRun의 score와 comparison을 다시 계산하고, CheckRun이 이미 terminal 상태라면 incident 상태와 AIReport task도 다시 갱신합니다.
 
 `GET /projects/{project_id}/check-runs/{check_run_id}`는 polling에 사용할 수 있도록 CheckRun 상태와 함께 nullable `availability_result`, `ssl_result`, `lighthouse_result`, `score_result`, `comparison_result`, `ai_report` 요약, `artifacts` metadata 목록, 그리고 이 CheckRun에서 생성된 `linked_scenario_runs` 목록을 반환합니다. `ai_report` 요약에는 score/risk와 summary 중심 필드만 포함하며 전체 `report_json`은 포함하지 않습니다.
 
@@ -201,6 +201,18 @@ Artifact 파일은 `GET /artifacts/{artifact_id}/download`에서 다운로드할
 - `GET /artifacts/{artifact_id}/download`
 
 현재는 `ARTIFACT_STORAGE_BACKEND=local`만 다운로드를 지원합니다. artifact metadata가 현재 사용자에게 속하지 않거나, 파일이 없거나, 저장 경로가 `ARTIFACT_LOCAL_ROOT` 밖으로 벗어나면 `404`와 `{"detail": "Artifact not found."}`를 반환합니다. local 이외의 storage backend는 `409`와 `{"detail": "Artifact storage backend is not downloadable."}`를 반환합니다.
+
+## Incidents and alerts
+
+`incidents` 테이블은 프로젝트별 open/recovery 상태를 저장합니다. 현재 worker는 terminal CheckRun 또는 linked ScenarioRun 완료 후 다음 조건을 평가합니다.
+
+- service connection failure
+- repeated 5xx response
+- critical linked scenario failure
+- performance score below `quality_score_threshold`
+- response time above `response_time_threshold_ms`
+
+같은 프로젝트에 같은 trigger type의 open incident가 이미 있으면 incident와 evidence를 갱신하고 새 alert는 만들지 않습니다. 조건이 더 이상 active하지 않으면 incident를 `RESOLVED`로 닫고 recovery alert를 기록합니다. `alerts` 테이블은 실제 발송 전 단계의 `PENDING` email alert를 저장합니다. SMTP 전송 worker는 아직 구현되어 있지 않습니다.
 
 ## AI diagnosis schemas
 

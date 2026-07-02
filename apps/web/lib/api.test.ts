@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  createCheckRun,
   createProject,
   createScenarioRun,
   downloadArtifact,
@@ -824,6 +825,109 @@ describe("fetchCheckRuns", () => {
         apiBaseUrl: "http://localhost:8000"
       })
     ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("createCheckRun", () => {
+  it("creates a check run with an authenticated request", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json(
+        {
+          id: "check-run-id",
+          project_id: "project-id",
+          requested_by_id: "user-id",
+          status: "QUEUED",
+          trigger_source: "manual",
+          failure_reason: null,
+          queued_at: "2026-07-02T00:00:00Z",
+          started_at: null,
+          finished_at: null,
+          created_at: "2026-07-02T00:00:00Z",
+          updated_at: "2026-07-02T00:00:00Z"
+        },
+        { status: 201 }
+      )
+    );
+
+    await expect(
+      createCheckRun({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      checkRun: {
+        id: "check-run-id",
+        project_id: "project-id",
+        requested_by_id: "user-id",
+        status: "QUEUED",
+        trigger_source: "manual",
+        failure_reason: null,
+        queued_at: "2026-07-02T00:00:00Z",
+        started_at: null,
+        finished_at: null,
+        created_at: "2026-07-02T00:00:00Z",
+        updated_at: "2026-07-02T00:00:00Z"
+      }
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/check-runs",
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token",
+          "Content-Type": "application/json"
+        },
+        body: "{}"
+      }
+    );
+  });
+
+  it("maps check run creation error responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const notFoundFetcher = vi.fn(async () => new Response(null, { status: 404 }));
+    const conflictFetcher = vi.fn(async () => new Response(null, { status: 409 }));
+    const unavailableFetcher = vi.fn(async () => new Response(null, { status: 503 }));
+
+    await expect(
+      createCheckRun({
+        projectId: "project-id",
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      createCheckRun({
+        projectId: "missing-project",
+        accessToken: "token",
+        fetcher: notFoundFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+
+    await expect(
+      createCheckRun({
+        projectId: "unverified-project",
+        accessToken: "token",
+        fetcher: conflictFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "conflict" });
+
+    await expect(
+      createCheckRun({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher: unavailableFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
   });
 });
 

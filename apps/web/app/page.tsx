@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  createCheckRun,
   fetchApiHealth,
   fetchCheckRuns,
   fetchCurrentUser,
@@ -42,6 +44,14 @@ type DashboardProject = {
   latestCheckRunState: CheckRunListResult["state"];
 };
 
+type CheckRunStartState =
+  | "idle"
+  | "starting"
+  | "unauthorized"
+  | "not-found"
+  | "conflict"
+  | "unavailable";
+
 type DashboardState =
   | {
       state: "idle";
@@ -61,12 +71,16 @@ type DashboardState =
     };
 
 export default function Home() {
+  const router = useRouter();
   const [health, setHealth] = useState<HealthCheckResult>({
     state: "loading"
   });
   const [accessToken, setAccessToken] = useState("");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [dashboard, setDashboard] = useState<DashboardState>({ state: "idle" });
+  const [checkRunStartStates, setCheckRunStartStates] = useState<
+    Record<string, CheckRunStartState>
+  >({});
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const trimmedToken = accessToken.trim();
 
@@ -134,6 +148,7 @@ export default function Home() {
       })
     );
     setDashboard({ state: "success", projects });
+    setCheckRunStartStates({});
     setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
   }, []);
 
@@ -190,6 +205,46 @@ export default function Home() {
     void loadDashboardWithToken(trimmedToken);
   }
 
+  async function handleStartCheckRun(project: Project) {
+    if (!trimmedToken) {
+      setCheckRunStartStates((currentStates) => ({
+        ...currentStates,
+        [project.id]: "unauthorized"
+      }));
+      return;
+    }
+
+    setCheckRunStartStates((currentStates) => ({
+      ...currentStates,
+      [project.id]: "starting"
+    }));
+
+    const result = await createCheckRun({
+      projectId: project.id,
+      accessToken: trimmedToken
+    });
+
+    if (result.state !== "success") {
+      if (result.state === "unauthorized") {
+        clearStoredAccessToken();
+        setAccessToken("");
+        setCurrentUser(null);
+      }
+
+      setCheckRunStartStates((currentStates) => ({
+        ...currentStates,
+        [project.id]: result.state
+      }));
+      return;
+    }
+
+    setCheckRunStartStates((currentStates) => ({
+      ...currentStates,
+      [project.id]: "idle"
+    }));
+    router.push(`/projects/${project.id}/check-runs/${result.checkRun.id}`);
+  }
+
   function handleLogout() {
     if (trimmedToken) {
       void logoutUser({
@@ -200,6 +255,7 @@ export default function Home() {
     clearStoredAccessToken();
     setAccessToken("");
     setCurrentUser(null);
+    setCheckRunStartStates({});
     setDashboard({ state: "idle" });
     setLastUpdatedAt(null);
   }
@@ -237,16 +293,19 @@ export default function Home() {
 
         <DashboardPanel
           accessToken={accessToken}
+          checkRunStartStates={checkRunStartStates}
           currentUser={currentUser}
           dashboard={dashboard}
           lastUpdatedAt={lastUpdatedAt}
           onAccessTokenChange={(value) => {
             setAccessToken(value);
             setCurrentUser(null);
+            setCheckRunStartStates({});
             setDashboard({ state: "idle" });
             setLastUpdatedAt(null);
           }}
           onLogout={handleLogout}
+          onStartCheckRun={handleStartCheckRun}
           onSubmit={handleDashboardSubmit}
           trimmedToken={trimmedToken}
         />
@@ -257,20 +316,24 @@ export default function Home() {
 
 function DashboardPanel({
   accessToken,
+  checkRunStartStates,
   currentUser,
   dashboard,
   lastUpdatedAt,
   onAccessTokenChange,
   onLogout,
+  onStartCheckRun,
   onSubmit,
   trimmedToken
 }: {
   accessToken: string;
+  checkRunStartStates: Record<string, CheckRunStartState>;
   currentUser: User | null;
   dashboard: DashboardState;
   lastUpdatedAt: string | null;
   onAccessTokenChange: (value: string) => void;
   onLogout: () => void;
+  onStartCheckRun: (project: Project) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   trimmedToken: string;
 }) {
@@ -340,13 +403,25 @@ function DashboardPanel({
       </div>
 
       <div className="mt-6">
-        <DashboardContent dashboard={dashboard} />
+        <DashboardContent
+          checkRunStartStates={checkRunStartStates}
+          dashboard={dashboard}
+          onStartCheckRun={onStartCheckRun}
+        />
       </div>
     </section>
   );
 }
 
-function DashboardContent({ dashboard }: { dashboard: DashboardState }) {
+function DashboardContent({
+  checkRunStartStates,
+  dashboard,
+  onStartCheckRun
+}: {
+  checkRunStartStates: Record<string, CheckRunStartState>;
+  dashboard: DashboardState;
+  onStartCheckRun: (project: Project) => void;
+}) {
   if (dashboard.state === "idle") {
     return (
       <EmptyState
@@ -392,16 +467,25 @@ function DashboardContent({ dashboard }: { dashboard: DashboardState }) {
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       {dashboard.projects.map((dashboardProject) => (
-        <ProjectDashboardCard dashboardProject={dashboardProject} key={dashboardProject.project.id} />
+        <ProjectDashboardCard
+          dashboardProject={dashboardProject}
+          key={dashboardProject.project.id}
+          onStartCheckRun={onStartCheckRun}
+          startState={checkRunStartStates[dashboardProject.project.id] ?? "idle"}
+        />
       ))}
     </div>
   );
 }
 
 function ProjectDashboardCard({
-  dashboardProject
+  dashboardProject,
+  onStartCheckRun,
+  startState
 }: {
   dashboardProject: DashboardProject;
+  onStartCheckRun: (project: Project) => void;
+  startState: CheckRunStartState;
 }) {
   const { latestCheckRun, latestCheckRunState, project } = dashboardProject;
 
@@ -436,10 +520,24 @@ function ProjectDashboardCard({
           >
             Scenarios
           </Link>
+          <button
+            className="rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+            disabled={!project.is_verified || startState === "starting"}
+            onClick={() => onStartCheckRun(project)}
+            type="button"
+          >
+            {startState === "starting"
+              ? "검사 요청 중"
+              : project.is_verified
+                ? "검사 시작"
+                : "검증 필요"}
+          </button>
         </div>
       </div>
 
       {project.description && <p className="mt-4 text-sm leading-6 text-slate-400">{project.description}</p>}
+
+      <CheckRunStartNotice project={project} startState={startState} />
 
       <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
         <Metric label="Scan interval" value={`${project.scan_interval_minutes}분`} />
@@ -455,6 +553,39 @@ function ProjectDashboardCard({
         />
       </div>
     </article>
+  );
+}
+
+function CheckRunStartNotice({
+  project,
+  startState
+}: {
+  project: Project;
+  startState: CheckRunStartState;
+}) {
+  if (!project.is_verified) {
+    return (
+      <div className="mt-4">
+        <Notice
+          description="Domain verification이 완료되어야 수동 CheckRun을 시작할 수 있습니다."
+          title="검증 필요"
+        />
+      </div>
+    );
+  }
+
+  if (startState === "idle" || startState === "starting") {
+    return null;
+  }
+
+  return (
+    <div className="mt-4">
+      <Notice
+        description={checkRunStartStateMessage[startState]}
+        title="CheckRun 생성 실패"
+        tone="danger"
+      />
+    </div>
   );
 }
 
@@ -694,3 +825,13 @@ function formatDateTime(value: string) {
 function formatNullableDateTime(value: string | null) {
   return value ? formatDateTime(value) : "아직 없음";
 }
+
+const checkRunStartStateMessage: Record<
+  Exclude<CheckRunStartState, "idle" | "starting">,
+  string
+> = {
+  unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
+  "not-found": "Project를 찾을 수 없습니다. Dashboard를 다시 갱신하세요.",
+  conflict: "Project가 아직 domain verification을 통과하지 못했습니다.",
+  unavailable: "Scan queue 또는 API 서버 상태를 확인한 뒤 다시 시도하세요."
+};

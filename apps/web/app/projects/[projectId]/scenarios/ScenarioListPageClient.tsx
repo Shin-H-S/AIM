@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createScenarioRun,
   fetchScenarios,
@@ -11,6 +11,7 @@ import {
   type TestStep,
   type TestStepAction
 } from "@/lib/api";
+import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 
 const actionLabels: Record<TestStepAction, string> = {
   navigate: "페이지 이동",
@@ -28,13 +29,16 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
   const [result, setResult] = useState<ScenarioListResult | null>(null);
   const [createdRunResult, setCreatedRunResult] = useState<CreateScenarioRunResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [creatingScenarioId, setCreatingScenarioId] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const trimmedToken = accessToken.trim();
   const scenarios = result?.state === "success" ? result.scenarios : [];
 
-  const refresh = useCallback(async () => {
-    if (!trimmedToken) {
+  const loadScenarios = useCallback(async (token: string) => {
+    const normalizedToken = token.trim();
+
+    if (!normalizedToken) {
       setResult(null);
       return;
     }
@@ -42,12 +46,21 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
     setIsLoading(true);
     const nextResult = await fetchScenarios({
       projectId,
-      accessToken: trimmedToken
+      accessToken: normalizedToken
     });
+
+    if (nextResult.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(normalizedToken);
+    }
+
     setResult(nextResult);
     setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
     setIsLoading(false);
-  }, [projectId, trimmedToken]);
+  }, [projectId]);
+
+  const refresh = useCallback(async () => {
+    await loadScenarios(trimmedToken);
+  }, [loadScenarios, trimmedToken]);
 
   const requestScenarioRun = useCallback(
     async (scenarioId: string) => {
@@ -61,11 +74,31 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
         scenarioId,
         accessToken: trimmedToken
       });
+
+      if (nextResult.state === "unauthorized") {
+        clearStoredAccessTokenIfMatches(trimmedToken);
+      }
+
       setCreatedRunResult(nextResult);
       setCreatingScenarioId(null);
     },
     [projectId, trimmedToken]
   );
+
+  useEffect(() => {
+    const storedAccessToken = getStoredAccessToken();
+
+    queueMicrotask(() => {
+      setHasCheckedStoredToken(true);
+
+      if (!storedAccessToken) {
+        return;
+      }
+
+      setAccessToken(storedAccessToken);
+      void loadScenarios(storedAccessToken);
+    });
+  }, [loadScenarios]);
 
   const apiBaseUrlLabel = useMemo(() => {
     try {
@@ -121,11 +154,19 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
           </form>
         </header>
 
-        {!trimmedToken && (
+        {!hasCheckedStoredToken && (
+          <Notice
+            tone="info"
+            title="로그인 세션 확인 중"
+            description="저장된 로그인 세션이 있으면 자동으로 Scenario 목록을 조회합니다."
+          />
+        )}
+
+        {hasCheckedStoredToken && !trimmedToken && (
           <Notice
             tone="info"
             title="인증 토큰이 필요합니다"
-            description="현재 웹에는 로그인 UI가 없으므로, API 로그인 응답의 access_token을 직접 입력해야 합니다."
+            description="로그인 페이지에서 먼저 로그인하거나, access token을 직접 입력하세요."
           />
         )}
 

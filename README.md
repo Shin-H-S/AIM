@@ -98,6 +98,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - Project 생성·수정 화면
 - HTML meta-tag 기반 domain verification 안내 및 확인 화면
 - Project dashboard에서 수동 CheckRun 시작
+- 결과·Scenario 페이지의 저장된 로그인 세션 자동 사용
 - CheckRun 결과 페이지
 - CheckRun score/risk 표시
 - AIReport 요약 및 상세 패널 표시
@@ -109,7 +110,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - ScenarioRun 결과 페이지
 - Step 결과, console/network evidence, 실패 screenshot 미리보기
 
-현재 Web에는 로그인 UI, Project dashboard 세션 연결, Project 생성·수정 UI, domain verification 안내 화면이 있습니다. 회원가입 UI는 아직 없으므로 계정 생성은 API를 통해 수행합니다.
+현재 Web에는 로그인 UI, Project dashboard와 결과·Scenario 페이지 세션 연결, Project 생성·수정 UI, domain verification 안내 화면이 있습니다. 회원가입 UI는 아직 없으므로 계정 생성은 API를 통해 수행합니다.
 
 ## 저장소 구조
 
@@ -333,7 +334,7 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. 결과·Scenario 페이지의 저장된 로그인 세션 자동 사용
-2. 회원가입 UI와 첫 Project 생성 온보딩 연결
+1. 회원가입 UI와 첫 Project 생성 온보딩 연결
+2. Scenario 생성 UI 추가
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

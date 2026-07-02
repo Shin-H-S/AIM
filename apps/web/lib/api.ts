@@ -18,6 +18,11 @@ export type User = {
   updated_at: string;
 };
 
+export type SignupPayload = {
+  email: string;
+  password: string;
+};
+
 export type CheckRunStatus =
   | "QUEUED"
   | "RUNNING"
@@ -475,6 +480,21 @@ export type LoginResult =
       state: "unavailable";
     };
 
+export type SignupResult =
+  | {
+      state: "success";
+      user: User;
+    }
+  | {
+      state: "invalid";
+    }
+  | {
+      state: "email-already-registered";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type CurrentUserResult =
   | {
       state: "success";
@@ -639,6 +659,10 @@ export function getApiBaseUrl(value = process.env.NEXT_PUBLIC_API_URL): string {
 
 export function getApiHealthUrl(apiBaseUrl = getApiBaseUrl()): string {
   return new URL("/health", getApiBaseUrl(apiBaseUrl)).toString();
+}
+
+export function getSignupUrl(apiBaseUrl = getApiBaseUrl()): string {
+  return new URL("/auth/signup", getApiBaseUrl(apiBaseUrl)).toString();
 }
 
 export function getLoginUrl(apiBaseUrl = getApiBaseUrl()): string {
@@ -842,6 +866,46 @@ export async function loginUser({
       state: "success",
       accessToken,
       tokenType: payload.token_type ?? "bearer"
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function signupUser({
+  payload,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  payload: SignupPayload;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<SignupResult> {
+  try {
+    const response = await fetcher(getSignupUrl(apiBaseUrl ?? getApiBaseUrl()), {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.status === 409) {
+      return { state: "email-already-registered" };
+    }
+
+    if (response.status === 422) {
+      return { state: "invalid" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      user: (await response.json()) as User
     };
   } catch {
     return { state: "unavailable" };

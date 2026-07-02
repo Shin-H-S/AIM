@@ -93,6 +93,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 ### Web UI
 
 - API health 상태 확인
+- Signup 화면과 첫 Project 생성 온보딩 연결
 - Login 화면과 access token 저장
 - Project dashboard에서 프로젝트별 최신 CheckRun 목록 표시
 - Project 생성·수정 화면
@@ -110,7 +111,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - ScenarioRun 결과 페이지
 - Step 결과, console/network evidence, 실패 screenshot 미리보기
 
-현재 Web에는 로그인 UI, Project dashboard와 결과·Scenario 페이지 세션 연결, Project 생성·수정 UI, domain verification 안내 화면이 있습니다. 회원가입 UI는 아직 없으므로 계정 생성은 API를 통해 수행합니다.
+현재 Web에는 회원가입과 로그인 UI, Project dashboard와 결과·Scenario 페이지 세션 연결, Project 생성·수정 UI, domain verification 안내 화면이 있습니다.
 
 ## 저장소 구조
 
@@ -224,6 +225,19 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 로그인 성공 후 Project dashboard 이동
 - 인증 실패와 API 연결 실패 안내
 
+### Signup
+
+```text
+/signup
+```
+
+표시 항목:
+
+- 이메일·비밀번호 회원가입
+- 중복 이메일과 입력값 오류 안내
+- 가입 성공 후 자동 로그인
+- 첫 Project 생성 화면으로 이동
+
 ### Project 생성
 
 ```text
@@ -334,7 +348,7 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. 회원가입 UI와 첫 Project 생성 온보딩 연결
-2. Scenario 생성 UI 추가
+1. Scenario 생성 UI 추가
+2. Alert 목록 및 기본 설정 UI 추가
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

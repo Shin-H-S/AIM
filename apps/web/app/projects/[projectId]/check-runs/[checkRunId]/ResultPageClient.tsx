@@ -21,6 +21,7 @@ import {
   type ScenarioRunStatus,
   type SslResult
 } from "@/lib/api";
+import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 
 const POLLING_INTERVAL_MS = 3_000;
 const ACTIVE_STATUSES = new Set<CheckRunStatus>(["QUEUED", "RUNNING", "ANALYZING"]);
@@ -58,6 +59,7 @@ export function ResultPageClient({
   const [accessToken, setAccessToken] = useState("");
   const [result, setResult] = useState<CheckRunDetailResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [aiReportDetailResult, setAIReportDetailResult] =
     useState<AIReportDetailResult | null>(null);
   const [isAIReportDetailLoading, setIsAIReportDetailLoading] = useState(false);
@@ -72,8 +74,10 @@ export function ResultPageClient({
       ? null
       : aiReportDetailResult;
 
-  const refresh = useCallback(async () => {
-    if (!trimmedToken) {
+  const loadCheckRun = useCallback(async (token: string) => {
+    const normalizedToken = token.trim();
+
+    if (!normalizedToken) {
       setResult(null);
       return;
     }
@@ -82,15 +86,24 @@ export function ResultPageClient({
     const nextResult = await fetchCheckRunDetail({
       projectId,
       checkRunId,
-      accessToken: trimmedToken
+      accessToken: normalizedToken
     });
+
+    if (nextResult.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(normalizedToken);
+    }
+
     setResult(nextResult);
     if (nextResult.state !== "success" || nextResult.checkRun.ai_report === null) {
       setAIReportDetailResult(null);
     }
     setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
     setIsLoading(false);
-  }, [checkRunId, projectId, trimmedToken]);
+  }, [checkRunId, projectId]);
+
+  const refresh = useCallback(async () => {
+    await loadCheckRun(trimmedToken);
+  }, [loadCheckRun, trimmedToken]);
 
   const loadAIReportDetail = useCallback(async () => {
     if (!trimmedToken) {
@@ -104,9 +117,29 @@ export function ResultPageClient({
       checkRunId,
       accessToken: trimmedToken
     });
+
+    if (nextResult.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(trimmedToken);
+    }
+
     setAIReportDetailResult(nextResult);
     setIsAIReportDetailLoading(false);
   }, [checkRunId, projectId, trimmedToken]);
+
+  useEffect(() => {
+    const storedAccessToken = getStoredAccessToken();
+
+    queueMicrotask(() => {
+      setHasCheckedStoredToken(true);
+
+      if (!storedAccessToken) {
+        return;
+      }
+
+      setAccessToken(storedAccessToken);
+      void loadCheckRun(storedAccessToken);
+    });
+  }, [loadCheckRun]);
 
   useEffect(() => {
     if (!shouldPoll || !trimmedToken) {
@@ -180,11 +213,19 @@ export function ResultPageClient({
           </form>
         </header>
 
-        {!trimmedToken && (
+        {!hasCheckedStoredToken && (
+          <Notice
+            tone="info"
+            title="로그인 세션 확인 중"
+            description="저장된 로그인 세션이 있으면 자동으로 CheckRun 결과를 조회합니다."
+          />
+        )}
+
+        {hasCheckedStoredToken && !trimmedToken && (
           <Notice
             tone="info"
             title="인증 토큰이 필요합니다"
-            description="현재 웹에는 로그인 UI가 없으므로, API 로그인 응답의 access_token을 직접 입력해야 합니다."
+            description="로그인 페이지에서 먼저 로그인하거나, access token을 직접 입력하세요."
           />
         )}
 

@@ -36,6 +36,17 @@ export function clearStoredAccessToken(
   storage?.removeItem(ACCESS_TOKEN_STORAGE_KEY);
 }
 
+export function clearStoredAccessTokenIfMatches(
+  accessToken: string,
+  storage: TokenStorage | null = getBrowserTokenStorage()
+): void {
+  if (getStoredAccessToken(storage) !== accessToken.trim()) {
+    return;
+  }
+
+  clearStoredAccessToken(storage);
+}
+
 function getBrowserTokenStorage(): TokenStorage | null {
   if (typeof window === "undefined") {
     return null;

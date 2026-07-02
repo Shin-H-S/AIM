@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACCESS_TOKEN_STORAGE_KEY,
   clearStoredAccessToken,
+  clearStoredAccessTokenIfMatches,
   getStoredAccessToken,
   storeAccessToken
 } from "./auth";
@@ -46,6 +47,19 @@ describe("access token storage", () => {
 
     storeAccessToken("token", storage);
     clearStoredAccessToken(storage);
+
+    expect(getStoredAccessToken(storage)).toBeNull();
+  });
+
+  it("clears the stored access token only when it matches the given token", () => {
+    const storage = createTokenStorage();
+
+    storeAccessToken("token", storage);
+    clearStoredAccessTokenIfMatches("other-token", storage);
+
+    expect(getStoredAccessToken(storage)).toBe("token");
+
+    clearStoredAccessTokenIfMatches(" token ", storage);
 
     expect(getStoredAccessToken(storage)).toBeNull();
   });

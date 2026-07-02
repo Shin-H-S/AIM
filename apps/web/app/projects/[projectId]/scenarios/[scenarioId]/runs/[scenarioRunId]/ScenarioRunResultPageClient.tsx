@@ -15,6 +15,7 @@ import {
   type StepResultStatus,
   type TestStepAction
 } from "@/lib/api";
+import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 
 const POLLING_INTERVAL_MS = 3_000;
 const ACTIVE_STATUSES = new Set<ScenarioRunStatus>(["QUEUED", "RUNNING"]);
@@ -56,13 +57,16 @@ export function ScenarioRunResultPageClient({
   const [accessToken, setAccessToken] = useState("");
   const [result, setResult] = useState<ScenarioRunDetailResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const trimmedToken = accessToken.trim();
   const scenarioRun = result?.state === "success" ? result.scenarioRun : null;
   const shouldPoll = scenarioRun ? ACTIVE_STATUSES.has(scenarioRun.status) : false;
 
-  const refresh = useCallback(async () => {
-    if (!trimmedToken) {
+  const loadScenarioRun = useCallback(async (token: string) => {
+    const normalizedToken = token.trim();
+
+    if (!normalizedToken) {
       setResult(null);
       return;
     }
@@ -72,12 +76,36 @@ export function ScenarioRunResultPageClient({
       projectId,
       scenarioId,
       scenarioRunId,
-      accessToken: trimmedToken
+      accessToken: normalizedToken
     });
+
+    if (nextResult.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(normalizedToken);
+    }
+
     setResult(nextResult);
     setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
     setIsLoading(false);
-  }, [projectId, scenarioId, scenarioRunId, trimmedToken]);
+  }, [projectId, scenarioId, scenarioRunId]);
+
+  const refresh = useCallback(async () => {
+    await loadScenarioRun(trimmedToken);
+  }, [loadScenarioRun, trimmedToken]);
+
+  useEffect(() => {
+    const storedAccessToken = getStoredAccessToken();
+
+    queueMicrotask(() => {
+      setHasCheckedStoredToken(true);
+
+      if (!storedAccessToken) {
+        return;
+      }
+
+      setAccessToken(storedAccessToken);
+      void loadScenarioRun(storedAccessToken);
+    });
+  }, [loadScenarioRun]);
 
   useEffect(() => {
     if (!shouldPoll || !trimmedToken) {
@@ -149,11 +177,19 @@ export function ScenarioRunResultPageClient({
           </form>
         </header>
 
-        {!trimmedToken && (
+        {!hasCheckedStoredToken && (
+          <Notice
+            tone="info"
+            title="로그인 세션 확인 중"
+            description="저장된 로그인 세션이 있으면 자동으로 ScenarioRun 결과를 조회합니다."
+          />
+        )}
+
+        {hasCheckedStoredToken && !trimmedToken && (
           <Notice
             tone="info"
             title="인증 토큰이 필요합니다"
-            description="현재 웹에는 로그인 UI가 없으므로, API 로그인 응답의 access_token을 직접 입력해야 합니다."
+            description="로그인 페이지에서 먼저 로그인하거나, access token을 직접 입력하세요."
           />
         )}
 

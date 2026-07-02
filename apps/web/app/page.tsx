@@ -296,6 +296,12 @@ function DashboardPanel({
                 >
                   로그아웃
                 </button>
+                <Link
+                  className="rounded-full bg-cyan-300 px-3 py-1 text-xs font-bold text-slate-950 transition hover:bg-cyan-200"
+                  href="/projects/new"
+                >
+                  새 Project
+                </Link>
               </>
             ) : (
               <Link
@@ -377,7 +383,7 @@ function DashboardContent({ dashboard }: { dashboard: DashboardState }) {
   if (dashboard.projects.length === 0) {
     return (
       <EmptyState
-        description="현재 계정에 등록된 프로젝트가 없습니다. Project 생성 화면이 연결되면 여기에서 바로 만들 수 있게 됩니다."
+        description="현재 계정에 등록된 프로젝트가 없습니다. 새 Project 버튼으로 첫 서비스를 등록하세요."
         title="등록된 프로젝트 없음"
       />
     );
@@ -417,12 +423,20 @@ function ProjectDashboardCard({
             {project.service_url}
           </a>
         </div>
-        <Link
-          className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
-          href={`/projects/${project.id}/scenarios`}
-        >
-          Scenarios
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            href={`/projects/${project.id}/settings`}
+          >
+            Settings
+          </Link>
+          <Link
+            className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            href={`/projects/${project.id}/scenarios`}
+          >
+            Scenarios
+          </Link>
+        </div>
       </div>
 
       {project.description && <p className="mt-4 text-sm leading-6 text-slate-400">{project.description}</p>}

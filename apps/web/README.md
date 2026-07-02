@@ -12,6 +12,8 @@ Next.js 기반 AIM 사용자 인터페이스입니다.
 
 로그인 페이지에서 저장한 access token을 자동으로 사용합니다. 필요한 경우 access token을 직접 입력해 Dashboard를 갱신할 수도 있습니다. Dashboard는 현재 사용자 정보를 확인한 뒤 프로젝트 목록을 조회하고, 각 프로젝트의 최신 CheckRun 1개를 병렬로 가져와 service URL, environment, verification 상태, 최신 CheckRun 상태와 실패 사유, 결과 페이지 링크를 표시합니다.
 
+Dashboard는 Project 생성 화면과 Project 설정/domain verification 화면으로 이동하는 링크를 제공합니다.
+
 ## Login
 
 다음 경로에서 이메일·비밀번호 로그인을 수행할 수 있습니다.
@@ -21,6 +23,26 @@ Next.js 기반 AIM 사용자 인터페이스입니다.
 ```
 
 로그인 성공 시 Auth API에서 받은 JWT access token을 브라우저 저장소에 저장하고 Project dashboard로 이동합니다. 회원가입 UI는 아직 없으므로 계정 생성은 API의 `POST /auth/signup`을 사용합니다.
+
+## Project 생성 페이지
+
+다음 경로에서 새 Project를 생성할 수 있습니다.
+
+```text
+/projects/new
+```
+
+페이지는 service URL, environment, description, scan interval, response time threshold, quality score threshold를 입력받습니다. URL은 클라이언트에서 기본 형식을 확인하고, API에서 SSRF-safe validation을 다시 수행합니다. 생성 성공 후 Project 설정 화면으로 이동합니다.
+
+## Project 설정과 domain verification 페이지
+
+다음 경로에서 Project 설정과 HTML meta-tag 기반 domain verification을 관리할 수 있습니다.
+
+```text
+/projects/{projectId}/settings
+```
+
+페이지는 Project 기본 정보를 수정하고, API에서 발급한 verification token과 meta tag를 표시합니다. 사용자는 target service의 HTML head에 meta tag를 추가한 뒤 확인 버튼으로 domain ownership을 검증합니다.
 
 ## CheckRun 결과 페이지
 
@@ -66,6 +88,8 @@ Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 - Login 화면과 access token 저장
 - Vitest 기반 API 상태 확인 유틸리티 테스트
 - Project dashboard와 프로젝트별 최신 CheckRun 표시
+- Project 생성·수정 화면
+- Domain verification 안내 및 확인 화면
 - CheckRun 결과 페이지
 - CheckRun AI 진단 요약 표시
 - CheckRun AI 진단 상세 패널 표시

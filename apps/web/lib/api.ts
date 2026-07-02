@@ -40,19 +40,39 @@ export type TestStepAction =
   | "assert_url"
   | "take_screenshot";
 
+export type ProjectEnvironment = "development" | "staging" | "production";
+
 export type Project = {
   id: string;
   owner_id: string;
   name: string;
   service_url: string;
   description: string | null;
-  environment: "development" | "staging" | "production";
+  environment: ProjectEnvironment;
   scan_interval_minutes: number;
   response_time_threshold_ms: number;
   quality_score_threshold: number;
   is_verified: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type ProjectPayload = {
+  name: string;
+  service_url: string;
+  description: string | null;
+  environment: ProjectEnvironment;
+  scan_interval_minutes: number;
+  response_time_threshold_ms: number;
+  quality_score_threshold: number;
+};
+
+export type ProjectVerification = {
+  project_id: string;
+  verification_token: string;
+  meta_tag: string;
+  is_verified: boolean;
+  verified_at: string | null;
 };
 
 export type AvailabilityResult = {
@@ -375,6 +395,73 @@ export type ProjectListResult =
       state: "unavailable";
     };
 
+export type ProjectDetailResult =
+  | {
+      state: "success";
+      project: Project;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type ProjectMutationResult =
+  | {
+      state: "success";
+      project: Project;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "invalid";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type ProjectVerificationReadResult =
+  | {
+      state: "success";
+      verification: ProjectVerification;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type VerifyProjectDomainResult =
+  | {
+      state: "success";
+      verification: ProjectVerification;
+      status: string;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "verification-failed";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type LoginResult =
   | {
       state: "success";
@@ -570,6 +657,27 @@ export function getProjectsUrl(
   pagination: PaginationParams = {}
 ): string {
   return applyPagination(new URL("/projects", getApiBaseUrl(apiBaseUrl)), pagination).toString();
+}
+
+export function getProjectDetailUrl(projectId: string, apiBaseUrl = getApiBaseUrl()): string {
+  return new URL(`/projects/${encodeURIComponent(projectId)}`, getApiBaseUrl(apiBaseUrl)).toString();
+}
+
+export function getProjectVerificationUrl(
+  projectId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/verification`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export function getProjectVerifyUrl(projectId: string, apiBaseUrl = getApiBaseUrl()): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/verify`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
 }
 
 export function getCheckRunsUrl(
@@ -827,6 +935,228 @@ export async function fetchProjects({
   } catch {
     return { state: "unavailable" };
   }
+}
+
+export async function fetchProject({
+  projectId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<ProjectDetailResult> {
+  try {
+    const response = await fetcher(
+      getProjectDetailUrl(projectId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      project: (await response.json()) as Project
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function createProject({
+  accessToken,
+  payload,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  accessToken: string;
+  payload: ProjectPayload;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<ProjectMutationResult> {
+  try {
+    const response = await fetcher(getProjectsUrl(apiBaseUrl ?? getApiBaseUrl()), {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    return await mapProjectMutationResponse(response);
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function updateProject({
+  projectId,
+  accessToken,
+  payload,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  accessToken: string;
+  payload: ProjectPayload;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<ProjectMutationResult> {
+  try {
+    const response = await fetcher(
+      getProjectDetailUrl(projectId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "PATCH",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    return await mapProjectMutationResponse(response);
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchProjectVerification({
+  projectId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<ProjectVerificationReadResult> {
+  try {
+    const response = await fetcher(
+      getProjectVerificationUrl(projectId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      verification: (await response.json()) as ProjectVerification
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function verifyProjectDomain({
+  projectId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<VerifyProjectDomainResult> {
+  try {
+    const response = await fetcher(
+      getProjectVerifyUrl(projectId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (response.status === 400) {
+      return { state: "verification-failed" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    const payload = (await response.json()) as ProjectVerification & { status?: string };
+    const { status, ...verification } = payload;
+
+    return {
+      state: "success",
+      verification,
+      status: status ?? "verified"
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+async function mapProjectMutationResponse(response: Response): Promise<ProjectMutationResult> {
+  if (response.status === 401 || response.status === 403) {
+    return { state: "unauthorized" };
+  }
+
+  if (response.status === 404) {
+    return { state: "not-found" };
+  }
+
+  if (response.status === 400 || response.status === 422) {
+    return { state: "invalid" };
+  }
+
+  if (!response.ok) {
+    return { state: "unavailable" };
+  }
+
+  return {
+    state: "success",
+    project: (await response.json()) as Project
+  };
 }
 
 export async function fetchCheckRuns({

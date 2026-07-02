@@ -513,6 +513,24 @@ export type CheckRunListResult =
       state: "unavailable";
     };
 
+export type CreateCheckRunResult =
+  | {
+      state: "success";
+      checkRun: CheckRunSummary;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "conflict";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type AIReportDetailResult =
   | {
       state: "success";
@@ -1200,6 +1218,56 @@ export async function fetchCheckRuns({
     return {
       state: "success",
       checkRuns: (await response.json()) as CheckRunSummary[]
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function createCheckRun({
+  projectId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<CreateCheckRunResult> {
+  try {
+    const response = await fetcher(
+      getCheckRunsUrl(projectId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: "{}"
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (response.status === 409) {
+      return { state: "conflict" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      checkRun: (await response.json()) as CheckRunSummary
     };
   } catch {
     return { state: "unavailable" };

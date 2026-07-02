@@ -95,6 +95,8 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - API health 상태 확인
 - Login 화면과 access token 저장
 - Project dashboard에서 프로젝트별 최신 CheckRun 목록 표시
+- Project 생성·수정 화면
+- HTML meta-tag 기반 domain verification 안내 및 확인 화면
 - CheckRun 결과 페이지
 - CheckRun score/risk 표시
 - AIReport 요약 및 상세 패널 표시
@@ -106,7 +108,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - ScenarioRun 결과 페이지
 - Step 결과, console/network evidence, 실패 screenshot 미리보기
 
-현재 Web에는 로그인 UI와 Project dashboard 세션 연결이 있습니다. 회원가입 UI와 Project 생성·수정 UI는 아직 없으므로, 계정 생성과 프로젝트 등록은 API를 통해 수행합니다.
+현재 Web에는 로그인 UI, Project dashboard 세션 연결, Project 생성·수정 UI, domain verification 안내 화면이 있습니다. 회원가입 UI는 아직 없으므로 계정 생성은 API를 통해 수행합니다.
 
 ## 저장소 구조
 
@@ -201,6 +203,8 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 로그인 세션 또는 직접 입력한 access token 기반 프로젝트 목록 조회
 - 프로젝트별 service URL, environment, verification 상태
 - 프로젝트별 최신 CheckRun 상태와 실패 사유
+- Project 생성 화면 링크
+- Project 설정 및 domain verification 화면 링크
 - 최신 CheckRun 결과 페이지 링크
 - Scenario 목록 페이지 링크
 
@@ -216,6 +220,33 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - JWT access token 저장
 - 로그인 성공 후 Project dashboard 이동
 - 인증 실패와 API 연결 실패 안내
+
+### Project 생성
+
+```text
+/projects/new
+```
+
+표시 항목:
+
+- service URL, environment, description 입력
+- scan interval, response time threshold, quality score threshold 입력
+- 클라이언트 기본 URL 형식 검증
+- 생성 성공 후 Project 설정 화면 이동
+
+### Project 설정과 domain verification
+
+```text
+/projects/{projectId}/settings
+```
+
+표시 항목:
+
+- Project 기본 정보 수정
+- HTML meta-tag verification token 표시
+- target service head에 추가할 meta tag 안내
+- domain verification 실행 버튼
+- verified/unverified 상태 표시
 
 ### CheckRun 결과
 
@@ -300,7 +331,7 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. Project 생성·수정 화면과 domain verification 안내 연결
-2. CheckRun 생성 버튼과 scan status polling 흐름 개선
+1. CheckRun 생성 버튼과 scan status polling 흐름 개선
+2. 결과·Scenario 페이지의 저장된 로그인 세션 자동 사용
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

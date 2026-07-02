@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  createProject,
   createScenarioRun,
   downloadArtifact,
   fetchApiHealth,
@@ -7,6 +8,8 @@ import {
   fetchCheckRunAIReport,
   fetchCheckRunDetail,
   fetchCurrentUser,
+  fetchProject,
+  fetchProjectVerification,
   fetchProjects,
   fetchScenarioRunDetail,
   fetchScenarios,
@@ -20,11 +23,16 @@ import {
   getCreateScenarioRunUrl,
   getLoginUrl,
   getLogoutUrl,
+  getProjectDetailUrl,
+  getProjectVerificationUrl,
+  getProjectVerifyUrl,
   getProjectsUrl,
   getScenariosUrl,
   getScenarioRunDetailUrl,
   loginUser,
-  logoutUser
+  logoutUser,
+  updateProject,
+  verifyProjectDomain
 } from "./api";
 
 describe("getApiBaseUrl", () => {
@@ -59,6 +67,20 @@ describe("getProjectsUrl", () => {
   it("builds the project list endpoint URL with pagination", () => {
     expect(getProjectsUrl("http://localhost:8000", { limit: 20, offset: 5 })).toBe(
       "http://localhost:8000/projects?limit=20&offset=5"
+    );
+  });
+});
+
+describe("project endpoint URL builders", () => {
+  it("builds project detail and verification endpoint URLs", () => {
+    expect(getProjectDetailUrl("project-id", "http://localhost:8000")).toBe(
+      "http://localhost:8000/projects/project-id"
+    );
+    expect(getProjectVerificationUrl("project-id", "http://localhost:8000")).toBe(
+      "http://localhost:8000/projects/project-id/verification"
+    );
+    expect(getProjectVerifyUrl("project-id", "http://localhost:8000")).toBe(
+      "http://localhost:8000/projects/project-id/verify"
     );
   });
 });
@@ -400,6 +422,327 @@ describe("fetchProjects", () => {
         apiBaseUrl: "http://localhost:8000"
       })
     ).resolves.toEqual({ state: "unavailable" });
+  });
+});
+
+describe("fetchProject", () => {
+  it("returns a project detail when the API request succeeds", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        id: "project-id",
+        owner_id: "user-id",
+        name: "AIM Website",
+        service_url: "https://example.com",
+        description: null,
+        environment: "production",
+        scan_interval_minutes: 60,
+        response_time_threshold_ms: 2000,
+        quality_score_threshold: 80,
+        is_verified: false,
+        created_at: "2026-07-01T00:00:00Z",
+        updated_at: "2026-07-01T00:00:00Z"
+      })
+    );
+
+    await expect(
+      fetchProject({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      project: {
+        id: "project-id",
+        owner_id: "user-id",
+        name: "AIM Website",
+        service_url: "https://example.com",
+        description: null,
+        environment: "production",
+        scan_interval_minutes: 60,
+        response_time_threshold_ms: 2000,
+        quality_score_threshold: 80,
+        is_verified: false,
+        created_at: "2026-07-01T00:00:00Z",
+        updated_at: "2026-07-01T00:00:00Z"
+      }
+    });
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id", {
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token"
+      }
+    });
+  });
+
+  it("maps project detail authentication and missing-resource responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const notFoundFetcher = vi.fn(async () => new Response(null, { status: 404 }));
+
+    await expect(
+      fetchProject({
+        projectId: "project-id",
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      fetchProject({
+        projectId: "missing-project",
+        accessToken: "token",
+        fetcher: notFoundFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("createProject", () => {
+  it("creates a project with an authenticated request", async () => {
+    const payload = {
+      name: "AIM Website",
+      service_url: "https://example.com",
+      description: "Production site",
+      environment: "production" as const,
+      scan_interval_minutes: 60,
+      response_time_threshold_ms: 2000,
+      quality_score_threshold: 80
+    };
+    const fetcher = vi.fn(async () =>
+      Response.json(
+        {
+          id: "project-id",
+          owner_id: "user-id",
+          ...payload,
+          is_verified: false,
+          created_at: "2026-07-01T00:00:00Z",
+          updated_at: "2026-07-01T00:00:00Z"
+        },
+        { status: 201 }
+      )
+    );
+
+    await expect(
+      createProject({
+        accessToken: "token",
+        payload,
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      project: {
+        id: "project-id",
+        owner_id: "user-id",
+        ...payload,
+        is_verified: false,
+        created_at: "2026-07-01T00:00:00Z",
+        updated_at: "2026-07-01T00:00:00Z"
+      }
+    });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  });
+
+  it("maps invalid project create responses", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 422 }));
+
+    await expect(
+      createProject({
+        accessToken: "token",
+        payload: {
+          name: "AIM Website",
+          service_url: "http://localhost",
+          description: null,
+          environment: "development",
+          scan_interval_minutes: 60,
+          response_time_threshold_ms: 2000,
+          quality_score_threshold: 80
+        },
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "invalid" });
+  });
+});
+
+describe("updateProject", () => {
+  it("updates a project with an authenticated request", async () => {
+    const payload = {
+      name: "AIM Staging",
+      service_url: "https://staging.example.com",
+      description: null,
+      environment: "staging" as const,
+      scan_interval_minutes: 30,
+      response_time_threshold_ms: 1500,
+      quality_score_threshold: 85
+    };
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        id: "project-id",
+        owner_id: "user-id",
+        ...payload,
+        is_verified: false,
+        created_at: "2026-07-01T00:00:00Z",
+        updated_at: "2026-07-01T00:10:00Z"
+      })
+    );
+
+    await expect(
+      updateProject({
+        projectId: "project-id",
+        accessToken: "token",
+        payload,
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      project: {
+        id: "project-id",
+        owner_id: "user-id",
+        ...payload,
+        is_verified: false,
+        created_at: "2026-07-01T00:00:00Z",
+        updated_at: "2026-07-01T00:10:00Z"
+      }
+    });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id", {
+      method: "PATCH",
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  });
+
+  it("maps missing project update responses", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 404 }));
+
+    await expect(
+      updateProject({
+        projectId: "missing-project",
+        accessToken: "token",
+        payload: {
+          name: "AIM Website",
+          service_url: "https://example.com",
+          description: null,
+          environment: "development",
+          scan_interval_minutes: 60,
+          response_time_threshold_ms: 2000,
+          quality_score_threshold: 80
+        },
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("project domain verification", () => {
+  it("fetches project verification instructions", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        project_id: "project-id",
+        verification_token: "aim_verify_token",
+        meta_tag: '<meta name="aim-verification" content="aim_verify_token">',
+        is_verified: false,
+        verified_at: null
+      })
+    );
+
+    await expect(
+      fetchProjectVerification({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      verification: {
+        project_id: "project-id",
+        verification_token: "aim_verify_token",
+        meta_tag: '<meta name="aim-verification" content="aim_verify_token">',
+        is_verified: false,
+        verified_at: null
+      }
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/verification",
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+  });
+
+  it("verifies a project domain", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        project_id: "project-id",
+        verification_token: "aim_verify_token",
+        meta_tag: '<meta name="aim-verification" content="aim_verify_token">',
+        is_verified: true,
+        verified_at: "2026-07-01T00:00:00Z",
+        status: "verified"
+      })
+    );
+
+    await expect(
+      verifyProjectDomain({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      verification: {
+        project_id: "project-id",
+        verification_token: "aim_verify_token",
+        meta_tag: '<meta name="aim-verification" content="aim_verify_token">',
+        is_verified: true,
+        verified_at: "2026-07-01T00:00:00Z"
+      },
+      status: "verified"
+    });
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id/verify", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token"
+      }
+    });
+  });
+
+  it("maps failed verification responses", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 400 }));
+
+    await expect(
+      verifyProjectDomain({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "verification-failed" });
   });
 });
 

@@ -51,16 +51,23 @@ export default function LoginPage() {
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
               AIM Web은 FastAPI Auth에서 발급한 JWT access token을 브라우저에 저장하고,
-              Project dashboard와 결과 화면 조회에 사용합니다. 회원가입 UI는 아직 다음 단계이며,
-              현재는 API의 <code className="text-cyan-200">POST /auth/signup</code>으로 만든
-              계정으로 로그인합니다.
+              Project dashboard와 결과 화면 조회에 사용합니다. 아직 계정이 없다면 회원가입 후
+              첫 Project 생성 화면으로 바로 이동할 수 있습니다.
             </p>
-            <Link
-              className="mt-8 inline-flex rounded-2xl border border-white/10 px-5 py-3 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
-              href="/"
-            >
-              Dashboard로 돌아가기
-            </Link>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                className="inline-flex rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                href="/signup"
+              >
+                새 계정 만들기
+              </Link>
+              <Link
+                className="inline-flex rounded-2xl border border-white/10 px-5 py-3 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+                href="/"
+              >
+                Dashboard로 돌아가기
+              </Link>
+            </div>
           </div>
 
           <form
@@ -112,6 +119,13 @@ export default function LoginPage() {
             >
               {loginState === "submitting" ? "로그인 중" : "로그인"}
             </button>
+
+            <p className="mt-4 text-center text-sm text-slate-400">
+              계정이 없나요?{" "}
+              <Link className="font-bold text-cyan-200 hover:text-cyan-100" href="/signup">
+                회원가입
+              </Link>
+            </p>
 
             <LoginNotice loginState={loginState} />
           </form>

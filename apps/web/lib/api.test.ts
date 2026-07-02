@@ -30,8 +30,10 @@ import {
   getProjectsUrl,
   getScenariosUrl,
   getScenarioRunDetailUrl,
+  getSignupUrl,
   loginUser,
   logoutUser,
+  signupUser,
   updateProject,
   verifyProjectDomain
 } from "./api";
@@ -58,6 +60,7 @@ describe("getApiHealthUrl", () => {
 
 describe("auth endpoint URL builders", () => {
   it("builds auth endpoint URLs", () => {
+    expect(getSignupUrl("http://localhost:8000")).toBe("http://localhost:8000/auth/signup");
     expect(getLoginUrl("http://localhost:8000")).toBe("http://localhost:8000/auth/login");
     expect(getCurrentUserUrl("http://localhost:8000")).toBe("http://localhost:8000/auth/me");
     expect(getLogoutUrl("http://localhost:8000")).toBe("http://localhost:8000/auth/logout");
@@ -240,6 +243,94 @@ describe("loginUser", () => {
       loginUser({
         email: "user@example.com",
         password: "password",
+        fetcher: unavailableFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
+  });
+});
+
+describe("signupUser", () => {
+  it("creates a user account", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json(
+        {
+          id: "user-id",
+          email: "user@example.com",
+          is_active: true,
+          created_at: "2026-07-02T00:00:00Z",
+          updated_at: "2026-07-02T00:00:00Z"
+        },
+        { status: 201 }
+      )
+    );
+
+    await expect(
+      signupUser({
+        payload: {
+          email: "user@example.com",
+          password: "password123"
+        },
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      user: {
+        id: "user-id",
+        email: "user@example.com",
+        is_active: true,
+        created_at: "2026-07-02T00:00:00Z",
+        updated_at: "2026-07-02T00:00:00Z"
+      }
+    });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/auth/signup", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email: "user@example.com",
+        password: "password123"
+      })
+    });
+  });
+
+  it("maps signup error responses", async () => {
+    const invalidFetcher = vi.fn(async () => new Response(null, { status: 422 }));
+    const conflictFetcher = vi.fn(async () => new Response(null, { status: 409 }));
+    const unavailableFetcher = vi.fn(async () => new Response(null, { status: 503 }));
+
+    await expect(
+      signupUser({
+        payload: {
+          email: "bad-email",
+          password: "short"
+        },
+        fetcher: invalidFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "invalid" });
+
+    await expect(
+      signupUser({
+        payload: {
+          email: "user@example.com",
+          password: "password123"
+        },
+        fetcher: conflictFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "email-already-registered" });
+
+    await expect(
+      signupUser({
+        payload: {
+          email: "user@example.com",
+          password: "password123"
+        },
         fetcher: unavailableFetcher,
         apiBaseUrl: "http://localhost:8000"
       })

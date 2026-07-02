@@ -367,12 +367,20 @@ function DashboardPanel({
                 </Link>
               </>
             ) : (
-              <Link
-                className="rounded-full bg-cyan-300 px-3 py-1 text-xs font-bold text-slate-950 transition hover:bg-cyan-200"
-                href="/login"
-              >
-                로그인하기
-              </Link>
+              <>
+                <Link
+                  className="rounded-full bg-cyan-300 px-3 py-1 text-xs font-bold text-slate-950 transition hover:bg-cyan-200"
+                  href="/signup"
+                >
+                  회원가입
+                </Link>
+                <Link
+                  className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-slate-300 transition hover:border-cyan-300/50 hover:text-cyan-100"
+                  href="/login"
+                >
+                  로그인하기
+                </Link>
+              </>
             )}
           </div>
           {lastUpdatedAt && <p className="mt-2 text-xs text-slate-500">마지막 갱신: {lastUpdatedAt}</p>}

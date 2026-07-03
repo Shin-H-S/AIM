@@ -214,6 +214,13 @@ Artifact 파일은 `GET /artifacts/{artifact_id}/download`에서 다운로드할
 
 같은 프로젝트에 같은 trigger type의 open incident가 이미 있으면 incident와 evidence를 갱신하고 새 alert는 만들지 않습니다. 조건이 더 이상 active하지 않으면 incident를 `RESOLVED`로 닫고 recovery alert를 기록합니다. `alerts` 테이블은 `PENDING`, `SENT`, `FAILED` email alert 상태와 발송 시각, 실패 사유, 시도 횟수를 저장합니다.
 
+지원 조회 엔드포인트:
+
+- `GET /projects/{project_id}/incidents`
+- `GET /projects/{project_id}/alerts`
+
+두 엔드포인트 모두 Bearer token 인증과 프로젝트 소유권 검사를 요구하며, 현재 사용자 소유 프로젝트의 Incident/Alert만 반환합니다. `limit`과 `offset` query parameter로 목록 범위를 제한할 수 있습니다.
+
 Worker는 incident sync 결과 새 alert가 생성되면 별도 `deliver_pending_email_alerts` task를 queue에 등록합니다. 이 task는 `SMTP_HOST`와 `SMTP_FROM_EMAIL`이 설정되어 있으면 pending email alert를 SMTP로 발송하고 `SENT`로 기록합니다. SMTP 설정이 없으면 pending alert를 실패 처리하지 않고 건너뜁니다. 수신자 email이 없거나 SMTP 발송 오류가 발생하면 해당 alert를 `FAILED`로 기록합니다.
 
 ## AI diagnosis schemas

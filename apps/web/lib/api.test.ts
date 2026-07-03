@@ -10,7 +10,9 @@ import {
   fetchCheckRunAIReport,
   fetchCheckRunDetail,
   fetchCurrentUser,
+  fetchProjectAlerts,
   fetchProject,
+  fetchProjectIncidents,
   fetchProjectVerification,
   fetchProjects,
   fetchScenarioRunDetail,
@@ -25,7 +27,9 @@ import {
   getCreateScenarioRunUrl,
   getLoginUrl,
   getLogoutUrl,
+  getProjectAlertsUrl,
   getProjectDetailUrl,
+  getProjectIncidentsUrl,
   getProjectVerificationUrl,
   getProjectVerifyUrl,
   getProjectsUrl,
@@ -95,6 +99,17 @@ describe("getCheckRunsUrl", () => {
     expect(getCheckRunsUrl("project-id", "http://localhost:8000", { limit: 1 })).toBe(
       "http://localhost:8000/projects/project-id/check-runs?limit=1"
     );
+  });
+});
+
+describe("alert endpoint URL builders", () => {
+  it("builds incident and alert list endpoint URLs with pagination", () => {
+    expect(getProjectIncidentsUrl("project-id", "http://localhost:8000", { limit: 10 })).toBe(
+      "http://localhost:8000/projects/project-id/incidents?limit=10"
+    );
+    expect(
+      getProjectAlertsUrl("project-id", "http://localhost:8000", { limit: 10, offset: 20 })
+    ).toBe("http://localhost:8000/projects/project-id/alerts?limit=10&offset=20");
   });
 });
 
@@ -911,6 +926,145 @@ describe("fetchCheckRuns", () => {
 
     await expect(
       fetchCheckRuns({
+        projectId: "missing-project",
+        accessToken: "token",
+        fetcher: notFoundFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("fetchProjectIncidents", () => {
+  it("returns incidents when the API request succeeds", async () => {
+    const incident = {
+      id: "incident-id",
+      project_id: "project-id",
+      opened_check_run_id: "check-run-id",
+      resolved_check_run_id: null,
+      trigger_type: "SERVICE_CONNECTION_FAILURE",
+      severity: "RISK",
+      status: "OPEN",
+      title: "Service connection failed",
+      summary: "The service could not be reached.",
+      evidence_json: {
+        failure_reason: "connection refused"
+      },
+      started_at: "2026-07-03T00:00:00Z",
+      resolved_at: null,
+      created_at: "2026-07-03T00:00:00Z",
+      updated_at: "2026-07-03T00:00:00Z"
+    };
+    const fetcher = vi.fn(async () => Response.json([incident]));
+
+    await expect(
+      fetchProjectIncidents({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000",
+        limit: 5
+      })
+    ).resolves.toEqual({
+      state: "success",
+      incidents: [incident]
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/incidents?limit=5",
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+  });
+
+  it("maps incident list authentication and missing-project responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const notFoundFetcher = vi.fn(async () => new Response(null, { status: 404 }));
+
+    await expect(
+      fetchProjectIncidents({
+        projectId: "project-id",
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      fetchProjectIncidents({
+        projectId: "missing-project",
+        accessToken: "token",
+        fetcher: notFoundFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("fetchProjectAlerts", () => {
+  it("returns alerts when the API request succeeds", async () => {
+    const alert = {
+      id: "alert-id",
+      project_id: "project-id",
+      incident_id: "incident-id",
+      check_run_id: "check-run-id",
+      alert_type: "INCIDENT_OPENED",
+      trigger_type: "SERVICE_CONNECTION_FAILURE",
+      channel: "EMAIL",
+      status: "PENDING",
+      recipient_email: "owner@example.com",
+      subject: "[AIM] AIM Website: Service connection failed",
+      body: "Project: AIM Website",
+      delivery_attempts: 0,
+      last_error: null,
+      sent_at: null,
+      created_at: "2026-07-03T00:00:00Z",
+      updated_at: "2026-07-03T00:00:00Z"
+    };
+    const fetcher = vi.fn(async () => Response.json([alert]));
+
+    await expect(
+      fetchProjectAlerts({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000",
+        limit: 5,
+        offset: 10
+      })
+    ).resolves.toEqual({
+      state: "success",
+      alerts: [alert]
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/alerts?limit=5&offset=10",
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+  });
+
+  it("maps alert list authentication and missing-project responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const notFoundFetcher = vi.fn(async () => new Response(null, { status: 404 }));
+
+    await expect(
+      fetchProjectAlerts({
+        projectId: "project-id",
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      fetchProjectAlerts({
         projectId: "missing-project",
         accessToken: "token",
         fetcher: notFoundFetcher,

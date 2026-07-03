@@ -332,6 +332,42 @@ def list_open_incidents(session: Session, *, project_id: UUID) -> list[Incident]
     )
 
 
+def list_incidents(
+    session: Session,
+    *,
+    project_id: UUID,
+    limit: int,
+    offset: int,
+) -> list[Incident]:
+    return list(
+        session.scalars(
+            select(Incident)
+            .where(Incident.project_id == project_id)
+            .order_by(Incident.started_at.desc(), Incident.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    )
+
+
+def list_alerts(
+    session: Session,
+    *,
+    project_id: UUID,
+    limit: int,
+    offset: int,
+) -> list[Alert]:
+    return list(
+        session.scalars(
+            select(Alert)
+            .where(Alert.project_id == project_id)
+            .order_by(Alert.created_at.desc(), Alert.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    )
+
+
 def create_pending_email_alert(
     session: Session,
     *,

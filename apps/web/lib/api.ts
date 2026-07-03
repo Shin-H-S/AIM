@@ -80,6 +80,42 @@ export type ProjectPayload = {
   quality_score_threshold: number;
 };
 
+export type Incident = {
+  id: string;
+  project_id: string;
+  opened_check_run_id: string;
+  resolved_check_run_id: string | null;
+  trigger_type: string;
+  severity: string;
+  status: string;
+  title: string;
+  summary: string;
+  evidence_json: Record<string, unknown>;
+  started_at: string;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Alert = {
+  id: string;
+  project_id: string;
+  incident_id: string;
+  check_run_id: string | null;
+  alert_type: string;
+  trigger_type: string;
+  channel: string;
+  status: string;
+  recipient_email: string | null;
+  subject: string;
+  body: string;
+  delivery_attempts: number;
+  last_error: string | null;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ProjectVerification = {
   project_id: string;
   verification_token: string;
@@ -548,6 +584,36 @@ export type CheckRunListResult =
       state: "unavailable";
     };
 
+export type IncidentListResult =
+  | {
+      state: "success";
+      incidents: Incident[];
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type AlertListResult =
+  | {
+      state: "success";
+      alerts: Alert[];
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type CreateCheckRunResult =
   | {
       state: "success";
@@ -762,6 +828,28 @@ export function getCheckRunsUrl(
 ): string {
   return applyPagination(
     new URL(`/projects/${encodeURIComponent(projectId)}/check-runs`, getApiBaseUrl(apiBaseUrl)),
+    pagination
+  ).toString();
+}
+
+export function getProjectIncidentsUrl(
+  projectId: string,
+  apiBaseUrl = getApiBaseUrl(),
+  pagination: PaginationParams = {}
+): string {
+  return applyPagination(
+    new URL(`/projects/${encodeURIComponent(projectId)}/incidents`, getApiBaseUrl(apiBaseUrl)),
+    pagination
+  ).toString();
+}
+
+export function getProjectAlertsUrl(
+  projectId: string,
+  apiBaseUrl = getApiBaseUrl(),
+  pagination: PaginationParams = {}
+): string {
+  return applyPagination(
+    new URL(`/projects/${encodeURIComponent(projectId)}/alerts`, getApiBaseUrl(apiBaseUrl)),
     pagination
   ).toString();
 }
@@ -1315,6 +1403,100 @@ export async function fetchCheckRuns({
     return {
       state: "success",
       checkRuns: (await response.json()) as CheckRunSummary[]
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchProjectIncidents({
+  projectId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl,
+  limit,
+  offset
+}: {
+  projectId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<IncidentListResult> {
+  try {
+    const response = await fetcher(
+      getProjectIncidentsUrl(projectId, apiBaseUrl ?? getApiBaseUrl(), { limit, offset }),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      incidents: (await response.json()) as Incident[]
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchProjectAlerts({
+  projectId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl,
+  limit,
+  offset
+}: {
+  projectId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<AlertListResult> {
+  try {
+    const response = await fetcher(
+      getProjectAlertsUrl(projectId, apiBaseUrl ?? getApiBaseUrl(), { limit, offset }),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      alerts: (await response.json()) as Alert[]
     };
   } catch {
     return { state: "unavailable" };

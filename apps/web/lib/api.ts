@@ -699,6 +699,38 @@ export type CreateScenarioResult =
       state: "unavailable";
     };
 
+export type UpdateScenarioResult =
+  | {
+      state: "success";
+      scenario: TestScenario;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "invalid";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type DeleteScenarioResult =
+  | {
+      state: "success";
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type CreateScenarioRunResult =
   | {
       state: "success";
@@ -899,6 +931,17 @@ export function getScenarioRunDetailUrl(
 export function getScenariosUrl(projectId: string, apiBaseUrl = getApiBaseUrl()): string {
   return new URL(
     `/projects/${encodeURIComponent(projectId)}/scenarios`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export function getScenarioUrl(
+  projectId: string,
+  scenarioId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/scenarios/${encodeURIComponent(scenarioId)}`,
     getApiBaseUrl(apiBaseUrl)
   ).toString();
 }
@@ -1858,6 +1901,103 @@ export async function createScenario({
       state: "success",
       scenario: (await response.json()) as TestScenario
     };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function updateScenario({
+  projectId,
+  scenarioId,
+  accessToken,
+  payload,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  scenarioId: string;
+  accessToken: string;
+  payload: TestScenarioPayload;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<UpdateScenarioResult> {
+  try {
+    const response = await fetcher(
+      getScenarioUrl(projectId, scenarioId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "PATCH",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (response.status === 400 || response.status === 422) {
+      return { state: "invalid" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      scenario: (await response.json()) as TestScenario
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function deleteScenario({
+  projectId,
+  scenarioId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  scenarioId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<DeleteScenarioResult> {
+  try {
+    const response = await fetcher(
+      getScenarioUrl(projectId, scenarioId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "DELETE",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return { state: "success" };
   } catch {
     return { state: "unavailable" };
   }

@@ -82,7 +82,7 @@ Dashboard는 Project 생성 화면, Project 설정/domain verification 화면, S
 /projects/{projectId}/scenarios
 ```
 
-페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. Scenario 생성 폼으로 핵심 사용자 흐름과 step을 등록하고, 등록된 scenario 목록과 step을 표시하며, active scenario에 대해 수동 ScenarioRun을 생성합니다. 생성 성공 후 ScenarioRun 결과 페이지 링크를 제공합니다.
+페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. Scenario 생성 폼으로 핵심 사용자 흐름과 step을 등록하고, 등록된 scenario 목록과 step을 표시합니다. 기존 scenario는 inline editor로 수정할 수 있고 삭제 전 확인 UI를 거쳐 삭제할 수 있습니다. active scenario에 대해 수동 ScenarioRun을 생성하며, 생성 성공 후 ScenarioRun 결과 페이지 링크를 제공합니다.
 
 ## Alert overview 페이지
 
@@ -118,7 +118,7 @@ Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 - CheckRun 결과 페이지
 - CheckRun AI 진단 요약 표시
 - CheckRun AI 진단 상세 패널 표시
-- Scenario 생성, 목록 조회, 수동 실행 생성 페이지
+- Scenario 생성, 수정, 삭제, 목록 조회, 수동 실행 생성 페이지
 - ScenarioRun 결과 페이지
 - Alert overview 페이지
 - Alert overview의 email alert 설정 저장 폼

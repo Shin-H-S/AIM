@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createCheckRun,
   createProject,
+  createScenario,
   createScenarioRun,
   downloadArtifact,
   fetchApiHealth,
@@ -1579,6 +1580,160 @@ describe("fetchScenarios", () => {
         Authorization: "Bearer token"
       }
     });
+  });
+});
+
+describe("createScenario", () => {
+  it("creates a scenario with ordered steps", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json(
+        {
+          id: "scenario-id",
+          project_id: "project-id",
+          name: "Login flow",
+          description: "Critical login flow",
+          is_active: true,
+          created_at: "2026-06-29T00:00:00Z",
+          updated_at: "2026-06-29T00:00:00Z",
+          steps: [
+            {
+              id: "step-id",
+              scenario_id: "scenario-id",
+              step_order: 1,
+              action: "navigate",
+              target: "https://example.com/login",
+              value: null,
+              timeout_ms: null,
+              is_critical: true,
+              created_at: "2026-06-29T00:00:00Z",
+              updated_at: "2026-06-29T00:00:00Z"
+            }
+          ]
+        },
+        { status: 201 }
+      )
+    );
+
+    const payload = {
+      name: "Login flow",
+      description: "Critical login flow",
+      is_active: true,
+      steps: [
+        {
+          action: "navigate" as const,
+          target: "https://example.com/login",
+          value: null,
+          timeout_ms: null,
+          is_critical: true
+        }
+      ]
+    };
+
+    await expect(
+      createScenario({
+        projectId: "project-id",
+        accessToken: "token",
+        payload,
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      scenario: {
+        id: "scenario-id",
+        project_id: "project-id",
+        name: "Login flow",
+        description: "Critical login flow",
+        is_active: true,
+        created_at: "2026-06-29T00:00:00Z",
+        updated_at: "2026-06-29T00:00:00Z",
+        steps: [
+          {
+            id: "step-id",
+            scenario_id: "scenario-id",
+            step_order: 1,
+            action: "navigate",
+            target: "https://example.com/login",
+            value: null,
+            timeout_ms: null,
+            is_critical: true,
+            created_at: "2026-06-29T00:00:00Z",
+            updated_at: "2026-06-29T00:00:00Z"
+          }
+        ]
+      }
+    });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id/scenarios", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  });
+
+  it("maps scenario creation error responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const notFoundFetcher = vi.fn(async () => new Response(null, { status: 404 }));
+    const invalidFetcher = vi.fn(async () => new Response(null, { status: 422 }));
+    const unavailableFetcher = vi.fn(async () => new Response(null, { status: 503 }));
+    const payload = {
+      name: "Login flow",
+      description: null,
+      is_active: true,
+      steps: [
+        {
+          action: "navigate" as const,
+          target: "https://example.com/login",
+          value: null,
+          timeout_ms: null,
+          is_critical: true
+        }
+      ]
+    };
+
+    await expect(
+      createScenario({
+        projectId: "project-id",
+        accessToken: "bad-token",
+        payload,
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      createScenario({
+        projectId: "missing-project",
+        accessToken: "token",
+        payload,
+        fetcher: notFoundFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+
+    await expect(
+      createScenario({
+        projectId: "project-id",
+        accessToken: "token",
+        payload,
+        fetcher: invalidFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "invalid" });
+
+    await expect(
+      createScenario({
+        projectId: "project-id",
+        accessToken: "token",
+        payload,
+        fetcher: unavailableFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
   });
 });
 

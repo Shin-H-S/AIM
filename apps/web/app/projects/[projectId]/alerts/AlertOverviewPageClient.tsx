@@ -7,13 +7,15 @@ import {
   fetchProjectAlerts,
   fetchProjectIncidents,
   getApiBaseUrl,
+  retryAlert,
   updateProject,
   type Alert,
   type AlertListResult,
   type Incident,
   type IncidentListResult,
   type Project,
-  type ProjectDetailResult
+  type ProjectDetailResult,
+  type RetryAlertResult
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 
@@ -34,6 +36,12 @@ type AlertSettingsFormState = {
   alertRecipientEmail: string;
 };
 
+type RetryAlertFeedback = {
+  alertId: string;
+  state: Exclude<RetryAlertResult["state"], "success"> | "success";
+  message: string;
+};
+
 export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const [accessToken, setAccessToken] = useState("");
   const [loadState, setLoadState] = useState<LoadState>("idle");
@@ -47,6 +55,8 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const [settingsSubmitState, setSettingsSubmitState] =
     useState<AlertSettingsSubmitState>("idle");
   const [settingsSubmitMessage, setSettingsSubmitMessage] = useState<string | null>(null);
+  const [retryingAlertId, setRetryingAlertId] = useState<string | null>(null);
+  const [retryFeedback, setRetryFeedback] = useState<RetryAlertFeedback | null>(null);
   const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const trimmedToken = accessToken.trim();
@@ -59,6 +69,8 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
         setProjectResult(null);
         setIncidentResult(null);
         setAlertResult(null);
+        setRetryFeedback(null);
+        setRetryingAlertId(null);
         setLastUpdatedAt(null);
         return;
       }
@@ -187,6 +199,57 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     setSettingsSubmitMessage("Email alert 설정을 저장했습니다. 이후 생성되는 alert부터 반영됩니다.");
   }
 
+  async function handleRetryAlert(alert: Alert) {
+    if (!trimmedToken) {
+      setRetryFeedback({
+        alertId: alert.id,
+        state: "unauthorized",
+        message: retryAlertFeedbackMessage.unauthorized
+      });
+      return;
+    }
+
+    setRetryingAlertId(alert.id);
+    setRetryFeedback(null);
+
+    const result = await retryAlert({
+      projectId,
+      alertId: alert.id,
+      accessToken: trimmedToken
+    });
+
+    if (result.state === "success") {
+      setAlertResult((current) =>
+        current?.state === "success"
+          ? {
+              state: "success",
+              alerts: current.alerts.map((currentAlert) =>
+                currentAlert.id === result.alert.id ? result.alert : currentAlert
+              )
+            }
+          : current
+      );
+      setRetryFeedback({
+        alertId: alert.id,
+        state: "success",
+        message: "Alert 재시도 요청을 등록했습니다. 상태가 PENDING으로 변경되었습니다."
+      });
+      setRetryingAlertId(null);
+      return;
+    }
+
+    if (result.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(trimmedToken);
+    }
+
+    setRetryFeedback({
+      alertId: alert.id,
+      state: result.state,
+      message: retryAlertFeedbackMessage[result.state]
+    });
+    setRetryingAlertId(null);
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-50">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
@@ -278,7 +341,15 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
           <IncidentSection incidents={incidents} projectId={projectId} />
         )}
 
-        {alertResult?.state === "success" && <AlertSection alerts={alerts} projectId={projectId} />}
+        {alertResult?.state === "success" && (
+          <AlertSection
+            alerts={alerts}
+            onRetry={handleRetryAlert}
+            projectId={projectId}
+            retryFeedback={retryFeedback}
+            retryingAlertId={retryingAlertId}
+          />
+        )}
       </section>
     </main>
   );
@@ -460,7 +531,19 @@ function IncidentCard({ incident, projectId }: { incident: Incident; projectId: 
   );
 }
 
-function AlertSection({ alerts, projectId }: { alerts: Alert[]; projectId: string }) {
+function AlertSection({
+  alerts,
+  onRetry,
+  projectId,
+  retryFeedback,
+  retryingAlertId
+}: {
+  alerts: Alert[];
+  onRetry: (alert: Alert) => void;
+  projectId: string;
+  retryFeedback: RetryAlertFeedback | null;
+  retryingAlertId: string | null;
+}) {
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
       <SectionHeader count={alerts.length} title="Email alerts" />
@@ -469,7 +552,14 @@ function AlertSection({ alerts, projectId }: { alerts: Alert[]; projectId: strin
       ) : (
         <ul className="grid gap-4">
           {alerts.map((alert) => (
-            <AlertCard alert={alert} key={alert.id} projectId={projectId} />
+            <AlertCard
+              alert={alert}
+              key={alert.id}
+              onRetry={onRetry}
+              projectId={projectId}
+              retryFeedback={retryFeedback?.alertId === alert.id ? retryFeedback : null}
+              retrying={retryingAlertId === alert.id}
+            />
           ))}
         </ul>
       )}
@@ -477,7 +567,21 @@ function AlertSection({ alerts, projectId }: { alerts: Alert[]; projectId: strin
   );
 }
 
-function AlertCard({ alert, projectId }: { alert: Alert; projectId: string }) {
+function AlertCard({
+  alert,
+  onRetry,
+  projectId,
+  retryFeedback,
+  retrying
+}: {
+  alert: Alert;
+  onRetry: (alert: Alert) => void;
+  projectId: string;
+  retryFeedback: RetryAlertFeedback | null;
+  retrying: boolean;
+}) {
+  const canRetry = alert.status === "FAILED";
+
   return (
     <li className="rounded-2xl border border-white/10 bg-slate-950/60 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -492,14 +596,26 @@ function AlertCard({ alert, projectId }: { alert: Alert; projectId: string }) {
             수신자: {alert.recipient_email ?? "미설정"} · 시도 횟수: {alert.delivery_attempts}
           </p>
         </div>
-        {alert.check_run_id && (
-          <Link
-            className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
-            href={`/projects/${projectId}/check-runs/${alert.check_run_id}`}
-          >
-            관련 run 보기
-          </Link>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {canRetry && (
+            <button
+              className="rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={retrying}
+              onClick={() => onRetry(alert)}
+              type="button"
+            >
+              {retrying ? "재시도 요청 중" : "발송 재시도"}
+            </button>
+          )}
+          {alert.check_run_id && (
+            <Link
+              className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+              href={`/projects/${projectId}/check-runs/${alert.check_run_id}`}
+            >
+              관련 run 보기
+            </Link>
+          )}
+        </div>
       </div>
 
       <dl className="mt-5 grid gap-3 md:grid-cols-3">
@@ -511,6 +627,18 @@ function AlertCard({ alert, projectId }: { alert: Alert; projectId: string }) {
       {alert.last_error && (
         <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100">
           {alert.last_error}
+        </p>
+      )}
+
+      {retryFeedback && (
+        <p
+          className={`mt-4 rounded-2xl border p-4 text-sm leading-6 ${
+            retryFeedback.state === "success"
+              ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+              : "border-rose-400/20 bg-rose-400/10 text-rose-100"
+          }`}
+        >
+          {retryFeedback.message}
         </p>
       )}
     </li>
@@ -716,4 +844,14 @@ const alertSettingsSubmitMessage: Record<
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
   "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
   unavailable: "Alert 설정 저장 요청에 실패했습니다. API 서버 상태를 확인하세요."
+};
+
+const retryAlertFeedbackMessage: Record<
+  Exclude<RetryAlertResult["state"], "success">,
+  string
+> = {
+  unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
+  "not-found": "Project 또는 Alert를 찾을 수 없습니다. 목록을 다시 조회하세요.",
+  conflict: "FAILED 상태의 email alert만 재시도할 수 있습니다.",
+  unavailable: "Alert 재시도 요청에 실패했습니다. API 서버 또는 worker queue 상태를 확인하세요."
 };

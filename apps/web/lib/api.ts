@@ -618,6 +618,24 @@ export type AlertListResult =
       state: "unavailable";
     };
 
+export type RetryAlertResult =
+  | {
+      state: "success";
+      alert: Alert;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "conflict";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type CreateCheckRunResult =
   | {
       state: "success";
@@ -887,6 +905,17 @@ export function getProjectAlertsUrl(
   return applyPagination(
     new URL(`/projects/${encodeURIComponent(projectId)}/alerts`, getApiBaseUrl(apiBaseUrl)),
     pagination
+  ).toString();
+}
+
+export function getRetryAlertUrl(
+  projectId: string,
+  alertId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/alerts/${encodeURIComponent(alertId)}/retry`,
+    getApiBaseUrl(apiBaseUrl)
   ).toString();
 }
 
@@ -1544,6 +1573,56 @@ export async function fetchProjectAlerts({
     return {
       state: "success",
       alerts: (await response.json()) as Alert[]
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function retryAlert({
+  projectId,
+  alertId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  alertId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<RetryAlertResult> {
+  try {
+    const response = await fetcher(
+      getRetryAlertUrl(projectId, alertId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (response.status === 409) {
+      return { state: "conflict" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      alert: (await response.json()) as Alert
     };
   } catch {
     return { state: "unavailable" };

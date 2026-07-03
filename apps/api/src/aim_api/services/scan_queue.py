@@ -80,3 +80,17 @@ def enqueue_email_alert_delivery(*, check_run_id: UUID) -> str:
         raise ScanQueueUnavailableError from exc
 
     return str(result.id)
+
+
+def enqueue_email_alert_retry(*, alert_id: UUID) -> str:
+    task_id = f"email-alert-retry:{alert_id}"
+    celery_client = build_celery_client()
+    try:
+        result = celery_client.send_task(
+            DELIVER_EMAIL_ALERTS_TASK_NAME,
+            task_id=task_id,
+        )
+    except Exception as exc:
+        raise ScanQueueUnavailableError from exc
+
+    return str(result.id)

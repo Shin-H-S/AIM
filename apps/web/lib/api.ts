@@ -45,6 +45,14 @@ export type TestStepAction =
   | "assert_url"
   | "take_screenshot";
 
+export type TestStepPayload = {
+  action: TestStepAction;
+  target: string | null;
+  value: string | null;
+  timeout_ms: number | null;
+  is_critical: boolean;
+};
+
 export type ProjectEnvironment = "development" | "staging" | "production";
 
 export type Project = {
@@ -336,6 +344,13 @@ export type TestScenario = {
   steps: TestStep[];
 };
 
+export type TestScenarioPayload = {
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  steps: TestStepPayload[];
+};
+
 export type ScenarioRun = {
   id: string;
   project_id: string;
@@ -591,6 +606,24 @@ export type ScenarioListResult =
     }
   | {
       state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type CreateScenarioResult =
+  | {
+      state: "success";
+      scenario: TestScenario;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "invalid";
     }
   | {
       state: "unavailable";
@@ -1589,6 +1622,55 @@ export async function fetchScenarios({
     return {
       state: "success",
       scenarios: (await response.json()) as TestScenario[]
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function createScenario({
+  projectId,
+  accessToken,
+  payload,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  accessToken: string;
+  payload: TestScenarioPayload;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<CreateScenarioResult> {
+  try {
+    const response = await fetcher(getScenariosUrl(projectId, apiBaseUrl ?? getApiBaseUrl()), {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (response.status === 400 || response.status === 422) {
+      return { state: "invalid" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      scenario: (await response.json()) as TestScenario
     };
   } catch {
     return { state: "unavailable" };

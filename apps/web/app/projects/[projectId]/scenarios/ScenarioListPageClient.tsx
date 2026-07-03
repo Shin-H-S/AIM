@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  createScenario,
   createScenarioRun,
   fetchScenarios,
   getApiBaseUrl,
   type CreateScenarioRunResult,
   type ScenarioListResult,
+  type TestScenarioPayload,
+  type TestStepPayload,
   type TestScenario,
   type TestStep,
   type TestStepAction
@@ -24,10 +27,63 @@ const actionLabels: Record<TestStepAction, string> = {
   take_screenshot: "스크린샷"
 };
 
+const supportedActions: TestStepAction[] = [
+  "navigate",
+  "click",
+  "fill",
+  "wait",
+  "assert_element_exists",
+  "assert_text_exists",
+  "assert_url",
+  "take_screenshot"
+];
+
+const actionHelp: Record<TestStepAction, string> = {
+  navigate: "Target에 이동할 URL을 입력합니다.",
+  click: "Target에 클릭할 CSS selector를 입력합니다.",
+  fill: "Target에 입력 필드 selector, Value에 입력값을 넣습니다.",
+  wait: "Timeout에 대기 시간을 ms 단위로 입력합니다.",
+  assert_element_exists: "Target에 존재해야 하는 CSS selector를 입력합니다.",
+  assert_text_exists: "Value에 화면에 보여야 하는 텍스트를 입력합니다.",
+  assert_url: "Value에 기대 URL 또는 URL 조각을 입력합니다.",
+  take_screenshot: "추가 입력 없이 현재 화면을 캡처합니다."
+};
+
+type ScenarioCreateState =
+  | "idle"
+  | "creating"
+  | "success"
+  | "invalid"
+  | "unauthorized"
+  | "not-found"
+  | "unavailable";
+
+type ScenarioStepFormState = {
+  id: string;
+  action: TestStepAction;
+  target: string;
+  value: string;
+  timeoutMs: string;
+  isCritical: boolean;
+};
+
+type ScenarioFormState = {
+  name: string;
+  description: string;
+  isActive: boolean;
+  steps: ScenarioStepFormState[];
+};
+
 export function ScenarioListPageClient({ projectId }: { projectId: string }) {
   const [accessToken, setAccessToken] = useState("");
   const [result, setResult] = useState<ScenarioListResult | null>(null);
   const [createdRunResult, setCreatedRunResult] = useState<CreateScenarioRunResult | null>(null);
+  const [scenarioForm, setScenarioForm] = useState<ScenarioFormState>(() =>
+    createInitialScenarioForm()
+  );
+  const [nextStepIndex, setNextStepIndex] = useState(2);
+  const [createState, setCreateState] = useState<ScenarioCreateState>("idle");
+  const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [creatingScenarioId, setCreatingScenarioId] = useState<string | null>(null);
@@ -84,6 +140,93 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
     },
     [projectId, trimmedToken]
   );
+
+  const createScenarioFromForm = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setCreateMessage(null);
+
+      if (!trimmedToken) {
+        setCreateState("unauthorized");
+        setCreateMessage("로그인 세션이 없습니다. 로그인 후 다시 시도하세요.");
+        return;
+      }
+
+      const payloadResult = buildScenarioPayload(scenarioForm);
+      if (!payloadResult.ok) {
+        setCreateState("invalid");
+        setCreateMessage(payloadResult.message);
+        return;
+      }
+
+      setCreateState("creating");
+      const nextResult = await createScenario({
+        projectId,
+        accessToken: trimmedToken,
+        payload: payloadResult.payload
+      });
+
+      if (nextResult.state !== "success") {
+        if (nextResult.state === "unauthorized") {
+          clearStoredAccessTokenIfMatches(trimmedToken);
+        }
+
+        setCreateState(nextResult.state);
+        setCreateMessage(scenarioCreateStateMessage[nextResult.state]);
+        return;
+      }
+
+      setResult((currentResult) =>
+        currentResult?.state === "success"
+          ? {
+              state: "success",
+              scenarios: [nextResult.scenario, ...currentResult.scenarios]
+            }
+          : currentResult
+      );
+      setScenarioForm(createInitialScenarioForm());
+      setNextStepIndex(2);
+      setCreateState("success");
+      setCreateMessage("Scenario를 생성했습니다. 목록에서 바로 실행할 수 있습니다.");
+      setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
+    },
+    [projectId, scenarioForm, trimmedToken]
+  );
+
+  function updateScenarioStep(stepId: string, nextStep: Partial<ScenarioStepFormState>) {
+    setScenarioForm((currentForm) => ({
+      ...currentForm,
+      steps: currentForm.steps.map((step) =>
+        step.id === stepId
+          ? {
+              ...step,
+              ...nextStep
+            }
+          : step
+      )
+    }));
+  }
+
+  function addScenarioStep() {
+    setScenarioForm((currentForm) => ({
+      ...currentForm,
+      steps: [...currentForm.steps, createScenarioStepForm(`step-${nextStepIndex}`)]
+    }));
+    setNextStepIndex((currentIndex) => currentIndex + 1);
+  }
+
+  function removeScenarioStep(stepId: string) {
+    setScenarioForm((currentForm) => {
+      if (currentForm.steps.length <= 1) {
+        return currentForm;
+      }
+
+      return {
+        ...currentForm,
+        steps: currentForm.steps.filter((step) => step.id !== stepId)
+      };
+    });
+  }
 
   useEffect(() => {
     const storedAccessToken = getStoredAccessToken();
@@ -194,6 +337,19 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
           />
         )}
 
+        {trimmedToken && (
+          <ScenarioCreateForm
+            createMessage={createMessage}
+            createState={createState}
+            form={scenarioForm}
+            onAddStep={addScenarioStep}
+            onChange={setScenarioForm}
+            onRemoveStep={removeScenarioStep}
+            onSubmit={createScenarioFromForm}
+            onUpdateStep={updateScenarioStep}
+          />
+        )}
+
         {createdRunResult?.state === "success" && (
           <Notice
             tone="info"
@@ -252,7 +408,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
 
             {scenarios.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-sm text-slate-400">
-                아직 생성된 scenario가 없습니다. API로 scenario를 먼저 등록하세요.
+                아직 생성된 scenario가 없습니다. 위 폼으로 첫 critical user flow를 등록하세요.
               </p>
             ) : (
               <ul className="grid gap-4">
@@ -270,6 +426,254 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
         )}
       </section>
     </main>
+  );
+}
+
+function ScenarioCreateForm({
+  createMessage,
+  createState,
+  form,
+  onAddStep,
+  onChange,
+  onRemoveStep,
+  onSubmit,
+  onUpdateStep
+}: {
+  createMessage: string | null;
+  createState: ScenarioCreateState;
+  form: ScenarioFormState;
+  onAddStep: () => void;
+  onChange: (form: ScenarioFormState) => void;
+  onRemoveStep: (stepId: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onUpdateStep: (stepId: string, nextStep: Partial<ScenarioStepFormState>) => void;
+}) {
+  return (
+    <form
+      className="rounded-3xl border border-cyan-300/20 bg-cyan-300/[0.04] p-6"
+      onSubmit={onSubmit}
+    >
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+            Scenario builder
+          </p>
+          <h2 className="mt-3 text-2xl font-bold">새 Scenario 생성</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+            핵심 사용자 흐름을 step 단위로 작성합니다. destructive action은 MVP 범위에서
+            피하고, 로그인·검색·주요 페이지 접근처럼 안전하게 반복 가능한 흐름부터 등록하세요.
+          </p>
+        </div>
+        <button
+          className="rounded-2xl border border-cyan-300/30 px-4 py-2 text-sm font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/10"
+          onClick={onAddStep}
+          type="button"
+        >
+          Step 추가
+        </button>
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_220px]">
+        <label className="block" htmlFor="scenario-name">
+          <span className="text-sm font-semibold text-slate-300">Scenario name</span>
+          <input
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-cyan-300/0 transition placeholder:text-slate-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+            id="scenario-name"
+            maxLength={120}
+            onChange={(event) => onChange({ ...form, name: event.target.value })}
+            placeholder="Login flow"
+            required
+            type="text"
+            value={form.name}
+          />
+        </label>
+
+        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300 lg:mt-7">
+          <input
+            checked={form.isActive}
+            className="h-4 w-4 accent-cyan-300"
+            onChange={(event) => onChange({ ...form, isActive: event.target.checked })}
+            type="checkbox"
+          />
+          Active scenario
+        </label>
+      </div>
+
+      <label className="mt-4 block" htmlFor="scenario-description">
+        <span className="text-sm font-semibold text-slate-300">Description</span>
+        <textarea
+          className="mt-2 min-h-24 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-cyan-300/0 transition placeholder:text-slate-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+          id="scenario-description"
+          maxLength={1000}
+          onChange={(event) => onChange({ ...form, description: event.target.value })}
+          placeholder="이 scenario가 검증하는 핵심 사용자 흐름을 적어두세요."
+          value={form.description}
+        />
+      </label>
+
+      <div className="mt-6 grid gap-4">
+        {form.steps.map((step, index) => (
+          <ScenarioStepEditor
+            canRemove={form.steps.length > 1}
+            index={index}
+            key={step.id}
+            onRemove={() => onRemoveStep(step.id)}
+            onUpdate={(nextStep) => onUpdateStep(step.id, nextStep)}
+            step={step}
+          />
+        ))}
+      </div>
+
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button
+          className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={createState === "creating"}
+          type="submit"
+        >
+          {createState === "creating" ? "Scenario 생성 중" : "Scenario 생성"}
+        </button>
+        <p className="text-xs leading-5 text-slate-400">
+          생성 후 목록에 바로 추가됩니다. active 상태라면 수동 ScenarioRun을 실행할 수 있습니다.
+        </p>
+      </div>
+
+      <ScenarioCreateNotice createMessage={createMessage} createState={createState} />
+    </form>
+  );
+}
+
+function ScenarioStepEditor({
+  canRemove,
+  index,
+  onRemove,
+  onUpdate,
+  step
+}: {
+  canRemove: boolean;
+  index: number;
+  onRemove: () => void;
+  onUpdate: (step: Partial<ScenarioStepFormState>) => void;
+  step: ScenarioStepFormState;
+}) {
+  return (
+    <article className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-slate-100">Step #{index + 1}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">{actionHelp[step.action]}</p>
+        </div>
+        <button
+          className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 transition hover:border-rose-300/50 hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!canRemove}
+          onClick={onRemove}
+          type="button"
+        >
+          삭제
+        </button>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-[220px_1fr_1fr_180px]">
+        <label className="block" htmlFor={`scenario-step-action-${step.id}`}>
+          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Action
+          </span>
+          <select
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900 px-3 py-3 text-sm text-slate-100 outline-none focus:border-cyan-300/60"
+            id={`scenario-step-action-${step.id}`}
+            onChange={(event) => onUpdate({ action: event.target.value as TestStepAction })}
+            value={step.action}
+          >
+            {supportedActions.map((action) => (
+              <option key={action} value={action}>
+                {actionLabels[action]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <StepInput
+          label="Target"
+          onChange={(value) => onUpdate({ target: value })}
+          placeholder={getTargetPlaceholder(step.action)}
+          value={step.target}
+        />
+        <StepInput
+          label="Value"
+          onChange={(value) => onUpdate({ value })}
+          placeholder={getValuePlaceholder(step.action)}
+          value={step.value}
+        />
+        <StepInput
+          label="Timeout ms"
+          onChange={(value) => onUpdate({ timeoutMs: value })}
+          placeholder={step.action === "wait" ? "1000" : "선택"}
+          type="number"
+          value={step.timeoutMs}
+        />
+      </div>
+
+      <label className="mt-4 flex items-center gap-3 text-sm text-slate-300">
+        <input
+          checked={step.isCritical}
+          className="h-4 w-4 accent-cyan-300"
+          onChange={(event) => onUpdate({ isCritical: event.target.checked })}
+          type="checkbox"
+        />
+        Critical step
+      </label>
+    </article>
+  );
+}
+
+function StepInput({
+  label,
+  onChange,
+  placeholder,
+  type = "text",
+  value
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  type?: "text" | "number";
+  value: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+        {label}
+      </span>
+      <input
+        className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-900 px-3 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
+        min={type === "number" ? 1 : undefined}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        type={type}
+        value={value}
+      />
+    </label>
+  );
+}
+
+function ScenarioCreateNotice({
+  createMessage,
+  createState
+}: {
+  createMessage: string | null;
+  createState: ScenarioCreateState;
+}) {
+  if (createState === "idle" || createState === "creating" || !createMessage) {
+    return null;
+  }
+
+  return (
+    <div className="mt-5">
+      <Notice
+        description={createMessage}
+        title={createState === "success" ? "Scenario 생성 완료" : "Scenario 생성 실패"}
+        tone={createState === "success" ? "info" : "danger"}
+      />
+    </div>
   );
 }
 
@@ -405,3 +809,189 @@ function Notice({
     </article>
   );
 }
+
+function createScenarioStepForm(id: string): ScenarioStepFormState {
+  return {
+    id,
+    action: "navigate",
+    target: "",
+    value: "",
+    timeoutMs: "",
+    isCritical: true
+  };
+}
+
+function createInitialScenarioForm(): ScenarioFormState {
+  return {
+    name: "",
+    description: "",
+    isActive: true,
+    steps: [createScenarioStepForm("step-1")]
+  };
+}
+
+type ScenarioPayloadBuildResult =
+  | {
+      ok: true;
+      payload: TestScenarioPayload;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+function buildScenarioPayload(form: ScenarioFormState): ScenarioPayloadBuildResult {
+  const name = form.name.trim();
+  if (!name) {
+    return {
+      ok: false,
+      message: "Scenario name을 입력하세요."
+    };
+  }
+
+  if (form.steps.length === 0) {
+    return {
+      ok: false,
+      message: "Scenario에는 최소 1개 이상의 step이 필요합니다."
+    };
+  }
+
+  const steps: TestStepPayload[] = [];
+
+  for (const [index, step] of form.steps.entries()) {
+    const target = normalizeOptionalText(step.target);
+    const value = normalizeOptionalText(step.value);
+    const timeoutResult = normalizeTimeout(step.timeoutMs);
+
+    if (!timeoutResult.ok) {
+      return {
+        ok: false,
+        message: `Step #${index + 1}: timeout은 1~120000ms 사이의 정수여야 합니다.`
+      };
+    }
+
+    if (requiresTarget(step.action) && !target) {
+      return {
+        ok: false,
+        message: `Step #${index + 1}: ${actionLabels[step.action]} action은 target이 필요합니다.`
+      };
+    }
+
+    if (step.action === "fill" && !value) {
+      return {
+        ok: false,
+        message: `Step #${index + 1}: 입력 action은 value가 필요합니다.`
+      };
+    }
+
+    if (requiresValue(step.action) && !value) {
+      return {
+        ok: false,
+        message: `Step #${index + 1}: ${actionLabels[step.action]} action은 value가 필요합니다.`
+      };
+    }
+
+    if (step.action === "wait" && timeoutResult.value === null) {
+      return {
+        ok: false,
+        message: `Step #${index + 1}: 대기 action은 timeout ms가 필요합니다.`
+      };
+    }
+
+    steps.push({
+      action: step.action,
+      target,
+      value,
+      timeout_ms: timeoutResult.value,
+      is_critical: step.isCritical
+    });
+  }
+
+  return {
+    ok: true,
+    payload: {
+      name,
+      description: normalizeOptionalText(form.description),
+      is_active: form.isActive,
+      steps
+    }
+  };
+}
+
+function normalizeOptionalText(value: string): string | null {
+  const normalized = value.trim();
+  return normalized ? normalized : null;
+}
+
+function normalizeTimeout(value: string):
+  | {
+      ok: true;
+      value: number | null;
+    }
+  | {
+      ok: false;
+    } {
+  const normalized = value.trim();
+  if (!normalized) {
+    return {
+      ok: true,
+      value: null
+    };
+  }
+
+  const timeoutMs = Number(normalized);
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000) {
+    return { ok: false };
+  }
+
+  return {
+    ok: true,
+    value: timeoutMs
+  };
+}
+
+function requiresTarget(action: TestStepAction): boolean {
+  return action === "navigate" || action === "click" || action === "assert_element_exists" || action === "fill";
+}
+
+function requiresValue(action: TestStepAction): boolean {
+  return action === "assert_text_exists" || action === "assert_url";
+}
+
+function getTargetPlaceholder(action: TestStepAction): string {
+  if (action === "navigate") {
+    return "https://example.com/login";
+  }
+
+  if (action === "click" || action === "fill" || action === "assert_element_exists") {
+    return "CSS selector";
+  }
+
+  return "선택";
+}
+
+function getValuePlaceholder(action: TestStepAction): string {
+  if (action === "fill") {
+    return "입력할 값";
+  }
+
+  if (action === "assert_text_exists") {
+    return "기대 텍스트";
+  }
+
+  if (action === "assert_url") {
+    return "기대 URL 또는 URL 조각";
+  }
+
+  return "선택";
+}
+
+const scenarioCreateStateMessage: Record<
+  Exclude<ScenarioCreateState, "idle" | "creating" | "success">,
+  string
+> = {
+  invalid: "입력값을 확인하세요. action별 필수 target, value, timeout을 채워야 합니다.",
+  unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
+  "not-found": "Project를 찾을 수 없습니다. Dashboard에서 Project 상태를 다시 확인하세요.",
+  unavailable: "Scenario 생성 요청에 실패했습니다. API 서버 상태를 확인하세요."
+};

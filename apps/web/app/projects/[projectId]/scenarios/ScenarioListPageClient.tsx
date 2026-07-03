@@ -4,15 +4,19 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   createScenario,
   createScenarioRun,
+  deleteScenario,
   fetchScenarios,
   getApiBaseUrl,
+  updateScenario,
   type CreateScenarioRunResult,
+  type DeleteScenarioResult,
   type ScenarioListResult,
   type TestScenarioPayload,
   type TestStepPayload,
   type TestScenario,
   type TestStep,
-  type TestStepAction
+  type TestStepAction,
+  type UpdateScenarioResult
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 
@@ -57,6 +61,17 @@ type ScenarioCreateState =
   | "unauthorized"
   | "not-found"
   | "unavailable";
+
+type ScenarioMutationActionResult =
+  | {
+      state: "success";
+      message: string;
+      scenario?: TestScenario;
+    }
+  | {
+      state: Exclude<ScenarioCreateState, "idle" | "creating" | "success">;
+      message: string;
+    };
 
 type ScenarioStepFormState = {
   id: string;
@@ -191,6 +206,101 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
     },
     [projectId, scenarioForm, trimmedToken]
+  );
+
+  const updateScenarioFromPayload = useCallback(
+    async (
+      scenarioId: string,
+      payload: TestScenarioPayload
+    ): Promise<ScenarioMutationActionResult> => {
+      if (!trimmedToken) {
+        return {
+          state: "unauthorized",
+          message: "로그인 세션이 없습니다. 로그인 후 다시 시도하세요."
+        };
+      }
+
+      const nextResult = await updateScenario({
+        projectId,
+        scenarioId,
+        accessToken: trimmedToken,
+        payload
+      });
+
+      if (nextResult.state !== "success") {
+        if (nextResult.state === "unauthorized") {
+          clearStoredAccessTokenIfMatches(trimmedToken);
+        }
+
+        return {
+          state: nextResult.state,
+          message: scenarioUpdateStateMessage[nextResult.state]
+        };
+      }
+
+      setResult((currentResult) =>
+        currentResult?.state === "success"
+          ? {
+              state: "success",
+              scenarios: currentResult.scenarios.map((scenario) =>
+                scenario.id === scenarioId ? nextResult.scenario : scenario
+              )
+            }
+          : currentResult
+      );
+      setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
+
+      return {
+        state: "success",
+        message: "Scenario를 저장했습니다.",
+        scenario: nextResult.scenario
+      };
+    },
+    [projectId, trimmedToken]
+  );
+
+  const deleteScenarioById = useCallback(
+    async (scenarioId: string): Promise<ScenarioMutationActionResult> => {
+      if (!trimmedToken) {
+        return {
+          state: "unauthorized",
+          message: "로그인 세션이 없습니다. 로그인 후 다시 시도하세요."
+        };
+      }
+
+      const nextResult = await deleteScenario({
+        projectId,
+        scenarioId,
+        accessToken: trimmedToken
+      });
+
+      if (nextResult.state !== "success") {
+        if (nextResult.state === "unauthorized") {
+          clearStoredAccessTokenIfMatches(trimmedToken);
+        }
+
+        return {
+          state: nextResult.state,
+          message: scenarioDeleteStateMessage[nextResult.state]
+        };
+      }
+
+      setResult((currentResult) =>
+        currentResult?.state === "success"
+          ? {
+              state: "success",
+              scenarios: currentResult.scenarios.filter((scenario) => scenario.id !== scenarioId)
+            }
+          : currentResult
+      );
+      setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
+
+      return {
+        state: "success",
+        message: "Scenario를 삭제했습니다."
+      };
+    },
+    [projectId, trimmedToken]
   );
 
   function updateScenarioStep(stepId: string, nextStep: Partial<ScenarioStepFormState>) {
@@ -416,7 +526,9 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
                   <ScenarioCard
                     creatingScenarioId={creatingScenarioId}
                     key={scenario.id}
+                    onDelete={deleteScenarioById}
                     onRun={() => void requestScenarioRun(scenario.id)}
+                    onUpdate={updateScenarioFromPayload}
                     scenario={scenario}
                   />
                 ))}
@@ -680,13 +792,223 @@ function ScenarioCreateNotice({
 function ScenarioCard({
   scenario,
   creatingScenarioId,
+  onDelete,
+  onUpdate,
   onRun
 }: {
   scenario: TestScenario;
   creatingScenarioId: string | null;
+  onDelete: (scenarioId: string) => Promise<ScenarioMutationActionResult>;
+  onUpdate: (
+    scenarioId: string,
+    payload: TestScenarioPayload
+  ) => Promise<ScenarioMutationActionResult>;
   onRun: () => void;
 }) {
   const isCreating = creatingScenarioId === scenario.id;
+  const [isEditing, setIsEditing] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [form, setForm] = useState<ScenarioFormState>(() => formFromScenario(scenario));
+  const [nextStepIndex, setNextStepIndex] = useState(scenario.steps.length + 1);
+  const [mutationState, setMutationState] = useState<ScenarioCreateState>("idle");
+  const [mutationMessage, setMutationMessage] = useState<string | null>(null);
+
+  async function submitUpdate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMutationMessage(null);
+
+    const payloadResult = buildScenarioPayload(form);
+    if (!payloadResult.ok) {
+      setMutationState("invalid");
+      setMutationMessage(payloadResult.message);
+      return;
+    }
+
+    setMutationState("creating");
+    const result = await onUpdate(scenario.id, payloadResult.payload);
+    setMutationState(result.state === "success" ? "success" : result.state);
+    setMutationMessage(result.message);
+
+    if (result.state !== "success") {
+      return;
+    }
+
+    if (result.scenario) {
+      setForm(formFromScenario(result.scenario));
+      setNextStepIndex(result.scenario.steps.length + 1);
+    }
+    setIsEditing(false);
+  }
+
+  async function submitDelete() {
+    setMutationMessage(null);
+    setMutationState("creating");
+    const result = await onDelete(scenario.id);
+    setMutationState(result.state === "success" ? "success" : result.state);
+    setMutationMessage(result.message);
+    setIsConfirmingDelete(false);
+  }
+
+  function startEditing() {
+    setForm(formFromScenario(scenario));
+    setNextStepIndex(scenario.steps.length + 1);
+    setMutationState("idle");
+    setMutationMessage(null);
+    setIsConfirmingDelete(false);
+    setIsEditing(true);
+  }
+
+  function cancelEditing() {
+    setForm(formFromScenario(scenario));
+    setNextStepIndex(scenario.steps.length + 1);
+    setMutationState("idle");
+    setMutationMessage(null);
+    setIsEditing(false);
+  }
+
+  function updateEditStep(stepId: string, nextStep: Partial<ScenarioStepFormState>) {
+    setForm((currentForm) => ({
+      ...currentForm,
+      steps: currentForm.steps.map((step) =>
+        step.id === stepId
+          ? {
+              ...step,
+              ...nextStep
+            }
+          : step
+      )
+    }));
+  }
+
+  function addEditStep() {
+    setForm((currentForm) => ({
+      ...currentForm,
+      steps: [...currentForm.steps, createScenarioStepForm(`edit-step-${nextStepIndex}`)]
+    }));
+    setNextStepIndex((currentIndex) => currentIndex + 1);
+  }
+
+  function removeEditStep(stepId: string) {
+    setForm((currentForm) => {
+      if (currentForm.steps.length <= 1) {
+        return currentForm;
+      }
+
+      return {
+        ...currentForm,
+        steps: currentForm.steps.filter((step) => step.id !== stepId)
+      };
+    });
+  }
+
+  if (isEditing) {
+    return (
+      <li className="rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.04] p-5">
+        <form onSubmit={submitUpdate}>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+                Scenario editor
+              </p>
+              <h3 className="mt-2 text-lg font-semibold text-slate-100">{scenario.name}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                저장하면 step 목록이 현재 폼 기준으로 교체됩니다. 이미 생성된 ScenarioRun 결과는
+                그대로 보존됩니다.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="rounded-2xl border border-cyan-300/30 px-4 py-2 text-sm font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/10"
+                onClick={addEditStep}
+                type="button"
+              >
+                Step 추가
+              </button>
+              <button
+                className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 transition hover:border-slate-300/50 hover:text-slate-100"
+                onClick={cancelEditing}
+                type="button"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_220px]">
+            <label className="block" htmlFor={`scenario-edit-name-${scenario.id}`}>
+              <span className="text-sm font-semibold text-slate-300">Scenario name</span>
+              <input
+                className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-cyan-300/0 transition placeholder:text-slate-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+                id={`scenario-edit-name-${scenario.id}`}
+                maxLength={120}
+                onChange={(event) => setForm({ ...form, name: event.target.value })}
+                required
+                type="text"
+                value={form.name}
+              />
+            </label>
+
+            <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300 lg:mt-7">
+              <input
+                checked={form.isActive}
+                className="h-4 w-4 accent-cyan-300"
+                onChange={(event) => setForm({ ...form, isActive: event.target.checked })}
+                type="checkbox"
+              />
+              Active scenario
+            </label>
+          </div>
+
+          <label className="mt-4 block" htmlFor={`scenario-edit-description-${scenario.id}`}>
+            <span className="text-sm font-semibold text-slate-300">Description</span>
+            <textarea
+              className="mt-2 min-h-24 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-cyan-300/0 transition placeholder:text-slate-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+              id={`scenario-edit-description-${scenario.id}`}
+              maxLength={1000}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              value={form.description}
+            />
+          </label>
+
+          <div className="mt-6 grid gap-4">
+            {form.steps.map((step, index) => (
+              <ScenarioStepEditor
+                canRemove={form.steps.length > 1}
+                index={index}
+                key={step.id}
+                onRemove={() => removeEditStep(step.id)}
+                onUpdate={(nextStep) => updateEditStep(step.id, nextStep)}
+                step={step}
+              />
+            ))}
+          </div>
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button
+              className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={mutationState === "creating"}
+              type="submit"
+            >
+              {mutationState === "creating" ? "저장 중" : "Scenario 저장"}
+            </button>
+            <p className="text-xs leading-5 text-slate-400">
+              destructive action 없이 반복 가능한 사용자 흐름만 유지하세요.
+            </p>
+          </div>
+
+          {mutationMessage && (
+            <div className="mt-5">
+              <Notice
+                description={mutationMessage}
+                title={mutationState === "success" ? "Scenario 저장 완료" : "Scenario 저장 실패"}
+                tone={mutationState === "success" ? "info" : "danger"}
+              />
+            </div>
+          )}
+        </form>
+      </li>
+    );
+  }
 
   return (
     <li className="rounded-2xl border border-white/10 bg-slate-900/60 p-5">
@@ -709,15 +1031,71 @@ function ScenarioCard({
           </p>
           <p className="mt-3 break-all font-mono text-xs text-slate-500">{scenario.id}</p>
         </div>
-        <button
-          className="rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!scenario.is_active || isCreating}
-          onClick={onRun}
-          type="button"
-        >
-          {isCreating ? "실행 생성 중" : "ScenarioRun 생성"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            onClick={startEditing}
+            type="button"
+          >
+            수정
+          </button>
+          <button
+            className="rounded-2xl border border-rose-300/20 px-4 py-2 text-sm font-bold text-rose-100 transition hover:border-rose-300/50 hover:bg-rose-400/10"
+            onClick={() => {
+              setMutationMessage(null);
+              setIsConfirmingDelete(true);
+            }}
+            type="button"
+          >
+            삭제
+          </button>
+          <button
+            className="rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!scenario.is_active || isCreating}
+            onClick={onRun}
+            type="button"
+          >
+            {isCreating ? "실행 생성 중" : "ScenarioRun 생성"}
+          </button>
+        </div>
       </div>
+
+      {isConfirmingDelete && (
+        <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-rose-100">
+          <h4 className="font-semibold">Scenario 삭제 확인</h4>
+          <p className="mt-2 text-sm leading-6 opacity-85">
+            이 scenario와 step 정의를 삭제합니다. 이미 저장된 실행 결과는 별도 기록으로 남아있을 수
+            있지만, 새 실행은 만들 수 없습니다.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              className="rounded-2xl bg-rose-300 px-4 py-2 text-sm font-bold text-rose-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={mutationState === "creating"}
+              onClick={() => void submitDelete()}
+              type="button"
+            >
+              {mutationState === "creating" ? "삭제 중" : "삭제 확정"}
+            </button>
+            <button
+              className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-slate-300/50 hover:text-slate-100"
+              onClick={() => setIsConfirmingDelete(false)}
+              type="button"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mutationMessage && !isConfirmingDelete && (
+        <div className="mt-5">
+          <Notice
+            description={mutationMessage}
+            title={mutationState === "success" ? "Scenario 작업 완료" : "Scenario 작업 실패"}
+            tone={mutationState === "success" ? "info" : "danger"}
+          />
+        </div>
+      )}
 
       <div className="mt-5">
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -827,6 +1205,22 @@ function createInitialScenarioForm(): ScenarioFormState {
     description: "",
     isActive: true,
     steps: [createScenarioStepForm("step-1")]
+  };
+}
+
+function formFromScenario(scenario: TestScenario): ScenarioFormState {
+  return {
+    name: scenario.name,
+    description: scenario.description ?? "",
+    isActive: scenario.is_active,
+    steps: scenario.steps.map((step) => ({
+      id: step.id,
+      action: step.action,
+      target: step.target ?? "",
+      value: step.value ?? "",
+      timeoutMs: step.timeout_ms === null ? "" : String(step.timeout_ms),
+      isCritical: step.is_critical
+    }))
   };
 }
 
@@ -994,4 +1388,23 @@ const scenarioCreateStateMessage: Record<
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
   "not-found": "Project를 찾을 수 없습니다. Dashboard에서 Project 상태를 다시 확인하세요.",
   unavailable: "Scenario 생성 요청에 실패했습니다. API 서버 상태를 확인하세요."
+};
+
+const scenarioUpdateStateMessage: Record<
+  Exclude<UpdateScenarioResult["state"], "success">,
+  string
+> = {
+  invalid: "입력값을 확인하세요. action별 필수 target, value, timeout을 채워야 합니다.",
+  unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
+  "not-found": "Project 또는 Scenario를 찾을 수 없습니다. 목록을 다시 조회하세요.",
+  unavailable: "Scenario 저장 요청에 실패했습니다. API 서버 상태를 확인하세요."
+};
+
+const scenarioDeleteStateMessage: Record<
+  Exclude<DeleteScenarioResult["state"], "success">,
+  string
+> = {
+  unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
+  "not-found": "Project 또는 Scenario를 찾을 수 없습니다. 목록을 다시 조회하세요.",
+  unavailable: "Scenario 삭제 요청에 실패했습니다. API 서버 상태를 확인하세요."
 };

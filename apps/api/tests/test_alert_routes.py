@@ -19,6 +19,7 @@ from aim_api.models.alert import (
 )
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.services import projects as project_service
+from aim_api.services import scan_queue
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -98,7 +99,15 @@ def create_project(client: TestClient, headers: dict[str, str]) -> dict[str, Any
     return cast(dict[str, Any], response.json())
 
 
-def record_incident_and_alert(*, project_id: str, owner_id: str) -> dict[str, str]:
+def record_incident_and_alert(
+    *,
+    project_id: str,
+    owner_id: str,
+    alert_status: AlertStatus = AlertStatus.PENDING,
+    delivery_attempts: int = 0,
+    last_error: str | None = None,
+    sent_at: datetime | None = None,
+) -> dict[str, str]:
     with get_testing_session() as session:
         check_run = CheckRun(
             project_id=UUID(project_id),
@@ -133,11 +142,13 @@ def record_incident_and_alert(*, project_id: str, owner_id: str) -> dict[str, st
             alert_type=AlertType.INCIDENT_OPENED.value,
             trigger_type=incident.trigger_type,
             channel=AlertChannel.EMAIL.value,
-            status=AlertStatus.PENDING.value,
+            status=alert_status.value,
             recipient_email="owner@example.com",
             subject="[AIM] AIM Website: Service connection failed",
             body="Project: AIM Website\nIncident: Service connection failed",
-            delivery_attempts=0,
+            delivery_attempts=delivery_attempts,
+            last_error=last_error,
+            sent_at=sent_at,
         )
         session.add(alert)
         session.commit()
@@ -194,6 +205,123 @@ def test_list_project_alerts(client: TestClient) -> None:
     assert body[0]["status"] == "PENDING"
     assert body[0]["recipient_email"] == "owner@example.com"
     assert body[0]["delivery_attempts"] == 0
+
+
+def test_retry_failed_project_alert_queues_delivery(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queued_alert_ids: list[str] = []
+
+    def fake_enqueue_email_alert_retry(*, alert_id: UUID) -> str:
+        queued_alert_ids.append(str(alert_id))
+        return f"email-alert-retry:{alert_id}"
+
+    monkeypatch.setattr(scan_queue, "enqueue_email_alert_retry", fake_enqueue_email_alert_retry)
+    headers = authenticated_headers(client)
+    project = create_project(client, headers)
+    records = record_incident_and_alert(
+        project_id=project["id"],
+        owner_id=project["owner_id"],
+        alert_status=AlertStatus.FAILED,
+        delivery_attempts=1,
+        last_error="SMTP server unavailable",
+    )
+
+    response = client.post(
+        f"/projects/{project['id']}/alerts/{records['alert_id']}/retry",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == records["alert_id"]
+    assert body["status"] == "PENDING"
+    assert body["delivery_attempts"] == 1
+    assert body["last_error"] is None
+    assert body["sent_at"] is None
+    assert queued_alert_ids == [records["alert_id"]]
+
+
+def test_retry_project_alert_rejects_non_failed_alert(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_project(client, headers)
+    records = record_incident_and_alert(project_id=project["id"], owner_id=project["owner_id"])
+
+    response = client.post(
+        f"/projects/{project['id']}/alerts/{records['alert_id']}/retry",
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Only failed email alerts can be retried."}
+
+
+def test_retry_project_alert_restores_failed_status_when_queue_is_unavailable(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_enqueue_email_alert_retry(*, alert_id: UUID) -> str:
+        _ = alert_id
+        raise scan_queue.ScanQueueUnavailableError
+
+    monkeypatch.setattr(scan_queue, "enqueue_email_alert_retry", fake_enqueue_email_alert_retry)
+    headers = authenticated_headers(client)
+    project = create_project(client, headers)
+    records = record_incident_and_alert(
+        project_id=project["id"],
+        owner_id=project["owner_id"],
+        alert_status=AlertStatus.FAILED,
+        delivery_attempts=1,
+        last_error="SMTP server unavailable",
+    )
+
+    response = client.post(
+        f"/projects/{project['id']}/alerts/{records['alert_id']}/retry",
+        headers=headers,
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Alert delivery queue is unavailable."}
+
+    with get_testing_session() as session:
+        alert = session.get(Alert, UUID(records["alert_id"]))
+        assert alert is not None
+        assert alert.status == AlertStatus.FAILED.value
+        assert alert.delivery_attempts == 1
+        assert alert.last_error == "Alert delivery queue is unavailable."
+
+
+def test_other_user_cannot_retry_project_alert(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queued_alert_ids: list[str] = []
+
+    def fake_enqueue_email_alert_retry(*, alert_id: UUID) -> str:
+        queued_alert_ids.append(str(alert_id))
+        return f"email-alert-retry:{alert_id}"
+
+    monkeypatch.setattr(scan_queue, "enqueue_email_alert_retry", fake_enqueue_email_alert_retry)
+    owner_headers = authenticated_headers(client, "owner@example.com")
+    other_headers = authenticated_headers(client, "other@example.com")
+    project = create_project(client, owner_headers)
+    records = record_incident_and_alert(
+        project_id=project["id"],
+        owner_id=project["owner_id"],
+        alert_status=AlertStatus.FAILED,
+        delivery_attempts=1,
+        last_error="SMTP server unavailable",
+    )
+
+    response = client.post(
+        f"/projects/{project['id']}/alerts/{records['alert_id']}/retry",
+        headers=other_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Project not found."}
+    assert queued_alert_ids == []
 
 
 def test_other_user_cannot_list_project_incidents_or_alerts(client: TestClient) -> None:

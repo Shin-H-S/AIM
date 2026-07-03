@@ -27,6 +27,14 @@ class AlertDeliveryResult:
     skipped_count: int
 
 
+class AlertNotFoundError(Exception):
+    """Raised when an alert does not exist in the requested project."""
+
+
+class AlertRetryNotAllowedError(Exception):
+    """Raised when an alert is not eligible for manual retry."""
+
+
 @dataclass(frozen=True)
 class SmtpEmailSender:
     host: str
@@ -168,6 +176,41 @@ def mark_alert_failed(
 ) -> Alert:
     alert.status = AlertStatus.FAILED.value
     alert.delivery_attempts += 1
+    alert.last_error = error_message[:MAX_DELIVERY_ERROR_LENGTH]
+    alert.sent_at = None
+    session.commit()
+    session.refresh(alert)
+    return alert
+
+
+def retry_failed_email_alert(
+    session: Session,
+    *,
+    project_id: UUID,
+    alert_id: UUID,
+) -> Alert:
+    alert = get_alert_by_id(session, alert_id=alert_id)
+    if alert is None or alert.project_id != project_id:
+        raise AlertNotFoundError
+
+    if alert.channel != AlertChannel.EMAIL.value or alert.status != AlertStatus.FAILED.value:
+        raise AlertRetryNotAllowedError
+
+    alert.status = AlertStatus.PENDING.value
+    alert.last_error = None
+    alert.sent_at = None
+    session.commit()
+    session.refresh(alert)
+    return alert
+
+
+def mark_alert_retry_enqueue_failed(
+    session: Session,
+    *,
+    alert: Alert,
+    error_message: str,
+) -> Alert:
+    alert.status = AlertStatus.FAILED.value
     alert.last_error = error_message[:MAX_DELIVERY_ERROR_LENGTH]
     alert.sent_at = None
     session.commit()

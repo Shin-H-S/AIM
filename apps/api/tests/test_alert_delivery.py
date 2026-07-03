@@ -240,6 +240,46 @@ def test_deliver_pending_email_alerts_respects_batch_limit(session: Session) -> 
     assert sender.messages[0]["To"] == "first@example.com"
 
 
+def test_retry_failed_email_alert_resets_delivery_error(session: Session) -> None:
+    alert = create_pending_alert(session, status=AlertStatus.FAILED)
+    alert.delivery_attempts = 2
+    alert.last_error = "SMTP server unavailable"
+    session.commit()
+
+    retried_alert = alert_delivery.retry_failed_email_alert(
+        session,
+        project_id=alert.project_id,
+        alert_id=alert.id,
+    )
+
+    assert retried_alert.status == AlertStatus.PENDING.value
+    assert retried_alert.delivery_attempts == 2
+    assert retried_alert.last_error is None
+    assert retried_alert.sent_at is None
+
+
+def test_retry_failed_email_alert_rejects_non_failed_alert(session: Session) -> None:
+    alert = create_pending_alert(session)
+
+    with pytest.raises(alert_delivery.AlertRetryNotAllowedError):
+        alert_delivery.retry_failed_email_alert(
+            session,
+            project_id=alert.project_id,
+            alert_id=alert.id,
+        )
+
+
+def test_retry_failed_email_alert_requires_matching_project(session: Session) -> None:
+    alert = create_pending_alert(session, status=AlertStatus.FAILED)
+
+    with pytest.raises(alert_delivery.AlertNotFoundError):
+        alert_delivery.retry_failed_email_alert(
+            session,
+            project_id=uuid4(),
+            alert_id=alert.id,
+        )
+
+
 def test_build_smtp_email_sender_requires_host_and_from_email() -> None:
     assert alert_delivery.build_smtp_email_sender(Settings()) is None
 

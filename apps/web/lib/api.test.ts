@@ -34,12 +34,14 @@ import {
   getProjectVerificationUrl,
   getProjectVerifyUrl,
   getProjectsUrl,
+  getRetryAlertUrl,
   getScenarioUrl,
   getScenariosUrl,
   getScenarioRunDetailUrl,
   getSignupUrl,
   loginUser,
   logoutUser,
+  retryAlert,
   signupUser,
   updateScenario,
   updateProject,
@@ -113,6 +115,9 @@ describe("alert endpoint URL builders", () => {
     expect(
       getProjectAlertsUrl("project-id", "http://localhost:8000", { limit: 10, offset: 20 })
     ).toBe("http://localhost:8000/projects/project-id/alerts?limit=10&offset=20");
+    expect(getRetryAlertUrl("project-id", "alert-id", "http://localhost:8000")).toBe(
+      "http://localhost:8000/projects/project-id/alerts/alert-id/retry"
+    );
   });
 });
 
@@ -1082,6 +1087,101 @@ describe("fetchProjectAlerts", () => {
         apiBaseUrl: "http://localhost:8000"
       })
     ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("retryAlert", () => {
+  it("retries a failed alert with an authenticated request", async () => {
+    const alert = {
+      id: "alert-id",
+      project_id: "project-id",
+      incident_id: "incident-id",
+      check_run_id: "check-run-id",
+      alert_type: "INCIDENT_OPENED",
+      trigger_type: "SERVICE_CONNECTION_FAILURE",
+      channel: "EMAIL",
+      status: "PENDING",
+      recipient_email: "owner@example.com",
+      subject: "[AIM] AIM Website: Service connection failed",
+      body: "Project: AIM Website",
+      delivery_attempts: 1,
+      last_error: null,
+      sent_at: null,
+      created_at: "2026-07-03T00:00:00Z",
+      updated_at: "2026-07-03T00:00:00Z"
+    };
+    const fetcher = vi.fn(async () => Response.json(alert));
+
+    await expect(
+      retryAlert({
+        projectId: "project-id",
+        alertId: "alert-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      alert
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/alerts/alert-id/retry",
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+  });
+
+  it("maps retry alert error responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const notFoundFetcher = vi.fn(async () => new Response(null, { status: 404 }));
+    const conflictFetcher = vi.fn(async () => new Response(null, { status: 409 }));
+    const unavailableFetcher = vi.fn(async () => new Response(null, { status: 503 }));
+
+    await expect(
+      retryAlert({
+        projectId: "project-id",
+        alertId: "alert-id",
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      retryAlert({
+        projectId: "missing-project",
+        alertId: "alert-id",
+        accessToken: "token",
+        fetcher: notFoundFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+
+    await expect(
+      retryAlert({
+        projectId: "project-id",
+        alertId: "pending-alert",
+        accessToken: "token",
+        fetcher: conflictFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "conflict" });
+
+    await expect(
+      retryAlert({
+        projectId: "project-id",
+        alertId: "alert-id",
+        accessToken: "token",
+        fetcher: unavailableFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
   });
 });
 

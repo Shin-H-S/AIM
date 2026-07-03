@@ -92,6 +92,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - 프로젝트별 Incident 목록 조회 API
 - 프로젝트별 Alert 목록 조회 API
 - 프로젝트별 email alert 사용 여부와 수신자 설정 저장
+- FAILED email Alert 수동 재시도 API
 
 ### Web UI
 
@@ -115,6 +116,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - Step 결과, console/network evidence, 실패 screenshot 미리보기
 - Incident와 email Alert 목록 overview 페이지
 - Alert overview에서 email alert 사용 여부와 수신자 email 저장
+- Alert overview에서 FAILED email Alert 발송 재시도
 
 현재 Web에는 회원가입과 로그인 UI, Project dashboard와 결과·Scenario 페이지 세션 연결, Project 생성·수정 UI, domain verification 안내 화면, Scenario 생성 UI가 있습니다.
 
@@ -333,6 +335,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - Incident evidence JSON
 - Email Alert 목록과 pending/sent/failed 상태
 - Email Alert 사용 여부와 수신자 email 설정
+- FAILED Email Alert 발송 재시도
 - 관련 CheckRun 결과 페이지 링크
 
 수신자 email을 비워두면 Project owner email을 사용합니다. SMTP host/from email 같은 전역 발송 설정은 `.env`와 배포 환경에서 관리합니다.
@@ -351,7 +354,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - Scenarios: `POST /projects/{project_id}/scenarios`, `GET /projects/{project_id}/scenarios`, `GET /projects/{project_id}/scenarios/{scenario_id}`, `PATCH /projects/{project_id}/scenarios/{scenario_id}`, `DELETE /projects/{project_id}/scenarios/{scenario_id}`
 - ScenarioRuns: `POST /projects/{project_id}/scenarios/{scenario_id}/runs`, `GET /projects/{project_id}/scenarios/{scenario_id}/runs`, `GET /projects/{project_id}/scenarios/{scenario_id}/runs/{scenario_run_id}`
 - Incidents: `GET /projects/{project_id}/incidents`
-- Alerts: `GET /projects/{project_id}/alerts`
+- Alerts: `GET /projects/{project_id}/alerts`, `POST /projects/{project_id}/alerts/{alert_id}/retry`
 - Artifacts: `GET /artifacts/{artifact_id}/download`
 
 ## 검증
@@ -376,7 +379,7 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. Alert 발송 상태 재시도 API와 UI 추가
-2. ScenarioRun 목록 페이지 추가
+1. ScenarioRun 목록 페이지 추가
+2. Alert 목록 pagination/filter UI 추가
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

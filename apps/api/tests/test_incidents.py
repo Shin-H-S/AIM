@@ -167,6 +167,78 @@ def test_sync_incidents_opens_connection_failure_and_pending_email_alert(
     assert alert.recipient_email == user.email
 
 
+def test_sync_incidents_uses_project_alert_recipient_email(session: Session) -> None:
+    user, project = create_project(session)
+    project.alert_recipient_email = "alerts@example.com"
+    session.commit()
+    check_run = create_check_run(
+        session,
+        project=project,
+        requested_by_id=user.id,
+        status=CheckRunStatus.FAILED,
+        created_at=datetime(2026, 7, 1, 1, tzinfo=UTC),
+    )
+    availability_result, score_result = record_score_for_availability(
+        session,
+        project=project,
+        check_run=check_run,
+        is_available=False,
+        status_code=None,
+        response_time_ms=None,
+        failure_reason="Connection timed out.",
+    )
+
+    incidents.sync_incidents_for_check_run(
+        session,
+        check_run=check_run,
+        project=project,
+        availability_result=availability_result,
+        lighthouse_result=None,
+        score_result=score_result,
+    )
+
+    alert = session.scalars(select(Alert)).one()
+    assert alert.recipient_email == "alerts@example.com"
+
+
+def test_sync_incidents_skips_email_alert_when_project_alert_email_is_disabled(
+    session: Session,
+) -> None:
+    user, project = create_project(session)
+    project.alert_email_enabled = False
+    session.commit()
+    check_run = create_check_run(
+        session,
+        project=project,
+        requested_by_id=user.id,
+        status=CheckRunStatus.FAILED,
+        created_at=datetime(2026, 7, 1, 1, tzinfo=UTC),
+    )
+    availability_result, score_result = record_score_for_availability(
+        session,
+        project=project,
+        check_run=check_run,
+        is_available=False,
+        status_code=None,
+        response_time_ms=None,
+        failure_reason="Connection timed out.",
+    )
+
+    result = incidents.sync_incidents_for_check_run(
+        session,
+        check_run=check_run,
+        project=project,
+        availability_result=availability_result,
+        lighthouse_result=None,
+        score_result=score_result,
+    )
+
+    assert len(result.opened_incidents) == 1
+    assert result.alerts == []
+    assert session.scalars(select(Incident)).one()
+    assert session.scalars(select(Alert)).all() == []
+
+
 def test_sync_incidents_does_not_duplicate_existing_open_incident(
     session: Session,
 ) -> None:

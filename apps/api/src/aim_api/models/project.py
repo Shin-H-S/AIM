@@ -2,7 +2,17 @@ from datetime import UTC, datetime
 from secrets import token_urlsafe
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, Uuid, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    Uuid,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from aim_api.database import Base
@@ -54,6 +64,8 @@ class Project(Base):
     scan_interval_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
     response_time_threshold_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=2000)
     quality_score_threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=80)
+    alert_email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    alert_recipient_email: Mapped[str | None] = mapped_column(String(320))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

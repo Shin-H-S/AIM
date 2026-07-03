@@ -65,6 +65,8 @@ export type Project = {
   scan_interval_minutes: number;
   response_time_threshold_ms: number;
   quality_score_threshold: number;
+  alert_email_enabled: boolean;
+  alert_recipient_email: string | null;
   is_verified: boolean;
   created_at: string;
   updated_at: string;
@@ -78,6 +80,8 @@ export type ProjectPayload = {
   scan_interval_minutes: number;
   response_time_threshold_ms: number;
   quality_score_threshold: number;
+  alert_email_enabled?: boolean;
+  alert_recipient_email?: string | null;
 };
 
 export type Incident = {

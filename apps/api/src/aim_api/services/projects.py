@@ -23,6 +23,10 @@ def create_project(session: Session, *, owner_id: UUID, payload: ProjectCreate) 
         scan_interval_minutes=payload.scan_interval_minutes,
         response_time_threshold_ms=payload.response_time_threshold_ms,
         quality_score_threshold=payload.quality_score_threshold,
+        alert_email_enabled=payload.alert_email_enabled,
+        alert_recipient_email=str(payload.alert_recipient_email)
+        if payload.alert_recipient_email is not None
+        else None,
     )
     session.add(project)
     session.commit()
@@ -78,6 +82,14 @@ def update_project(
         project.response_time_threshold_ms = payload.response_time_threshold_ms
     if "quality_score_threshold" in updated_fields and payload.quality_score_threshold is not None:
         project.quality_score_threshold = payload.quality_score_threshold
+    if "alert_email_enabled" in updated_fields and payload.alert_email_enabled is not None:
+        project.alert_email_enabled = payload.alert_email_enabled
+    if "alert_recipient_email" in updated_fields:
+        project.alert_recipient_email = (
+            str(payload.alert_recipient_email)
+            if payload.alert_recipient_email is not None
+            else None
+        )
 
     session.commit()
     session.refresh(project)

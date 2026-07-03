@@ -94,7 +94,7 @@ Dashboard는 Project 생성 화면, Project 설정/domain verification 화면, S
 
 페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. 현재 Project의 response time threshold, quality score threshold, Incident 목록, evidence JSON, email Alert 발송 상태와 관련 CheckRun 링크를 표시합니다.
 
-현재 화면은 읽기 전용입니다. Alert 수신자와 발송 설정 저장 UI는 아직 포함하지 않습니다.
+Email alert 사용 여부와 수신자 email을 저장할 수 있습니다. 수신자 email을 비워두면 Project owner email을 사용합니다.
 
 Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 
@@ -121,6 +121,7 @@ Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 - Scenario 생성, 목록 조회, 수동 실행 생성 페이지
 - ScenarioRun 결과 페이지
 - Alert overview 페이지
+- Alert overview의 email alert 설정 저장 폼
 
 ## 실행
 

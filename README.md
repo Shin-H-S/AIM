@@ -89,6 +89,8 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - Performance score와 response time threshold alert trigger
 - 복구 감지 시 recovery alert 기록
 - SMTP 설정 기반 pending email Alert 발송 worker task
+- 프로젝트별 Incident 목록 조회 API
+- 프로젝트별 Alert 목록 조회 API
 
 ### Web UI
 
@@ -110,6 +112,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - Scenario 생성, 목록 조회, 수동 ScenarioRun 생성 페이지
 - ScenarioRun 결과 페이지
 - Step 결과, console/network evidence, 실패 screenshot 미리보기
+- Incident와 email Alert 목록 overview 페이지
 
 현재 Web에는 회원가입과 로그인 UI, Project dashboard와 결과·Scenario 페이지 세션 연결, Project 생성·수정 UI, domain verification 안내 화면, Scenario 생성 UI가 있습니다.
 
@@ -211,6 +214,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - verified Project의 수동 CheckRun 시작 버튼
 - 최신 CheckRun 결과 페이지 링크
 - Scenario 목록 페이지 링크
+- Incident와 Alert overview 페이지 링크
 
 ### Login
 
@@ -312,6 +316,22 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - failed network request
 - failure screenshot 다운로드와 미리보기
 
+### Alert overview
+
+```text
+/projects/{projectId}/alerts
+```
+
+표시 항목:
+
+- Project response time threshold와 quality score threshold
+- Incident 목록과 open/resolved 상태
+- Incident evidence JSON
+- Email Alert 목록과 pending/sent/failed 상태
+- 관련 CheckRun 결과 페이지 링크
+
+현재 화면은 읽기 전용입니다. Alert 수신자/채널 설정 저장 UI는 아직 포함하지 않습니다.
+
 ## 주요 API
 
 자세한 API 설명은 [apps/api/README.md](apps/api/README.md)를 참고합니다.
@@ -325,6 +345,8 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - AIReport: `GET /projects/{project_id}/check-runs/{check_run_id}/ai-report`
 - Scenarios: `POST /projects/{project_id}/scenarios`, `GET /projects/{project_id}/scenarios`, `GET /projects/{project_id}/scenarios/{scenario_id}`, `PATCH /projects/{project_id}/scenarios/{scenario_id}`, `DELETE /projects/{project_id}/scenarios/{scenario_id}`
 - ScenarioRuns: `POST /projects/{project_id}/scenarios/{scenario_id}/runs`, `GET /projects/{project_id}/scenarios/{scenario_id}/runs`, `GET /projects/{project_id}/scenarios/{scenario_id}/runs/{scenario_run_id}`
+- Incidents: `GET /projects/{project_id}/incidents`
+- Alerts: `GET /projects/{project_id}/alerts`
 - Artifacts: `GET /artifacts/{artifact_id}/download`
 
 ## 검증
@@ -349,7 +371,7 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. Alert 목록 및 기본 설정 UI 추가
+1. Alert 수신자/발송 설정 저장 API와 UI 추가
 2. Scenario 수정·삭제 UI 추가
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

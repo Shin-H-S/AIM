@@ -528,6 +528,12 @@ function ProjectDashboardCard({
           >
             Scenarios
           </Link>
+          <Link
+            className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            href={`/projects/${project.id}/alerts`}
+          >
+            Alerts
+          </Link>
           <button
             className="rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
             disabled={!project.is_verified || startState === "starting"}

@@ -1,0 +1,529 @@
+"use client";
+
+import Link from "next/link";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  fetchProject,
+  fetchProjectAlerts,
+  fetchProjectIncidents,
+  getApiBaseUrl,
+  type Alert,
+  type AlertListResult,
+  type Incident,
+  type IncidentListResult,
+  type Project,
+  type ProjectDetailResult
+} from "@/lib/api";
+import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+
+const LIST_LIMIT = 20;
+
+type LoadState = "idle" | "loading";
+
+export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
+  const [accessToken, setAccessToken] = useState("");
+  const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [projectResult, setProjectResult] = useState<ProjectDetailResult | null>(null);
+  const [incidentResult, setIncidentResult] = useState<IncidentListResult | null>(null);
+  const [alertResult, setAlertResult] = useState<AlertListResult | null>(null);
+  const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const trimmedToken = accessToken.trim();
+
+  const loadOverview = useCallback(
+    async (token: string) => {
+      const normalizedToken = token.trim();
+
+      if (!normalizedToken) {
+        setProjectResult(null);
+        setIncidentResult(null);
+        setAlertResult(null);
+        setLastUpdatedAt(null);
+        return;
+      }
+
+      setLoadState("loading");
+      const [nextProjectResult, nextIncidentResult, nextAlertResult] = await Promise.all([
+        fetchProject({
+          projectId,
+          accessToken: normalizedToken
+        }),
+        fetchProjectIncidents({
+          projectId,
+          accessToken: normalizedToken,
+          limit: LIST_LIMIT
+        }),
+        fetchProjectAlerts({
+          projectId,
+          accessToken: normalizedToken,
+          limit: LIST_LIMIT
+        })
+      ]);
+
+      if (
+        nextProjectResult.state === "unauthorized" ||
+        nextIncidentResult.state === "unauthorized" ||
+        nextAlertResult.state === "unauthorized"
+      ) {
+        clearStoredAccessTokenIfMatches(normalizedToken);
+      }
+
+      setProjectResult(nextProjectResult);
+      setIncidentResult(nextIncidentResult);
+      setAlertResult(nextAlertResult);
+      setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
+      setLoadState("idle");
+    },
+    [projectId]
+  );
+
+  const refresh = useCallback(async () => {
+    await loadOverview(trimmedToken);
+  }, [loadOverview, trimmedToken]);
+
+  useEffect(() => {
+    const storedAccessToken = getStoredAccessToken();
+
+    queueMicrotask(() => {
+      setHasCheckedStoredToken(true);
+
+      if (!storedAccessToken) {
+        return;
+      }
+
+      setAccessToken(storedAccessToken);
+      void loadOverview(storedAccessToken);
+    });
+  }, [loadOverview]);
+
+  const apiBaseUrlLabel = useMemo(() => {
+    try {
+      return getApiBaseUrl();
+    } catch {
+      return "잘못된 NEXT_PUBLIC_API_URL";
+    }
+  }, []);
+
+  const project = projectResult?.state === "success" ? projectResult.project : null;
+  const incidents = incidentResult?.state === "success" ? incidentResult.incidents : [];
+  const alerts = alertResult?.state === "success" ? alertResult.alerts : [];
+
+  return (
+    <main className="min-h-screen bg-slate-950 text-slate-50">
+      <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
+        <header className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-300">
+                AIM Alerts
+              </p>
+              <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
+                Incident & Alert overview
+              </h1>
+              <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">
+                이 화면은 <code className="text-cyan-200">{apiBaseUrlLabel}</code>에서
+                프로젝트의 incident와 email alert 이력을 읽어옵니다. 아직 alert 설정 저장은
+                포함하지 않고, 현재 프로젝트 임계값을 기준 설정으로 보여줍니다.
+              </p>
+            </div>
+            <Link
+              className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+              href="/"
+            >
+              Dashboard
+            </Link>
+          </div>
+
+          <Identifier label="Project ID" value={projectId} />
+
+          <form
+            className="mt-5 grid gap-3 md:grid-cols-[1fr_auto]"
+            onSubmit={(event: FormEvent<HTMLFormElement>) => {
+              event.preventDefault();
+              void refresh();
+            }}
+          >
+            <label className="flex flex-col gap-2 text-sm">
+              <span className="font-medium text-slate-200">Bearer token</span>
+              <input
+                className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none ring-cyan-400/0 transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/10"
+                onChange={(event) => setAccessToken(event.target.value)}
+                placeholder="로그인 API에서 받은 access_token을 입력하세요"
+                type="password"
+                value={accessToken}
+              />
+            </label>
+            <button
+              className="self-end rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!trimmedToken || loadState === "loading"}
+              type="submit"
+            >
+              {loadState === "loading" ? "조회 중" : "Alerts 조회"}
+            </button>
+          </form>
+        </header>
+
+        {!hasCheckedStoredToken && (
+          <Notice
+            description="저장된 로그인 세션이 있으면 자동으로 alert overview를 조회합니다."
+            title="로그인 세션 확인 중"
+            tone="info"
+          />
+        )}
+
+        {hasCheckedStoredToken && !trimmedToken && (
+          <Notice
+            description="로그인 페이지에서 먼저 로그인하거나 access token을 직접 입력하세요."
+            title="인증 토큰이 필요합니다"
+            tone="info"
+          />
+        )}
+
+        <ResultNotice alertResult={alertResult} incidentResult={incidentResult} projectResult={projectResult} />
+
+        {project && (
+          <ProjectAlertSettingsCard
+            alertCount={alerts.length}
+            incidentCount={incidents.length}
+            lastUpdatedAt={lastUpdatedAt}
+            project={project}
+          />
+        )}
+
+        {incidentResult?.state === "success" && (
+          <IncidentSection incidents={incidents} projectId={projectId} />
+        )}
+
+        {alertResult?.state === "success" && <AlertSection alerts={alerts} projectId={projectId} />}
+      </section>
+    </main>
+  );
+}
+
+function ProjectAlertSettingsCard({
+  alertCount,
+  incidentCount,
+  lastUpdatedAt,
+  project
+}: {
+  alertCount: number;
+  incidentCount: number;
+  lastUpdatedAt: string | null;
+  project: Project;
+}) {
+  return (
+    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-300">
+            기본 Alert 기준
+          </p>
+          <h2 className="mt-3 text-2xl font-bold text-slate-100">{project.name}</h2>
+          <p className="mt-2 break-all text-sm text-cyan-100">{project.service_url}</p>
+          <p className="mt-3 text-sm text-slate-400">
+            마지막 조회: {lastUpdatedAt ?? "아직 없음"}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge label={project.environment} />
+          <Badge label={project.is_verified ? "verified" : "unverified"} />
+        </div>
+      </div>
+
+      <dl className="mt-6 grid gap-4 md:grid-cols-4">
+        <Metric label="Response threshold" value={`${project.response_time_threshold_ms}ms`} />
+        <Metric label="Quality threshold" value={`${project.quality_score_threshold}`} />
+        <Metric label="Incidents" value={`${incidentCount}개`} />
+        <Metric label="Alerts" value={`${alertCount}개`} />
+      </dl>
+
+      <p className="mt-5 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4 text-sm leading-6 text-cyan-100">
+        현재 email alert는 incident 생성/복구 시점을 기록합니다. SMTP 발송 설정 저장 UI는 다음
+        작업에서 별도로 추가하는 것이 안전합니다.
+      </p>
+    </section>
+  );
+}
+
+function IncidentSection({ incidents, projectId }: { incidents: Incident[]; projectId: string }) {
+  return (
+    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+      <SectionHeader count={incidents.length} title="Incidents" />
+      {incidents.length === 0 ? (
+        <EmptyState description="아직 이 프로젝트에서 기록된 incident가 없습니다." />
+      ) : (
+        <ul className="grid gap-4">
+          {incidents.map((incident) => (
+            <IncidentCard incident={incident} key={incident.id} projectId={projectId} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function IncidentCard({ incident, projectId }: { incident: Incident; projectId: string }) {
+  return (
+    <li className="rounded-2xl border border-white/10 bg-slate-950/60 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap gap-2">
+            <StatusBadge status={incident.status} />
+            <SeverityBadge severity={incident.severity} />
+            <Badge label={formatTriggerType(incident.trigger_type)} />
+          </div>
+          <h3 className="mt-4 text-lg font-bold text-slate-100">{incident.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-300">{incident.summary}</p>
+        </div>
+        <Link
+          className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+          href={`/projects/${projectId}/check-runs/${incident.opened_check_run_id}`}
+        >
+          시작 run 보기
+        </Link>
+      </div>
+
+      <dl className="mt-5 grid gap-3 md:grid-cols-3">
+        <Metric label="Started" value={formatDateTime(incident.started_at)} />
+        <Metric label="Resolved" value={formatNullableDateTime(incident.resolved_at)} />
+        <Metric label="Incident ID" value={incident.id} />
+      </dl>
+
+      <pre className="mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-slate-900 p-4 text-xs leading-5 text-slate-300">
+        {JSON.stringify(incident.evidence_json, null, 2)}
+      </pre>
+    </li>
+  );
+}
+
+function AlertSection({ alerts, projectId }: { alerts: Alert[]; projectId: string }) {
+  return (
+    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+      <SectionHeader count={alerts.length} title="Email alerts" />
+      {alerts.length === 0 ? (
+        <EmptyState description="아직 이 프로젝트에서 생성된 alert가 없습니다." />
+      ) : (
+        <ul className="grid gap-4">
+          {alerts.map((alert) => (
+            <AlertCard alert={alert} key={alert.id} projectId={projectId} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function AlertCard({ alert, projectId }: { alert: Alert; projectId: string }) {
+  return (
+    <li className="rounded-2xl border border-white/10 bg-slate-950/60 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap gap-2">
+            <AlertStatusBadge status={alert.status} />
+            <Badge label={alert.channel} />
+            <Badge label={formatAlertType(alert.alert_type)} />
+          </div>
+          <h3 className="mt-4 text-lg font-bold text-slate-100">{alert.subject}</h3>
+          <p className="mt-2 text-sm text-slate-400">
+            수신자: {alert.recipient_email ?? "미설정"} · 시도 횟수: {alert.delivery_attempts}
+          </p>
+        </div>
+        {alert.check_run_id && (
+          <Link
+            className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+            href={`/projects/${projectId}/check-runs/${alert.check_run_id}`}
+          >
+            관련 run 보기
+          </Link>
+        )}
+      </div>
+
+      <dl className="mt-5 grid gap-3 md:grid-cols-3">
+        <Metric label="Created" value={formatDateTime(alert.created_at)} />
+        <Metric label="Sent" value={formatNullableDateTime(alert.sent_at)} />
+        <Metric label="Trigger" value={formatTriggerType(alert.trigger_type)} />
+      </dl>
+
+      {alert.last_error && (
+        <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100">
+          {alert.last_error}
+        </p>
+      )}
+    </li>
+  );
+}
+
+function ResultNotice({
+  alertResult,
+  incidentResult,
+  projectResult
+}: {
+  alertResult: AlertListResult | null;
+  incidentResult: IncidentListResult | null;
+  projectResult: ProjectDetailResult | null;
+}) {
+  const firstProblem = [projectResult, incidentResult, alertResult].find(
+    (result) => result !== null && result.state !== "success"
+  );
+
+  if (!firstProblem) {
+    return null;
+  }
+
+  if (firstProblem.state === "unauthorized") {
+    return (
+      <Notice
+        description="토큰이 없거나 만료되었거나, 이 프로젝트에 접근할 권한이 없습니다."
+        title="인증 실패"
+        tone="danger"
+      />
+    );
+  }
+
+  if (firstProblem.state === "not-found") {
+    return (
+      <Notice
+        description="Project ID 또는 현재 사용자 권한을 확인하세요."
+        title="프로젝트를 찾을 수 없습니다"
+        tone="danger"
+      />
+    );
+  }
+
+  return (
+    <Notice
+      description="API 서버 실행 상태와 NEXT_PUBLIC_API_URL 설정을 확인하세요."
+      title="Alert overview 요청 실패"
+      tone="danger"
+    />
+  );
+}
+
+function SectionHeader({ count, title }: { count: number; title: string }) {
+  return (
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <h2 className="text-xl font-semibold text-slate-100">{title}</h2>
+      <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300 ring-1 ring-cyan-400/20">
+        {count}개
+      </span>
+    </div>
+  );
+}
+
+function Identifier({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="mt-5 rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+        {label}
+      </p>
+      <p className="break-all font-mono text-xs text-slate-200">{value}</p>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</dt>
+      <dd className="mt-1 break-words text-slate-200">{value}</dd>
+    </div>
+  );
+}
+
+function Notice({
+  description,
+  title,
+  tone
+}: {
+  description: string;
+  title: string;
+  tone: "info" | "danger";
+}) {
+  const className =
+    tone === "info"
+      ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-100"
+      : "border-rose-400/20 bg-rose-400/10 text-rose-100";
+
+  return (
+    <article className={`rounded-3xl border p-6 ${className}`}>
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="mt-2 text-sm leading-6 opacity-80">{description}</p>
+    </article>
+  );
+}
+
+function EmptyState({ description }: { description: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-sm text-slate-400">
+      {description}
+    </div>
+  );
+}
+
+function Badge({ label }: { label: string }) {
+  return (
+    <span className="rounded-full bg-slate-700/80 px-3 py-1 text-xs font-bold text-slate-200 ring-1 ring-white/10">
+      {label}
+    </span>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const className =
+    status === "OPEN"
+      ? "bg-rose-400/10 text-rose-300 ring-rose-400/20"
+      : "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
+      {status}
+    </span>
+  );
+}
+
+function SeverityBadge({ severity }: { severity: string }) {
+  const className =
+    severity === "RISK"
+      ? "bg-rose-400/10 text-rose-300 ring-rose-400/20"
+      : "bg-amber-400/10 text-amber-300 ring-amber-400/20";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
+      {severity}
+    </span>
+  );
+}
+
+function AlertStatusBadge({ status }: { status: string }) {
+  const className =
+    status === "SENT"
+      ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20"
+      : status === "FAILED"
+        ? "bg-rose-400/10 text-rose-300 ring-rose-400/20"
+        : "bg-cyan-400/10 text-cyan-300 ring-cyan-400/20";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
+      {status}
+    </span>
+  );
+}
+
+function formatTriggerType(value: string): string {
+  return value.toLowerCase().replaceAll("_", " ");
+}
+
+function formatAlertType(value: string): string {
+  return value.toLowerCase().replaceAll("_", " ");
+}
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(value));
+}
+
+function formatNullableDateTime(value: string | null): string {
+  return value ? formatDateTime(value) : "아직 없음";
+}

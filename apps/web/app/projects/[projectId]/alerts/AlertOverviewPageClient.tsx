@@ -7,6 +7,7 @@ import {
   fetchProjectAlerts,
   fetchProjectIncidents,
   getApiBaseUrl,
+  updateProject,
   type Alert,
   type AlertListResult,
   type Incident,
@@ -19,6 +20,19 @@ import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/aut
 const LIST_LIMIT = 20;
 
 type LoadState = "idle" | "loading";
+type AlertSettingsSubmitState =
+  | "idle"
+  | "submitting"
+  | "success"
+  | "invalid"
+  | "unauthorized"
+  | "not-found"
+  | "unavailable";
+
+type AlertSettingsFormState = {
+  alertEmailEnabled: boolean;
+  alertRecipientEmail: string;
+};
 
 export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const [accessToken, setAccessToken] = useState("");
@@ -26,6 +40,13 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const [projectResult, setProjectResult] = useState<ProjectDetailResult | null>(null);
   const [incidentResult, setIncidentResult] = useState<IncidentListResult | null>(null);
   const [alertResult, setAlertResult] = useState<AlertListResult | null>(null);
+  const [settingsForm, setSettingsForm] = useState<AlertSettingsFormState>({
+    alertEmailEnabled: true,
+    alertRecipientEmail: ""
+  });
+  const [settingsSubmitState, setSettingsSubmitState] =
+    useState<AlertSettingsSubmitState>("idle");
+  const [settingsSubmitMessage, setSettingsSubmitMessage] = useState<string | null>(null);
   const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const trimmedToken = accessToken.trim();
@@ -71,6 +92,11 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
       setProjectResult(nextProjectResult);
       setIncidentResult(nextIncidentResult);
       setAlertResult(nextAlertResult);
+      if (nextProjectResult.state === "success") {
+        setSettingsForm(formFromProjectAlertSettings(nextProjectResult.project));
+        setSettingsSubmitState("idle");
+        setSettingsSubmitMessage(null);
+      }
       setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
       setLoadState("idle");
     },
@@ -108,6 +134,59 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const incidents = incidentResult?.state === "success" ? incidentResult.incidents : [];
   const alerts = alertResult?.state === "success" ? alertResult.alerts : [];
 
+  async function handleAlertSettingsSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSettingsSubmitMessage(null);
+
+    if (!project || !trimmedToken) {
+      setSettingsSubmitState("unauthorized");
+      setSettingsSubmitMessage("로그인 세션 또는 Project 정보를 먼저 확인하세요.");
+      return;
+    }
+
+    const recipientEmail = normalizeOptionalText(settingsForm.alertRecipientEmail);
+    if (recipientEmail !== null && !isValidEmail(recipientEmail)) {
+      setSettingsSubmitState("invalid");
+      setSettingsSubmitMessage("Alert recipient email 형식을 확인하세요.");
+      return;
+    }
+
+    setSettingsSubmitState("submitting");
+    const result = await updateProject({
+      projectId: project.id,
+      accessToken: trimmedToken,
+      payload: {
+        name: project.name,
+        service_url: project.service_url,
+        description: project.description,
+        environment: project.environment,
+        scan_interval_minutes: project.scan_interval_minutes,
+        response_time_threshold_ms: project.response_time_threshold_ms,
+        quality_score_threshold: project.quality_score_threshold,
+        alert_email_enabled: settingsForm.alertEmailEnabled,
+        alert_recipient_email: recipientEmail
+      }
+    });
+
+    if (result.state !== "success") {
+      if (result.state === "unauthorized") {
+        clearStoredAccessTokenIfMatches(trimmedToken);
+      }
+
+      setSettingsSubmitState(result.state);
+      setSettingsSubmitMessage(alertSettingsSubmitMessage[result.state]);
+      return;
+    }
+
+    setProjectResult({
+      state: "success",
+      project: result.project
+    });
+    setSettingsForm(formFromProjectAlertSettings(result.project));
+    setSettingsSubmitState("success");
+    setSettingsSubmitMessage("Email alert 설정을 저장했습니다. 이후 생성되는 alert부터 반영됩니다.");
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-50">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
@@ -122,8 +201,8 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">
                 이 화면은 <code className="text-cyan-200">{apiBaseUrlLabel}</code>에서
-                프로젝트의 incident와 email alert 이력을 읽어옵니다. 아직 alert 설정 저장은
-                포함하지 않고, 현재 프로젝트 임계값을 기준 설정으로 보여줍니다.
+                프로젝트의 incident와 email alert 이력을 읽어옵니다. email alert 사용 여부와
+                수신자 email도 이 화면에서 저장할 수 있습니다.
               </p>
             </div>
             <Link
@@ -184,9 +263,14 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
         {project && (
           <ProjectAlertSettingsCard
             alertCount={alerts.length}
+            form={settingsForm}
             incidentCount={incidents.length}
             lastUpdatedAt={lastUpdatedAt}
+            onChange={setSettingsForm}
+            onSubmit={handleAlertSettingsSubmit}
             project={project}
+            submitMessage={settingsSubmitMessage}
+            submitState={settingsSubmitState}
           />
         )}
 
@@ -202,14 +286,24 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
 
 function ProjectAlertSettingsCard({
   alertCount,
+  form,
   incidentCount,
   lastUpdatedAt,
-  project
+  onChange,
+  onSubmit,
+  project,
+  submitMessage,
+  submitState
 }: {
   alertCount: number;
+  form: AlertSettingsFormState;
   incidentCount: number;
   lastUpdatedAt: string | null;
+  onChange: (form: AlertSettingsFormState) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   project: Project;
+  submitMessage: string | null;
+  submitState: AlertSettingsSubmitState;
 }) {
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
@@ -235,12 +329,82 @@ function ProjectAlertSettingsCard({
         <Metric label="Quality threshold" value={`${project.quality_score_threshold}`} />
         <Metric label="Incidents" value={`${incidentCount}개`} />
         <Metric label="Alerts" value={`${alertCount}개`} />
+        <Metric
+          label="Email alert"
+          value={project.alert_email_enabled ? "enabled" : "disabled"}
+        />
+        <Metric
+          label="Recipient"
+          value={project.alert_recipient_email ?? "Project owner email fallback"}
+        />
       </dl>
 
-      <p className="mt-5 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4 text-sm leading-6 text-cyan-100">
-        현재 email alert는 incident 생성/복구 시점을 기록합니다. SMTP 발송 설정 저장 UI는 다음
-        작업에서 별도로 추가하는 것이 안전합니다.
-      </p>
+      <form
+        className="mt-6 rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.04] p-5"
+        onSubmit={onSubmit}
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-slate-100">Email alert 설정</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+              비활성화하면 새 incident open/recovery 시 pending email alert를 만들지 않습니다.
+              수신자를 비워두면 Project owner email을 사용합니다.
+            </p>
+          </div>
+          <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300">
+            <input
+              checked={form.alertEmailEnabled}
+              className="h-4 w-4 accent-cyan-300"
+              onChange={(event) =>
+                onChange({
+                  ...form,
+                  alertEmailEnabled: event.target.checked
+                })
+              }
+              type="checkbox"
+            />
+            Email alert 사용
+          </label>
+        </div>
+
+        <label className="mt-5 block" htmlFor="alert-recipient-email">
+          <span className="text-sm font-semibold text-slate-300">Recipient email</span>
+          <input
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-cyan-300/0 transition placeholder:text-slate-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+            id="alert-recipient-email"
+            maxLength={320}
+            onChange={(event) =>
+              onChange({
+                ...form,
+                alertRecipientEmail: event.target.value
+              })
+            }
+            placeholder="alerts@example.com"
+            type="email"
+            value={form.alertRecipientEmail}
+          />
+        </label>
+
+        <button
+          className="mt-5 rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={submitState === "submitting"}
+          type="submit"
+        >
+          {submitState === "submitting" ? "저장 중" : "Alert 설정 저장"}
+        </button>
+
+        {submitMessage && (
+          <p
+            className={`mt-4 rounded-2xl border p-4 text-sm leading-6 ${
+              submitState === "success"
+                ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
+                : "border-rose-400/20 bg-rose-400/10 text-rose-100"
+            }`}
+          >
+            {submitMessage}
+          </p>
+        )}
+      </form>
     </section>
   );
 }
@@ -527,3 +691,29 @@ function formatDateTime(value: string): string {
 function formatNullableDateTime(value: string | null): string {
   return value ? formatDateTime(value) : "아직 없음";
 }
+
+function formFromProjectAlertSettings(project: Project): AlertSettingsFormState {
+  return {
+    alertEmailEnabled: project.alert_email_enabled,
+    alertRecipientEmail: project.alert_recipient_email ?? ""
+  };
+}
+
+function normalizeOptionalText(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  return normalized ? normalized : null;
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+const alertSettingsSubmitMessage: Record<
+  Exclude<AlertSettingsSubmitState, "idle" | "submitting" | "success">,
+  string
+> = {
+  invalid: "입력값을 확인하세요. Recipient email은 비워두거나 올바른 이메일 형식이어야 합니다.",
+  unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
+  "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
+  unavailable: "Alert 설정 저장 요청에 실패했습니다. API 서버 상태를 확인하세요."
+};

@@ -88,15 +88,15 @@ def sync_incidents_for_check_run(
         session.add(incident)
         session.flush()
         opened_incidents.append(incident)
-        alerts.append(
-            create_pending_email_alert(
-                session,
-                project=project,
-                incident=incident,
-                check_run_id=check_run.id,
-                alert_type=AlertType.INCIDENT_OPENED,
-            )
+        alert = create_pending_email_alert(
+            session,
+            project=project,
+            incident=incident,
+            check_run_id=check_run.id,
+            alert_type=AlertType.INCIDENT_OPENED,
         )
+        if alert is not None:
+            alerts.append(alert)
 
     for incident in open_incidents:
         if incident.trigger_type in active_triggers_by_type:
@@ -106,15 +106,15 @@ def sync_incidents_for_check_run(
         incident.resolved_check_run_id = check_run.id
         incident.resolved_at = check_run.finished_at or now
         resolved_incidents.append(incident)
-        alerts.append(
-            create_pending_email_alert(
-                session,
-                project=project,
-                incident=incident,
-                check_run_id=check_run.id,
-                alert_type=AlertType.INCIDENT_RECOVERED,
-            )
+        alert = create_pending_email_alert(
+            session,
+            project=project,
+            incident=incident,
+            check_run_id=check_run.id,
+            alert_type=AlertType.INCIDENT_RECOVERED,
         )
+        if alert is not None:
+            alerts.append(alert)
 
     session.commit()
     for incident in [*opened_incidents, *resolved_incidents]:
@@ -375,7 +375,10 @@ def create_pending_email_alert(
     incident: Incident,
     check_run_id: UUID,
     alert_type: AlertType,
-) -> Alert:
+) -> Alert | None:
+    if not project.alert_email_enabled:
+        return None
+
     owner_email = get_project_owner_email(session, project=project)
     alert = Alert(
         project_id=project.id,
@@ -385,7 +388,7 @@ def create_pending_email_alert(
         trigger_type=incident.trigger_type,
         channel=AlertChannel.EMAIL.value,
         status=AlertStatus.PENDING.value,
-        recipient_email=owner_email,
+        recipient_email=project.alert_recipient_email or owner_email,
         subject=build_alert_subject(project=project, incident=incident, alert_type=alert_type),
         body=build_alert_body(project=project, incident=incident, alert_type=alert_type),
         delivery_attempts=0,

@@ -1,9 +1,17 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Self
+from typing import Any, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    HttpUrl,
+    field_validator,
+    model_validator,
+)
 
 
 class ProjectEnvironment(StrEnum):
@@ -20,6 +28,8 @@ class ProjectBase(BaseModel):
     scan_interval_minutes: int = Field(default=60, ge=1, le=43_200)
     response_time_threshold_ms: int = Field(default=2_000, ge=1, le=600_000)
     quality_score_threshold: int = Field(default=80, ge=0, le=100)
+    alert_email_enabled: bool = True
+    alert_recipient_email: EmailStr | None = None
 
     @field_validator("name")
     @classmethod
@@ -38,6 +48,18 @@ class ProjectBase(BaseModel):
         normalized = value.strip()
         return normalized or None
 
+    @field_validator("alert_recipient_email", mode="before")
+    @classmethod
+    def normalize_alert_recipient_email(cls, value: Any) -> Any:
+        if value is None:
+            return None
+
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            return normalized or None
+
+        return value
+
 
 class ProjectCreate(ProjectBase):
     pass
@@ -51,6 +73,8 @@ class ProjectUpdate(BaseModel):
     scan_interval_minutes: int | None = Field(default=None, ge=1, le=43_200)
     response_time_threshold_ms: int | None = Field(default=None, ge=1, le=600_000)
     quality_score_threshold: int | None = Field(default=None, ge=0, le=100)
+    alert_email_enabled: bool | None = None
+    alert_recipient_email: EmailStr | None = None
 
     @field_validator("name")
     @classmethod
@@ -71,6 +95,18 @@ class ProjectUpdate(BaseModel):
 
         normalized = value.strip()
         return normalized or None
+
+    @field_validator("alert_recipient_email", mode="before")
+    @classmethod
+    def normalize_alert_recipient_email(cls, value: Any) -> Any:
+        if value is None:
+            return None
+
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            return normalized or None
+
+        return value
 
     @model_validator(mode="after")
     def require_at_least_one_field(self) -> Self:

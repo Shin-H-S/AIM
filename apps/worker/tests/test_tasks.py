@@ -28,9 +28,9 @@ from aim_api.models.scenario import (
     TestStep,
 )
 from aim_api.models.user import User
+from aim_api.services import ai_report_narratives, scan_queue, scanner_results, score_results
 from aim_api.services import ai_reports as ai_report_service
 from aim_api.services import alert_delivery as alert_delivery_service
-from aim_api.services import scan_queue, scanner_results, score_results
 from aim_api.services.alert_delivery import AlertDeliveryResult
 from aim_worker import tasks
 from aim_worker.artifacts import StoredArtifact
@@ -134,6 +134,15 @@ def ai_report_generation_queue(monkeypatch: pytest.MonkeyPatch) -> None:
         tasks,
         "enqueue_ai_report_generation",
         fake_enqueue_ai_report_generation,
+    )
+
+
+@pytest.fixture(autouse=True)
+def deterministic_ai_report_narratives(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        ai_report_narratives,
+        "build_anthropic_narrative_generator",
+        lambda settings=None: None,
     )
 
 

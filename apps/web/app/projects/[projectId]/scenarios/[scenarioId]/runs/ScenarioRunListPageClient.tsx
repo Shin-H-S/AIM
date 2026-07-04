@@ -39,6 +39,9 @@ export function ScenarioRunListPageClient({
   const [accessToken, setAccessToken] = useState("");
   const [result, setResult] = useState<ScenarioRunListResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreScenarioRuns, setHasMoreScenarioRuns] = useState(false);
+  const [listMessage, setListMessage] = useState<string | null>(null);
   const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const trimmedToken = accessToken.trim();
@@ -51,11 +54,15 @@ export function ScenarioRunListPageClient({
 
       if (!normalizedToken) {
         setResult(null);
+        setHasMoreScenarioRuns(false);
+        setIsLoadingMore(false);
+        setListMessage(null);
         setLastUpdatedAt(null);
         return;
       }
 
       setIsLoading(true);
+      setListMessage(null);
       const nextResult = await fetchScenarioRuns({
         projectId,
         scenarioId,
@@ -68,6 +75,9 @@ export function ScenarioRunListPageClient({
       }
 
       setResult(nextResult);
+      setHasMoreScenarioRuns(
+        nextResult.state === "success" && nextResult.scenarioRuns.length === LIST_LIMIT
+      );
       setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
       setIsLoading(false);
     },
@@ -77,6 +87,49 @@ export function ScenarioRunListPageClient({
   const refresh = useCallback(async () => {
     await loadScenarioRuns(trimmedToken);
   }, [loadScenarioRuns, trimmedToken]);
+
+  async function handleLoadMoreScenarioRuns() {
+    if (!trimmedToken || result?.state !== "success" || isLoadingMore) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    setListMessage(null);
+
+    const nextResult = await fetchScenarioRuns({
+      projectId,
+      scenarioId,
+      accessToken: trimmedToken,
+      limit: LIST_LIMIT,
+      offset: result.scenarioRuns.length
+    });
+
+    if (nextResult.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(trimmedToken);
+    }
+
+    if (nextResult.state !== "success") {
+      setListMessage(scenarioRunListMessageByState[nextResult.state]);
+      setIsLoadingMore(false);
+      return;
+    }
+
+    setResult((current) =>
+      current?.state === "success"
+        ? {
+            state: "success",
+            scenarioRuns: [...current.scenarioRuns, ...nextResult.scenarioRuns]
+          }
+        : nextResult
+    );
+    setHasMoreScenarioRuns(nextResult.scenarioRuns.length === LIST_LIMIT);
+
+    if (nextResult.scenarioRuns.length === 0) {
+      setListMessage("더 불러올 ScenarioRun이 없습니다.");
+    }
+
+    setIsLoadingMore(false);
+  }
 
   useEffect(() => {
     const storedAccessToken = getStoredAccessToken();
@@ -211,6 +264,10 @@ export function ScenarioRunListPageClient({
           <>
             <SummaryCard lastUpdatedAt={lastUpdatedAt} summary={summary} />
             <ScenarioRunList
+              hasMoreScenarioRuns={hasMoreScenarioRuns}
+              isLoadingMore={isLoadingMore}
+              listMessage={listMessage}
+              onLoadMore={() => void handleLoadMoreScenarioRuns()}
               projectId={projectId}
               scenarioId={scenarioId}
               scenarioRuns={scenarioRuns}
@@ -244,7 +301,7 @@ function SummaryCard({
           </p>
         </div>
         <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300 ring-1 ring-cyan-400/20">
-          최신 {LIST_LIMIT}개
+          로드 {summary.total}개
         </span>
       </div>
 
@@ -260,10 +317,18 @@ function SummaryCard({
 }
 
 function ScenarioRunList({
+  hasMoreScenarioRuns,
+  isLoadingMore,
+  listMessage,
+  onLoadMore,
   projectId,
   scenarioId,
   scenarioRuns
 }: {
+  hasMoreScenarioRuns: boolean;
+  isLoadingMore: boolean;
+  listMessage: string | null;
+  onLoadMore: () => void;
   projectId: string;
   scenarioId: string;
   scenarioRuns: ScenarioRun[];
@@ -298,6 +363,28 @@ function ScenarioRunList({
           />
         ))}
       </ul>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button
+          className="rounded-2xl border border-cyan-300/30 px-4 py-2 text-sm font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!hasMoreScenarioRuns || isLoadingMore}
+          onClick={onLoadMore}
+          type="button"
+        >
+          {isLoadingMore ? "더 불러오는 중" : "ScenarioRun 더 보기"}
+        </button>
+        <p className="text-sm text-slate-400">
+          {hasMoreScenarioRuns
+            ? `${LIST_LIMIT}개 단위로 다음 실행 이력을 불러옵니다.`
+            : "현재 로드된 목록이 마지막 page입니다."}
+        </p>
+      </div>
+
+      {listMessage && (
+        <p className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4 text-sm text-cyan-100">
+          {listMessage}
+        </p>
+      )}
     </section>
   );
 }
@@ -473,3 +560,12 @@ function formatNullableDateTime(value: string | null): string {
 function formatMilliseconds(value: number | null): string {
   return value === null ? "알 수 없음" : `${value}ms`;
 }
+
+const scenarioRunListMessageByState: Record<
+  Exclude<ScenarioRunListResult["state"], "success">,
+  string
+> = {
+  unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
+  "not-found": "Project 또는 Scenario를 찾을 수 없습니다. Scenario 목록에서 다시 선택하세요.",
+  unavailable: "ScenarioRun 목록을 더 불러오지 못했습니다. API 서버 상태를 확인하세요."
+};

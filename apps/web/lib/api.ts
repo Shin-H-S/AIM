@@ -684,6 +684,21 @@ export type ScenarioRunDetailResult =
       state: "unavailable";
     };
 
+export type ScenarioRunListResult =
+  | {
+      state: "success";
+      scenarioRuns: ScenarioRun[];
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type ScenarioListResult =
   | {
       state: "success";
@@ -940,6 +955,23 @@ export function getCheckRunAIReportUrl(
       checkRunId
     )}/ai-report`,
     getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export function getScenarioRunsUrl(
+  projectId: string,
+  scenarioId: string,
+  apiBaseUrl = getApiBaseUrl(),
+  pagination: PaginationParams = {}
+): string {
+  return applyPagination(
+    new URL(
+      `/projects/${encodeURIComponent(projectId)}/scenarios/${encodeURIComponent(
+        scenarioId
+      )}/runs`,
+      getApiBaseUrl(apiBaseUrl)
+    ),
+    pagination
   ).toString();
 }
 
@@ -1890,6 +1922,58 @@ export async function fetchScenarioRunDetail({
     return {
       state: "success",
       scenarioRun: (await response.json()) as ScenarioRunDetail
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchScenarioRuns({
+  projectId,
+  scenarioId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl,
+  limit,
+  offset
+}: {
+  projectId: string;
+  scenarioId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ScenarioRunListResult> {
+  try {
+    const response = await fetcher(
+      getScenarioRunsUrl(projectId, scenarioId, apiBaseUrl ?? getApiBaseUrl(), {
+        limit,
+        offset
+      }),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      scenarioRuns: (await response.json()) as ScenarioRun[]
     };
   } catch {
     return { state: "unavailable" };

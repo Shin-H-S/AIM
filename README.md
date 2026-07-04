@@ -112,6 +112,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - Availability, SSL, Lighthouse 결과 표시
 - Artifact 다운로드 버튼
 - Scenario 생성, 수정, 삭제, 목록 조회, 수동 ScenarioRun 생성 페이지
+- ScenarioRun 목록 페이지
 - ScenarioRun 결과 페이지
 - Step 결과, console/network evidence, 실패 screenshot 미리보기
 - Incident와 email Alert 목록 overview 페이지
@@ -306,7 +307,23 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 삭제 전 확인 UI
 - step 정의
 - active scenario 수동 실행
+- ScenarioRun 목록 페이지 링크
 - 생성된 ScenarioRun 결과 페이지 링크
+
+### ScenarioRun 목록
+
+```text
+/projects/{projectId}/scenarios/{scenarioId}/runs
+```
+
+표시 항목:
+
+- 특정 Scenario의 최근 ScenarioRun 목록
+- ScenarioRun 상태 요약
+- queued/started/finished 시간
+- duration과 failure reason
+- linked CheckRun 결과 페이지 링크
+- ScenarioRun 결과 페이지 링크
 
 ### ScenarioRun 결과
 
@@ -381,7 +398,7 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. ScenarioRun 목록 페이지 추가
+1. ScenarioRun 목록 pagination/load more UI 추가
 2. Project dashboard와 결과 화면에서 최근 ScenarioRun 접근성 개선
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

@@ -64,6 +64,16 @@ Dashboard는 Project 생성 화면, Project 설정/domain verification 화면, S
 
 페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. CheckRun이 `QUEUED`, `RUNNING`, `ANALYZING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 결정론적 score/risk, AI 진단 요약과 상세 패널, 직전 run 대비 변화, 연결된 ScenarioRun 실패 요약과 결과 페이지 링크, availability, SSL, Lighthouse metric 결과와 artifact metadata 및 다운로드 버튼을 표시합니다.
 
+## ScenarioRun 목록 페이지
+
+다음 경로에서 특정 Scenario의 최근 실행 이력을 확인할 수 있습니다.
+
+```text
+/projects/{projectId}/scenarios/{scenarioId}/runs
+```
+
+페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. 최근 ScenarioRun 상태 요약, queued/started/finished 시간, duration, failure reason, linked CheckRun 링크, ScenarioRun 결과 페이지 링크를 표시합니다.
+
 ## ScenarioRun 결과 페이지
 
 다음 경로에서 ScenarioRun 상태와 step-level 결과를 확인할 수 있습니다.
@@ -82,7 +92,7 @@ Dashboard는 Project 생성 화면, Project 설정/domain verification 화면, S
 /projects/{projectId}/scenarios
 ```
 
-페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. Scenario 생성 폼으로 핵심 사용자 흐름과 step을 등록하고, 등록된 scenario 목록과 step을 표시합니다. 기존 scenario는 inline editor로 수정할 수 있고 삭제 전 확인 UI를 거쳐 삭제할 수 있습니다. active scenario에 대해 수동 ScenarioRun을 생성하며, 생성 성공 후 ScenarioRun 결과 페이지 링크를 제공합니다.
+페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. Scenario 생성 폼으로 핵심 사용자 흐름과 step을 등록하고, 등록된 scenario 목록과 step을 표시합니다. 기존 scenario는 inline editor로 수정할 수 있고 삭제 전 확인 UI를 거쳐 삭제할 수 있습니다. active scenario에 대해 수동 ScenarioRun을 생성하며, ScenarioRun 목록 페이지와 생성 성공 후 ScenarioRun 결과 페이지 링크를 제공합니다.
 
 ## Alert overview 페이지
 
@@ -119,6 +129,7 @@ Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 - CheckRun AI 진단 요약 표시
 - CheckRun AI 진단 상세 패널 표시
 - Scenario 생성, 수정, 삭제, 목록 조회, 수동 실행 생성 페이지
+- ScenarioRun 목록 페이지
 - ScenarioRun 결과 페이지
 - Alert overview 페이지
 - Alert overview의 email alert 설정 저장 폼

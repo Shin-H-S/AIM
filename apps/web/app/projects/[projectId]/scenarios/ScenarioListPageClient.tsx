@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   createScenario,
@@ -529,6 +530,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
                     onDelete={deleteScenarioById}
                     onRun={() => void requestScenarioRun(scenario.id)}
                     onUpdate={updateScenarioFromPayload}
+                    projectId={projectId}
                     scenario={scenario}
                   />
                 ))}
@@ -791,12 +793,14 @@ function ScenarioCreateNotice({
 
 function ScenarioCard({
   scenario,
+  projectId,
   creatingScenarioId,
   onDelete,
   onUpdate,
   onRun
 }: {
   scenario: TestScenario;
+  projectId: string;
   creatingScenarioId: string | null;
   onDelete: (scenarioId: string) => Promise<ScenarioMutationActionResult>;
   onUpdate: (
@@ -1032,6 +1036,12 @@ function ScenarioCard({
           <p className="mt-3 break-all font-mono text-xs text-slate-500">{scenario.id}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            href={`/projects/${projectId}/scenarios/${scenario.id}/runs`}
+          >
+            실행 이력 보기
+          </Link>
           <button
             className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 transition hover:border-cyan-300/50 hover:text-cyan-100"
             onClick={startEditing}

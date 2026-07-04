@@ -9,6 +9,7 @@ from aim_api.dependencies import get_current_user
 from aim_api.models.project import Project
 from aim_api.models.user import User
 from aim_api.schemas.project import (
+    ProjectBaselineUpdate,
     ProjectCreate,
     ProjectRead,
     ProjectUpdate,
@@ -33,6 +34,20 @@ def unsafe_service_url() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail="Service URL is not allowed.",
+    )
+
+
+def baseline_check_run_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Check run not found.",
+    )
+
+
+def baseline_check_run_not_comparable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Check run must be terminal and scored to be used as a baseline.",
     )
 
 
@@ -177,3 +192,50 @@ def delete_project(
         raise project_not_found() from exc
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/{project_id}/baseline", response_model=ProjectRead)
+def set_project_baseline(
+    project_id: UUID,
+    payload: ProjectBaselineUpdate,
+    session: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectRead:
+    try:
+        project = project_service.get_project(
+            session,
+            owner_id=current_user.id,
+            project_id=project_id,
+        )
+        project = project_service.set_baseline_check_run(
+            session,
+            project=project,
+            check_run_id=payload.check_run_id,
+        )
+    except project_service.ProjectNotFoundError as exc:
+        raise project_not_found() from exc
+    except project_service.BaselineCheckRunNotFoundError as exc:
+        raise baseline_check_run_not_found() from exc
+    except project_service.BaselineCheckRunNotComparableError as exc:
+        raise baseline_check_run_not_comparable() from exc
+
+    return ProjectRead.model_validate(project)
+
+
+@router.delete("/{project_id}/baseline", response_model=ProjectRead)
+def clear_project_baseline(
+    project_id: UUID,
+    session: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectRead:
+    try:
+        project = project_service.get_project(
+            session,
+            owner_id=current_user.id,
+            project_id=project_id,
+        )
+    except project_service.ProjectNotFoundError as exc:
+        raise project_not_found() from exc
+
+    project = project_service.clear_baseline_check_run(session, project=project)
+    return ProjectRead.model_validate(project)

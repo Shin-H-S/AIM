@@ -115,12 +115,17 @@ class ProjectUpdate(BaseModel):
         return self
 
 
+class ProjectBaselineUpdate(BaseModel):
+    check_run_id: UUID
+
+
 class ProjectRead(ProjectBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     owner_id: UUID
     is_verified: bool
+    baseline_check_run_id: UUID | None
     created_at: datetime
     updated_at: datetime
 

@@ -275,3 +275,209 @@ def test_record_previous_run_comparison_updates_existing_result(session: Session
     assert second_comparison is not None
     assert second_comparison.id == first_comparison.id
     assert session.scalars(select(RunComparison)).all() == [second_comparison]
+
+
+def test_compute_baseline_comparison_uses_pinned_baseline(session: Session) -> None:
+    user, project = create_project(session)
+    baseline_run = create_check_run(
+        session,
+        project=project,
+        user=user,
+        status=CheckRunStatus.COMPLETED,
+        created_at=datetime(2026, 6, 27, 1, tzinfo=UTC),
+    )
+    recent_run = create_check_run(
+        session,
+        project=project,
+        user=user,
+        status=CheckRunStatus.COMPLETED,
+        created_at=datetime(2026, 6, 27, 2, tzinfo=UTC),
+    )
+    target_run = create_check_run(
+        session,
+        project=project,
+        user=user,
+        status=CheckRunStatus.COMPLETED,
+        created_at=datetime(2026, 6, 27, 3, tzinfo=UTC),
+    )
+    record_scan_outputs(
+        session,
+        project=project,
+        check_run=baseline_run,
+        response_time_ms=700,
+        performance_score=80,
+    )
+    record_scan_outputs(
+        session,
+        project=project,
+        check_run=recent_run,
+        response_time_ms=100,
+        performance_score=95,
+    )
+    record_scan_outputs(
+        session,
+        project=project,
+        check_run=target_run,
+        response_time_ms=500,
+        performance_score=90,
+    )
+    project.baseline_check_run_id = baseline_run.id
+    session.commit()
+
+    comparison = run_comparisons.compute_baseline_comparison(
+        session,
+        project=project,
+        check_run=target_run,
+    )
+
+    assert comparison.comparison_type == "baseline"
+    assert comparison.check_run_id == target_run.id
+    assert comparison.baseline_check_run_id == baseline_run.id
+    assert comparison.overall_score_delta == 3
+    assert comparison.web_performance_score_delta == 10
+    assert comparison.performance_score_delta == 10
+    assert comparison.response_time_delta_ms == -200
+    assert comparison.deployment_risk_changed is False
+    assert comparison.current_deployment_risk == comparison.baseline_deployment_risk
+    assert comparison.summary == ("Overall score improved by 3. Response time improved by 200ms.")
+    assert session.scalars(select(RunComparison)).all() == []
+
+
+def test_compute_baseline_comparison_with_explicit_override(session: Session) -> None:
+    user, project = create_project(session)
+    pinned_run = create_check_run(
+        session,
+        project=project,
+        user=user,
+        status=CheckRunStatus.COMPLETED,
+        created_at=datetime(2026, 6, 27, 1, tzinfo=UTC),
+    )
+    explicit_run = create_check_run(
+        session,
+        project=project,
+        user=user,
+        status=CheckRunStatus.COMPLETED,
+        created_at=datetime(2026, 6, 27, 2, tzinfo=UTC),
+    )
+    target_run = create_check_run(
+        session,
+        project=project,
+        user=user,
+        status=CheckRunStatus.COMPLETED,
+        created_at=datetime(2026, 6, 27, 3, tzinfo=UTC),
+    )
+    for check_run, response_time_ms in ((pinned_run, 900), (explicit_run, 700), (target_run, 500)):
+        record_scan_outputs(
+            session,
+            project=project,
+            check_run=check_run,
+            response_time_ms=response_time_ms,
+            performance_score=90,
+        )
+    project.baseline_check_run_id = pinned_run.id
+    session.commit()
+
+    comparison = run_comparisons.compute_baseline_comparison(
+        session,
+        project=project,
+        check_run=target_run,
+        baseline_check_run_id=explicit_run.id,
+    )
+
+    assert comparison.baseline_check_run_id == explicit_run.id
+    assert comparison.response_time_delta_ms == -200
+
+
+def test_compute_baseline_comparison_requires_configuration(session: Session) -> None:
+    user, project = create_project(session)
+    target_run = create_check_run(
+        session,
+        project=project,
+        user=user,
+        status=CheckRunStatus.COMPLETED,
+        created_at=datetime(2026, 6, 27, 1, tzinfo=UTC),
+    )
+    record_scan_outputs(
+        session,
+        project=project,
+        check_run=target_run,
+        response_time_ms=500,
+        performance_score=90,
+    )
+
+    with pytest.raises(run_comparisons.BaselineNotConfiguredError):
+        run_comparisons.compute_baseline_comparison(
+            session,
+            project=project,
+            check_run=target_run,
+        )
+
+
+def test_compute_baseline_comparison_rejects_baseline_from_other_project(
+    session: Session,
+) -> None:
+    user, project = create_project(session)
+    other_user, other_project = create_project(session)
+    other_project_run = create_check_run(
+        session,
+        project=other_project,
+        user=other_user,
+        status=CheckRunStatus.COMPLETED,
+        created_at=datetime(2026, 6, 27, 1, tzinfo=UTC),
+    )
+    target_run = create_check_run(
+        session,
+        project=project,
+        user=user,
+        status=CheckRunStatus.COMPLETED,
+        created_at=datetime(2026, 6, 27, 2, tzinfo=UTC),
+    )
+    record_scan_outputs(
+        session,
+        project=project,
+        check_run=target_run,
+        response_time_ms=500,
+        performance_score=90,
+    )
+
+    with pytest.raises(run_comparisons.BaselineCheckRunMissingError):
+        run_comparisons.compute_baseline_comparison(
+            session,
+            project=project,
+            check_run=target_run,
+            baseline_check_run_id=other_project_run.id,
+        )
+
+
+def test_compute_baseline_comparison_requires_score_results(session: Session) -> None:
+    user, project = create_project(session)
+    baseline_run = create_check_run(
+        session,
+        project=project,
+        user=user,
+        status=CheckRunStatus.COMPLETED,
+        created_at=datetime(2026, 6, 27, 1, tzinfo=UTC),
+    )
+    target_run = create_check_run(
+        session,
+        project=project,
+        user=user,
+        status=CheckRunStatus.COMPLETED,
+        created_at=datetime(2026, 6, 27, 2, tzinfo=UTC),
+    )
+    record_scan_outputs(
+        session,
+        project=project,
+        check_run=target_run,
+        response_time_ms=500,
+        performance_score=90,
+    )
+    project.baseline_check_run_id = baseline_run.id
+    session.commit()
+
+    with pytest.raises(run_comparisons.BaselineComparisonNotAvailableError):
+        run_comparisons.compute_baseline_comparison(
+            session,
+            project=project,
+            check_run=target_run,
+        )

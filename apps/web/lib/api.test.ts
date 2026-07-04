@@ -16,6 +16,7 @@ import {
   fetchProjectIncidents,
   fetchProjectVerification,
   fetchProjects,
+  fetchScenarioRuns,
   fetchScenarioRunDetail,
   fetchScenarios,
   getApiBaseUrl,
@@ -36,6 +37,7 @@ import {
   getProjectsUrl,
   getRetryAlertUrl,
   getScenarioUrl,
+  getScenarioRunsUrl,
   getScenariosUrl,
   getScenarioRunDetailUrl,
   getSignupUrl,
@@ -139,6 +141,12 @@ describe("getCheckRunAIReportUrl", () => {
 
 describe("getScenarioRunDetailUrl", () => {
   it("builds the scenario run detail endpoint URL", () => {
+    expect(
+      getScenarioRunsUrl("project-id", "scenario-id", "http://localhost:8000", {
+        limit: 10,
+        offset: 20
+      })
+    ).toBe("http://localhost:8000/projects/project-id/scenarios/scenario-id/runs?limit=10&offset=20");
     expect(
       getScenarioRunDetailUrl(
         "project-id",
@@ -1636,6 +1644,78 @@ describe("fetchCheckRunAIReport", () => {
       fetchCheckRunAIReport({
         projectId: "project-id",
         checkRunId: "check-run-id",
+        accessToken: "token",
+        fetcher: notFoundFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("fetchScenarioRuns", () => {
+  it("returns scenario runs when the API request succeeds", async () => {
+    const scenarioRun = {
+      id: "scenario-run-id",
+      project_id: "project-id",
+      scenario_id: "scenario-id",
+      check_run_id: null,
+      requested_by_id: "user-id",
+      status: "COMPLETED",
+      trigger_source: "manual",
+      failure_reason: null,
+      queued_at: "2026-06-28T00:00:00Z",
+      started_at: "2026-06-28T00:00:01Z",
+      finished_at: "2026-06-28T00:00:02Z",
+      duration_ms: 1000,
+      created_at: "2026-06-28T00:00:00Z",
+      updated_at: "2026-06-28T00:00:02Z"
+    };
+    const fetcher = vi.fn(async () => Response.json([scenarioRun]));
+
+    await expect(
+      fetchScenarioRuns({
+        projectId: "project-id",
+        scenarioId: "scenario-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000",
+        limit: 5,
+        offset: 10
+      })
+    ).resolves.toEqual({
+      state: "success",
+      scenarioRuns: [scenarioRun]
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/scenarios/scenario-id/runs?limit=5&offset=10",
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+  });
+
+  it("maps scenario run list authentication and missing-resource responses", async () => {
+    const unauthorizedFetcher = vi.fn(async () => new Response(null, { status: 401 }));
+    const notFoundFetcher = vi.fn(async () => new Response(null, { status: 404 }));
+
+    await expect(
+      fetchScenarioRuns({
+        projectId: "project-id",
+        scenarioId: "scenario-id",
+        accessToken: "bad-token",
+        fetcher: unauthorizedFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
+
+    await expect(
+      fetchScenarioRuns({
+        projectId: "project-id",
+        scenarioId: "missing-scenario",
         accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"

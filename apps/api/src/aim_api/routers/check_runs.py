@@ -12,6 +12,7 @@ from aim_api.schemas.check_run import (
     AIReportSummaryRead,
     ArtifactRead,
     AvailabilityResultRead,
+    BaselineComparisonRead,
     CheckRunCreate,
     CheckRunDetailRead,
     CheckRunRead,
@@ -59,6 +60,27 @@ def ai_report_not_found() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="AI report not found.",
+    )
+
+
+def baseline_not_configured() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="No baseline check run is configured for this project.",
+    )
+
+
+def baseline_check_run_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Baseline check run not found.",
+    )
+
+
+def baseline_comparison_not_available() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Baseline comparison requires score results for both check runs.",
     )
 
 
@@ -250,6 +272,45 @@ def get_check_run(
             ScenarioRunRead.model_validate(scenario_run) for scenario_run in linked_scenario_runs
         ],
     )
+
+
+@router.get("/{check_run_id}/baseline-comparison", response_model=BaselineComparisonRead)
+def get_baseline_comparison(
+    project_id: UUID,
+    check_run_id: UUID,
+    session: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    baseline_check_run_id: Annotated[UUID | None, Query()] = None,
+) -> BaselineComparisonRead:
+    try:
+        project = project_service.get_project(
+            session,
+            owner_id=current_user.id,
+            project_id=project_id,
+        )
+        check_run = check_run_service.get_check_run(
+            session,
+            project_id=project.id,
+            check_run_id=check_run_id,
+        )
+        comparison = run_comparison_service.compute_baseline_comparison(
+            session,
+            project=project,
+            check_run=check_run,
+            baseline_check_run_id=baseline_check_run_id,
+        )
+    except project_service.ProjectNotFoundError as exc:
+        raise project_not_found() from exc
+    except check_run_service.CheckRunNotFoundError as exc:
+        raise check_run_not_found() from exc
+    except run_comparison_service.BaselineNotConfiguredError as exc:
+        raise baseline_not_configured() from exc
+    except run_comparison_service.BaselineCheckRunMissingError as exc:
+        raise baseline_check_run_not_found() from exc
+    except run_comparison_service.BaselineComparisonNotAvailableError as exc:
+        raise baseline_comparison_not_available() from exc
+
+    return BaselineComparisonRead.model_validate(comparison)
 
 
 @router.get("/{check_run_id}/ai-report", response_model=AIReportRead)

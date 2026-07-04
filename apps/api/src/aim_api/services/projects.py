@@ -3,13 +3,29 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
+from aim_api.models.scanner_result import ScoreResult
 from aim_api.schemas.project import ProjectCreate, ProjectUpdate
 from aim_api.url_validation import validate_service_url
+
+BASELINE_ELIGIBLE_STATUSES = (
+    CheckRunStatus.COMPLETED.value,
+    CheckRunStatus.FAILED.value,
+    CheckRunStatus.CANCELLED.value,
+)
 
 
 class ProjectNotFoundError(Exception):
     """Raised when a project does not exist."""
+
+
+class BaselineCheckRunNotFoundError(Exception):
+    """Raised when the requested baseline check run does not exist for the project."""
+
+
+class BaselineCheckRunNotComparableError(Exception):
+    """Raised when a check run cannot serve as a baseline (not terminal or no score)."""
 
 
 def create_project(session: Session, *, owner_id: UUID, payload: ProjectCreate) -> Project:
@@ -100,3 +116,35 @@ def delete_project(session: Session, *, owner_id: UUID, project_id: UUID) -> Non
     project = get_project(session, owner_id=owner_id, project_id=project_id)
     session.delete(project)
     session.commit()
+
+
+def set_baseline_check_run(
+    session: Session,
+    *,
+    project: Project,
+    check_run_id: UUID,
+) -> Project:
+    check_run = session.get(CheckRun, check_run_id)
+    if check_run is None or check_run.project_id != project.id:
+        raise BaselineCheckRunNotFoundError
+
+    if check_run.status not in BASELINE_ELIGIBLE_STATUSES:
+        raise BaselineCheckRunNotComparableError
+
+    score_result = session.scalar(
+        select(ScoreResult).where(ScoreResult.check_run_id == check_run.id)
+    )
+    if score_result is None:
+        raise BaselineCheckRunNotComparableError
+
+    project.baseline_check_run_id = check_run.id
+    session.commit()
+    session.refresh(project)
+    return project
+
+
+def clear_baseline_check_run(session: Session, *, project: Project) -> Project:
+    project.baseline_check_run_id = None
+    session.commit()
+    session.refresh(project)
+    return project

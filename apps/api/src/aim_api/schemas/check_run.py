@@ -108,6 +108,25 @@ class RunComparisonRead(BaseModel):
     updated_at: datetime
 
 
+class BaselineComparisonRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    check_run_id: UUID
+    baseline_check_run_id: UUID
+    comparison_type: str
+    overall_score_delta: int
+    availability_score_delta: int | None
+    web_performance_score_delta: int | None
+    accessibility_score_delta: int | None
+    seo_basic_quality_score_delta: int | None
+    response_time_delta_ms: int | None
+    performance_score_delta: int | None
+    current_deployment_risk: str
+    baseline_deployment_risk: str
+    deployment_risk_changed: bool
+    summary: str
+
+
 class AIReportSummaryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

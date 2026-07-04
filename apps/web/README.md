@@ -72,7 +72,7 @@ Dashboard는 Project 생성 화면, Project 설정/domain verification 화면, S
 /projects/{projectId}/scenarios/{scenarioId}/runs
 ```
 
-페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. 최근 ScenarioRun 상태 요약, queued/started/finished 시간, duration, failure reason, linked CheckRun 링크, ScenarioRun 결과 페이지 링크를 표시합니다.
+페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. 최근 ScenarioRun 상태 요약, queued/started/finished 시간, duration, failure reason, linked CheckRun 링크, ScenarioRun 결과 페이지 링크를 표시합니다. 목록은 20개 단위로 조회하며, 더 보기 버튼으로 다음 page를 이어서 불러올 수 있습니다.
 
 ## ScenarioRun 결과 페이지
 
@@ -130,6 +130,7 @@ Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 - CheckRun AI 진단 상세 패널 표시
 - Scenario 생성, 수정, 삭제, 목록 조회, 수동 실행 생성 페이지
 - ScenarioRun 목록 페이지
+- ScenarioRun 목록의 더 보기 pagination
 - ScenarioRun 결과 페이지
 - Alert overview 페이지
 - Alert overview의 email alert 설정 저장 폼

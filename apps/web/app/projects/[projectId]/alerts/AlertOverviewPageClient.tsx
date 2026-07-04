@@ -22,6 +22,7 @@ import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/aut
 const LIST_LIMIT = 20;
 
 type LoadState = "idle" | "loading";
+type AlertStatusFilter = "ALL" | "PENDING" | "SENT" | "FAILED";
 type AlertSettingsSubmitState =
   | "idle"
   | "submitting"
@@ -42,6 +43,8 @@ type RetryAlertFeedback = {
   message: string;
 };
 
+type AlertStatusCounts = Record<AlertStatusFilter, number>;
+
 export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const [accessToken, setAccessToken] = useState("");
   const [loadState, setLoadState] = useState<LoadState>("idle");
@@ -57,6 +60,10 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const [settingsSubmitMessage, setSettingsSubmitMessage] = useState<string | null>(null);
   const [retryingAlertId, setRetryingAlertId] = useState<string | null>(null);
   const [retryFeedback, setRetryFeedback] = useState<RetryAlertFeedback | null>(null);
+  const [alertStatusFilter, setAlertStatusFilter] = useState<AlertStatusFilter>("ALL");
+  const [hasMoreAlerts, setHasMoreAlerts] = useState(false);
+  const [isLoadingMoreAlerts, setIsLoadingMoreAlerts] = useState(false);
+  const [alertListMessage, setAlertListMessage] = useState<string | null>(null);
   const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const trimmedToken = accessToken.trim();
@@ -71,11 +78,15 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
         setAlertResult(null);
         setRetryFeedback(null);
         setRetryingAlertId(null);
+        setHasMoreAlerts(false);
+        setIsLoadingMoreAlerts(false);
+        setAlertListMessage(null);
         setLastUpdatedAt(null);
         return;
       }
 
       setLoadState("loading");
+      setAlertListMessage(null);
       const [nextProjectResult, nextIncidentResult, nextAlertResult] = await Promise.all([
         fetchProject({
           projectId,
@@ -104,6 +115,9 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
       setProjectResult(nextProjectResult);
       setIncidentResult(nextIncidentResult);
       setAlertResult(nextAlertResult);
+      setHasMoreAlerts(
+        nextAlertResult.state === "success" && nextAlertResult.alerts.length === LIST_LIMIT
+      );
       if (nextProjectResult.state === "success") {
         setSettingsForm(formFromProjectAlertSettings(nextProjectResult.project));
         setSettingsSubmitState("idle");
@@ -145,6 +159,48 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const project = projectResult?.state === "success" ? projectResult.project : null;
   const incidents = incidentResult?.state === "success" ? incidentResult.incidents : [];
   const alerts = alertResult?.state === "success" ? alertResult.alerts : [];
+  const filteredAlerts = filterAlertsByStatus(alerts, alertStatusFilter);
+  const alertStatusCounts = summarizeAlertStatuses(alerts);
+
+  async function handleLoadMoreAlerts() {
+    if (!trimmedToken || alertResult?.state !== "success") {
+      return;
+    }
+
+    setIsLoadingMoreAlerts(true);
+    setAlertListMessage(null);
+
+    const nextResult = await fetchProjectAlerts({
+      projectId,
+      accessToken: trimmedToken,
+      limit: LIST_LIMIT,
+      offset: alertResult.alerts.length
+    });
+
+    if (nextResult.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(trimmedToken);
+    }
+
+    if (nextResult.state !== "success") {
+      setAlertListMessage(alertListMessageByState[nextResult.state]);
+      setIsLoadingMoreAlerts(false);
+      return;
+    }
+
+    setAlertResult((current) =>
+      current?.state === "success"
+        ? {
+            state: "success",
+            alerts: [...current.alerts, ...nextResult.alerts]
+          }
+        : nextResult
+    );
+    setHasMoreAlerts(nextResult.alerts.length === LIST_LIMIT);
+    if (nextResult.alerts.length === 0) {
+      setAlertListMessage("더 불러올 email alert가 없습니다.");
+    }
+    setIsLoadingMoreAlerts(false);
+  }
 
   async function handleAlertSettingsSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -343,11 +399,19 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
 
         {alertResult?.state === "success" && (
           <AlertSection
-            alerts={alerts}
+            alerts={filteredAlerts}
+            filter={alertStatusFilter}
+            hasMoreAlerts={hasMoreAlerts}
+            isLoadingMoreAlerts={isLoadingMoreAlerts}
+            listMessage={alertListMessage}
             onRetry={handleRetryAlert}
+            onFilterChange={setAlertStatusFilter}
+            onLoadMore={() => void handleLoadMoreAlerts()}
             projectId={projectId}
             retryFeedback={retryFeedback}
             retryingAlertId={retryingAlertId}
+            statusCounts={alertStatusCounts}
+            totalAlertCount={alerts.length}
           />
         )}
       </section>
@@ -533,24 +597,59 @@ function IncidentCard({ incident, projectId }: { incident: Incident; projectId: 
 
 function AlertSection({
   alerts,
+  filter,
+  hasMoreAlerts,
+  isLoadingMoreAlerts,
+  listMessage,
   onRetry,
+  onFilterChange,
+  onLoadMore,
   projectId,
   retryFeedback,
-  retryingAlertId
+  retryingAlertId,
+  statusCounts,
+  totalAlertCount
 }: {
   alerts: Alert[];
+  filter: AlertStatusFilter;
+  hasMoreAlerts: boolean;
+  isLoadingMoreAlerts: boolean;
+  listMessage: string | null;
   onRetry: (alert: Alert) => void;
+  onFilterChange: (filter: AlertStatusFilter) => void;
+  onLoadMore: () => void;
   projectId: string;
   retryFeedback: RetryAlertFeedback | null;
   retryingAlertId: string | null;
+  statusCounts: AlertStatusCounts;
+  totalAlertCount: number;
 }) {
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-      <SectionHeader count={alerts.length} title="Email alerts" />
-      {alerts.length === 0 ? (
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-100">Email alerts</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            로드된 alert {totalAlertCount}개 중 {alerts.length}개를 표시합니다.
+          </p>
+        </div>
+        <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300 ring-1 ring-cyan-400/20">
+          {alerts.length}개
+        </span>
+      </div>
+
+      <AlertFilterBar
+        currentFilter={filter}
+        onChange={onFilterChange}
+        statusCounts={statusCounts}
+      />
+
+      {totalAlertCount === 0 ? (
         <EmptyState description="아직 이 프로젝트에서 생성된 alert가 없습니다." />
+      ) : alerts.length === 0 ? (
+        <EmptyState description="현재 선택한 상태에 해당하는 loaded alert가 없습니다." />
       ) : (
-        <ul className="grid gap-4">
+        <ul className="mt-5 grid gap-4">
           {alerts.map((alert) => (
             <AlertCard
               alert={alert}
@@ -563,7 +662,84 @@ function AlertSection({
           ))}
         </ul>
       )}
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button
+          className="rounded-2xl border border-cyan-300/30 px-4 py-2 text-sm font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!hasMoreAlerts || isLoadingMoreAlerts}
+          onClick={onLoadMore}
+          type="button"
+        >
+          {isLoadingMoreAlerts ? "더 불러오는 중" : "Alert 더 보기"}
+        </button>
+        <p className="text-sm text-slate-400">
+          {hasMoreAlerts
+            ? `${LIST_LIMIT}개 단위로 더 불러옵니다.`
+            : "현재 로드된 목록이 마지막 page입니다."}
+        </p>
+      </div>
+
+      {listMessage && (
+        <p className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4 text-sm text-cyan-100">
+          {listMessage}
+        </p>
+      )}
     </section>
+  );
+}
+
+function AlertFilterBar({
+  currentFilter,
+  onChange,
+  statusCounts
+}: {
+  currentFilter: AlertStatusFilter;
+  onChange: (filter: AlertStatusFilter) => void;
+  statusCounts: AlertStatusCounts;
+}) {
+  const filters: Array<{ label: string; value: AlertStatusFilter; count: number }> = [
+    {
+      label: "전체",
+      value: "ALL",
+      count: statusCounts.ALL
+    },
+    {
+      label: "대기",
+      value: "PENDING",
+      count: statusCounts.PENDING
+    },
+    {
+      label: "발송됨",
+      value: "SENT",
+      count: statusCounts.SENT
+    },
+    {
+      label: "실패",
+      value: "FAILED",
+      count: statusCounts.FAILED
+    }
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {filters.map((filter) => {
+        const isSelected = currentFilter === filter.value;
+        return (
+          <button
+            className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
+              isSelected
+                ? "bg-cyan-300 text-slate-950"
+                : "border border-white/10 text-slate-300 hover:border-cyan-300/50 hover:text-cyan-100"
+            }`}
+            key={filter.value}
+            onClick={() => onChange(filter.value)}
+            type="button"
+          >
+            {filter.label} {filter.count}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -836,6 +1012,42 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function filterAlertsByStatus(alerts: Alert[], filter: AlertStatusFilter): Alert[] {
+  if (filter === "ALL") {
+    return alerts;
+  }
+
+  return alerts.filter((alert) => alert.status === filter);
+}
+
+function summarizeAlertStatuses(alerts: Alert[]): AlertStatusCounts {
+  return alerts.reduce<AlertStatusCounts>(
+    (summary, alert) => {
+      summary.ALL += 1;
+
+      if (alert.status === "PENDING") {
+        summary.PENDING += 1;
+      }
+
+      if (alert.status === "SENT") {
+        summary.SENT += 1;
+      }
+
+      if (alert.status === "FAILED") {
+        summary.FAILED += 1;
+      }
+
+      return summary;
+    },
+    {
+      ALL: 0,
+      PENDING: 0,
+      SENT: 0,
+      FAILED: 0
+    }
+  );
+}
+
 const alertSettingsSubmitMessage: Record<
   Exclude<AlertSettingsSubmitState, "idle" | "submitting" | "success">,
   string
@@ -854,4 +1066,13 @@ const retryAlertFeedbackMessage: Record<
   "not-found": "Project 또는 Alert를 찾을 수 없습니다. 목록을 다시 조회하세요.",
   conflict: "FAILED 상태의 email alert만 재시도할 수 있습니다.",
   unavailable: "Alert 재시도 요청에 실패했습니다. API 서버 또는 worker queue 상태를 확인하세요."
+};
+
+const alertListMessageByState: Record<
+  Exclude<AlertListResult["state"], "success">,
+  string
+> = {
+  unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
+  "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
+  unavailable: "Alert 목록을 더 불러오지 못했습니다. API 서버 상태를 확인하세요."
 };

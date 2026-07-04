@@ -102,7 +102,7 @@ Dashboard는 Project 생성 화면, Project 설정/domain verification 화면, S
 /projects/{projectId}/alerts
 ```
 
-페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. 현재 Project의 response time threshold, quality score threshold, Incident 목록, evidence JSON, email Alert 발송 상태와 관련 CheckRun 링크를 표시합니다.
+페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. 현재 Project의 response time threshold, quality score threshold, Incident 목록, evidence JSON, email Alert 발송 상태와 관련 CheckRun 링크를 표시합니다. Email Alert 목록은 로드된 항목 기준으로 전체, 대기, 발송됨, 실패 상태 필터를 제공하고, 더 보기 버튼으로 다음 page를 이어서 불러올 수 있습니다.
 
 Email alert 사용 여부와 수신자 email을 저장할 수 있습니다. 수신자 email을 비워두면 Project owner email을 사용합니다. FAILED 상태의 email Alert는 카드에서 발송 재시도를 요청할 수 있으며, 성공하면 상태가 PENDING으로 갱신됩니다.
 
@@ -134,6 +134,7 @@ Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 - Alert overview 페이지
 - Alert overview의 email alert 설정 저장 폼
 - Alert overview의 FAILED email alert 발송 재시도 버튼
+- Alert overview의 email alert 상태 필터와 더 보기 버튼
 
 ## 실행
 

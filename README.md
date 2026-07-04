@@ -118,6 +118,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - Incident와 email Alert 목록 overview 페이지
 - Alert overview에서 email alert 사용 여부와 수신자 email 저장
 - Alert overview에서 FAILED email Alert 발송 재시도
+- Alert overview에서 email Alert 상태 필터와 더 보기 pagination
 
 현재 Web에는 회원가입과 로그인 UI, Project dashboard와 결과·Scenario 페이지 세션 연결, Project 생성·수정 UI, domain verification 안내 화면, Scenario 생성 UI가 있습니다.
 
@@ -351,6 +352,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - Incident 목록과 open/resolved 상태
 - Incident evidence JSON
 - Email Alert 목록과 pending/sent/failed 상태
+- Email Alert 상태별 필터와 더 보기 pagination
 - Email Alert 사용 여부와 수신자 email 설정
 - FAILED Email Alert 발송 재시도
 - 관련 CheckRun 결과 페이지 링크
@@ -396,7 +398,7 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. Alert 목록 pagination/filter UI 추가
-2. ScenarioRun 목록 pagination/load more UI 추가
+1. ScenarioRun 목록 pagination/load more UI 추가
+2. Project dashboard와 결과 화면에서 최근 ScenarioRun 접근성 개선
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

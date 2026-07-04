@@ -217,6 +217,7 @@ class AIReportRead(BaseModel):
     check_run_id: UUID
     schema_version: str
     input_schema_version: str
+    generator: str
     summary: str
     overall_score: int
     grade: str

@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from aim_api.models.ai_report import AIReport
 from aim_api.schemas.ai_diagnosis import AIDiagnosisReport
-from aim_api.services import ai_diagnosis_inputs, ai_diagnosis_reports
+from aim_api.services import ai_diagnosis_inputs, ai_diagnosis_reports, ai_report_narratives
+from aim_api.services.ai_report_narratives import DETERMINISTIC_GENERATOR, NarrativeGenerator
 
 
 class AIReportNotFoundError(Exception):
@@ -18,6 +19,7 @@ def record_ai_report(
     session: Session,
     *,
     report: AIDiagnosisReport,
+    generator: str = DETERMINISTIC_GENERATOR,
 ) -> AIReport:
     ai_report = get_ai_report_or_none(session, check_run_id=report.check_run_id)
     if ai_report is None:
@@ -26,6 +28,7 @@ def record_ai_report(
 
     ai_report.schema_version = report.schema_version
     ai_report.input_schema_version = report.input_schema_version
+    ai_report.generator = generator
     ai_report.summary = report.summary
     ai_report.overall_score = report.score.overall_score
     ai_report.grade = report.score.grade
@@ -44,6 +47,7 @@ def generate_and_record_ai_report(
     *,
     check_run_id: UUID,
     generated_at: datetime | None = None,
+    narrative_generator: NarrativeGenerator | None = None,
 ) -> AIReport:
     diagnosis_input = ai_diagnosis_inputs.build_ai_diagnosis_input(
         session,
@@ -53,7 +57,16 @@ def generate_and_record_ai_report(
         diagnosis_input,
         generated_at=generated_at,
     )
-    return record_ai_report(session, report=report)
+    enhancement = ai_report_narratives.enhance_report_narrative(
+        diagnosis_input,
+        report,
+        narrative_generator=narrative_generator,
+    )
+    return record_ai_report(
+        session,
+        report=enhancement.report,
+        generator=enhancement.generator,
+    )
 
 
 def get_ai_report(session: Session, *, check_run_id: UUID) -> AIReport:

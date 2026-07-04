@@ -18,12 +18,21 @@ from aim_api.schemas.ai_diagnosis import (
     AIDiagnosisSeverity,
     AIDiagnosisStatementType,
 )
-from aim_api.services import ai_reports
+from aim_api.services import ai_report_narratives, ai_reports
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 ReportGrade = Literal["A", "B", "C", "D", "F"]
+
+
+@pytest.fixture(autouse=True)
+def deterministic_narratives(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        ai_report_narratives,
+        "build_anthropic_narrative_generator",
+        lambda settings=None: None,
+    )
 
 
 @pytest.fixture()
@@ -161,6 +170,7 @@ def test_record_ai_report_creates_report(session: Session) -> None:
     stored_report = ai_reports.get_ai_report(session, check_run_id=check_run.id)
     assert stored_report.id == ai_report.id
     assert stored_report.check_run_id == check_run.id
+    assert stored_report.generator == "deterministic"
     assert stored_report.summary == report.summary
     assert stored_report.overall_score == 55
     assert stored_report.grade == "D"
@@ -209,6 +219,7 @@ def test_generate_and_record_ai_report_uses_stored_check_run_results(session: Se
     report_score = cast(dict[str, object], ai_report.report_json["score"])
 
     assert ai_report.check_run_id == check_run.id
+    assert ai_report.generator == "deterministic"
     assert ai_report.overall_score == 55
     assert ai_report.deployment_risk == "RISK"
     assert report_score["deployment_risk"] == "RISK"
@@ -216,6 +227,38 @@ def test_generate_and_record_ai_report_uses_stored_check_run_results(session: Se
     assert ai_report.report_json["generation_warnings"] == [
         "No run comparison was available, so changed areas are empty."
     ]
+
+
+class FakeNarrativeGenerator:
+    generator_name = "claude-test-model"
+
+    def generate(
+        self,
+        *,
+        diagnosis_input: object,
+        report: AIDiagnosisReport,
+    ) -> ai_report_narratives.AIReportNarrative:
+        return ai_report_narratives.AIReportNarrative(
+            summary="LLM summary of the run.",
+            issue_narratives=[],
+        )
+
+
+def test_generate_and_record_ai_report_records_llm_narrative(session: Session) -> None:
+    _, check_run = create_project_and_check_run(session)
+    record_score_result(session, check_run=check_run)
+
+    ai_report = ai_reports.generate_and_record_ai_report(
+        session,
+        check_run_id=check_run.id,
+        generated_at=datetime(2026, 6, 30, 3, tzinfo=UTC),
+        narrative_generator=FakeNarrativeGenerator(),
+    )
+
+    assert ai_report.generator == "claude-test-model"
+    assert ai_report.summary == "LLM summary of the run."
+    assert ai_report.report_json["summary"] == "LLM summary of the run."
+    assert ai_report.deployment_risk == "RISK"
 
 
 def test_get_ai_report_raises_when_report_is_missing(session: Session) -> None:

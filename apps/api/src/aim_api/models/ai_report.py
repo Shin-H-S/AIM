@@ -48,6 +48,12 @@ class AIReport(Base):
     )
     schema_version: Mapped[str] = mapped_column(String(80), nullable=False)
     input_schema_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    generator: Mapped[str] = mapped_column(
+        String(80),
+        nullable=False,
+        default="deterministic",
+        server_default="deterministic",
+    )
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     overall_score: Mapped[int] = mapped_column(Integer, nullable=False)
     grade: Mapped[str] = mapped_column(String(1), nullable=False)

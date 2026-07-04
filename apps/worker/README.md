@@ -57,6 +57,16 @@ scanner는 다음 항목을 측정하거나 판단합니다.
 
 ScenarioRun은 critical step 실패 시 해당 step을 `FAILED`, 이후 step을 `SKIPPED`로 기록하고 전체 run을 `FAILED`로 종료합니다. non-critical step 실패는 기록하되 이후 step을 계속 실행합니다. CheckRun에 연결된 ScenarioRun이 끝나면 worker는 scanner 결과가 이미 저장된 CheckRun의 score와 comparison을 다시 계산합니다. 원본 CheckRun이 이미 terminal 상태이면 incident 상태와 AIReport task를 다시 갱신해 ScenarioRun evidence가 반영되도록 합니다. worker는 실행 중 발생한 `console.error`, failed network request, 실패 step screenshot을 failure evidence로 저장합니다. evidence message와 URL에 포함될 수 있는 token/password/API key 형태의 값은 저장 전에 마스킹하며, SSRF-safe 검증을 통과하지 못한 URL은 `[blocked-url]`로 저장합니다. 실패 screenshot 파일은 `ARTIFACT_LOCAL_ROOT` 아래 `scenario-runs/{scenario_run_id}/steps/{step_order}/failure.png` 경로에 저장하고, DB에는 artifact metadata와 `StepResult.failure_screenshot_artifact_id`만 기록합니다.
 
+AIReport의 서술 텍스트(요약, 이슈별 사용자 영향/권장 조치)는 `ANTHROPIC_API_KEY`가 설정된 경우 Claude API 구조화 출력으로 생성됩니다. LLM은 결정적 리포트의 점수, 등급, deployment risk, 이슈 목록, evidence 참조를 변경할 수 없으며 서술 텍스트만 다시 작성합니다. LLM이 반환한 이슈 id가 결정적 리포트에 없으면 무시됩니다. API 키가 없거나 호출·검증에 실패하면 기존 결정적 서술로 폴백하며, 어떤 경우에도 리포트 생성 자체는 실패하지 않습니다. 사용된 생성기는 `ai_reports.generator` 컬럼에 기록됩니다(`deterministic` 또는 모델 id).
+
+```powershell
+ANTHROPIC_API_KEY=          # 미설정 시 결정적 서술만 사용
+AI_REPORT_MODEL=claude-opus-4-8
+AI_REPORT_LLM_TIMEOUT_SECONDS=30.0
+AI_REPORT_LLM_MAX_RETRIES=1
+AI_REPORT_LLM_MAX_TOKENS=16000
+```
+
 Email alert delivery task는 `SMTP_HOST`와 `SMTP_FROM_EMAIL`이 설정된 경우 pending email alert를 SMTP로 발송하고 `SENT`로 기록합니다. SMTP 설정이 없으면 pending 상태를 유지하고 건너뜁니다. 수신자 email이 없거나 SMTP 발송 오류가 발생한 alert는 `FAILED`로 기록합니다.
 
 Lighthouse CLI는 루트 Node 의존성으로 설치되며, 기본 실행 명령은 `corepack pnpm exec lighthouse`입니다. 필요한 경우 `LIGHTHOUSE_COMMAND`로 실행 명령을 바꿀 수 있습니다.

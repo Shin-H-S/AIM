@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = True
     smtp_timeout_seconds: float = 10.0
     alert_delivery_batch_size: int = 25
+    anthropic_api_key: str | None = None
+    ai_report_model: str = "claude-opus-4-8"
+    ai_report_llm_timeout_seconds: float = 30.0
+    ai_report_llm_max_retries: int = 1
+    ai_report_llm_max_tokens: int = 16000
 
     model_config = SettingsConfigDict(
         env_file=".env",

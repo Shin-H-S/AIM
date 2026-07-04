@@ -10,7 +10,7 @@ Next.js 기반 AIM 사용자 인터페이스입니다.
 /
 ```
 
-로그인 페이지에서 저장한 access token을 자동으로 사용합니다. 필요한 경우 access token을 직접 입력해 Dashboard를 갱신할 수도 있습니다. Dashboard는 현재 사용자 정보를 확인한 뒤 프로젝트 목록을 조회하고, 각 프로젝트의 최신 CheckRun 1개를 병렬로 가져와 service URL, environment, verification 상태, 최신 CheckRun 상태와 실패 사유, 결과 페이지 링크를 표시합니다.
+로그인 페이지에서 저장한 access token을 자동으로 사용합니다. 필요한 경우 access token을 직접 입력해 Dashboard를 갱신할 수도 있습니다. Dashboard는 현재 사용자 정보를 확인한 뒤 프로젝트 목록을 조회하고, 각 프로젝트의 최신 CheckRun 1개와 linked ScenarioRun 요약을 병렬로 가져와 service URL, environment, verification 상태, 최신 CheckRun 상태와 실패 사유, ScenarioRun 실패 요약, 결과 페이지 링크를 표시합니다.
 
 Dashboard는 Project 생성 화면, Project 설정/domain verification 화면, Scenario 목록 화면, Alert overview 화면으로 이동하는 링크를 제공합니다. verified Project는 Dashboard에서 수동 CheckRun을 시작할 수 있으며, 생성 성공 후 CheckRun 결과 페이지로 이동합니다.
 
@@ -62,7 +62,7 @@ Dashboard는 Project 생성 화면, Project 설정/domain verification 화면, S
 /projects/{projectId}/check-runs/{checkRunId}
 ```
 
-페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. CheckRun이 `QUEUED`, `RUNNING`, `ANALYZING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 결정론적 score/risk, AI 진단 요약과 상세 패널, 직전 run 대비 변화, 연결된 ScenarioRun 실패 요약과 결과 페이지 링크, availability, SSL, Lighthouse metric 결과와 artifact metadata 및 다운로드 버튼을 표시합니다.
+페이지는 로그인 페이지에서 저장한 access token을 자동으로 사용하고, 필요한 경우 access token을 직접 입력해 다시 조회할 수 있습니다. CheckRun이 `QUEUED`, `RUNNING`, `ANALYZING` 상태일 때 단건 조회 API를 polling하고, `COMPLETED`, `FAILED`, `CANCELLED` 상태가 되면 polling을 멈춥니다. 결과 페이지는 결정론적 score/risk, AI 진단 요약과 상세 패널, 직전 run 대비 변화, 연결된 ScenarioRun 실패 요약, ScenarioRun 결과/목록 링크, availability, SSL, Lighthouse metric 결과와 artifact metadata 및 다운로드 버튼을 표시합니다.
 
 ## ScenarioRun 목록 페이지
 
@@ -121,6 +121,7 @@ Next.js 기반 AIM 사용자 인터페이스가 위치합니다.
 - Login 화면과 access token 저장
 - Vitest 기반 API 상태 확인 유틸리티 테스트
 - Project dashboard와 프로젝트별 최신 CheckRun 표시
+- Project dashboard의 최신 linked ScenarioRun 요약과 바로가기
 - Project 생성·수정 화면
 - Domain verification 안내 및 확인 화면
 - Dashboard 수동 CheckRun 시작 버튼

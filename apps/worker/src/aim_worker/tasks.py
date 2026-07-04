@@ -13,6 +13,7 @@ from aim_api.services import check_runs as check_run_service
 from aim_api.services import incidents as incident_service
 from aim_api.services import run_comparisons as run_comparison_service
 from aim_api.services import scan_queue
+from aim_api.services import scan_scheduling as scan_scheduling_service
 from aim_api.services import scanner_results as scanner_result_service
 from aim_api.services import scenarios as scenario_service
 from aim_api.services import score_results as score_result_service
@@ -21,6 +22,7 @@ from aim_api.services.scan_queue import (
     RUN_AI_REPORT_TASK_NAME,
     RUN_CHECK_RUN_TASK_NAME,
     RUN_SCENARIO_RUN_TASK_NAME,
+    SCHEDULE_CHECK_RUNS_TASK_NAME,
 )
 from sqlalchemy.orm import Session
 
@@ -39,6 +41,8 @@ AI_REPORT_ENQUEUE_FAILED_MESSAGE = "Failed to enqueue AI report generation task.
 INCIDENT_SYNC_FAILED_MESSAGE = "Failed to sync incidents for check run."
 EMAIL_ALERT_DELIVERY_FAILED_MESSAGE = "Failed to deliver pending email alerts."
 EMAIL_ALERT_DELIVERY_ENQUEUE_FAILED_MESSAGE = "Failed to enqueue email alert delivery task."
+SCHEDULED_CHECK_RUN_SCAN_FAILED_MESSAGE = "Failed to schedule due check runs."
+SCHEDULED_CHECK_RUN_ENQUEUE_FAILED_REASON = "Scan queue is unavailable."
 logger = logging.getLogger(__name__)
 
 
@@ -163,6 +167,66 @@ def sync_check_run_incidents(
             INCIDENT_SYNC_FAILED_MESSAGE,
             extra={"check_run_id": str(check_run_id), "project_id": str(project.id)},
         )
+
+
+def enqueue_scheduled_check_run(*, check_run_id: UUID) -> str:
+    return scan_queue.enqueue_check_run(check_run_id=check_run_id)
+
+
+@celery_app.task(  # type: ignore[untyped-decorator]
+    name=SCHEDULE_CHECK_RUNS_TASK_NAME,
+    soft_time_limit=60,
+    time_limit=90,
+)
+def schedule_due_check_runs() -> dict[str, int]:
+    scheduled_count = 0
+    enqueue_failed_count = 0
+    with SessionLocal() as session:
+        try:
+            due_projects = scan_scheduling_service.list_due_projects(session)
+        except Exception:
+            session.rollback()
+            logger.exception(SCHEDULED_CHECK_RUN_SCAN_FAILED_MESSAGE)
+            raise
+
+        for project in due_projects:
+            check_run = scan_scheduling_service.create_scheduled_check_run(
+                session,
+                project=project,
+            )
+            try:
+                enqueue_scheduled_check_run(check_run_id=check_run.id)
+            except scan_queue.ScanQueueUnavailableError:
+                enqueue_failed_count += 1
+                check_run_service.mark_check_run_failed(
+                    session,
+                    check_run_id=check_run.id,
+                    failure_reason=SCHEDULED_CHECK_RUN_ENQUEUE_FAILED_REASON,
+                )
+                logger.exception(
+                    SCHEDULED_CHECK_RUN_SCAN_FAILED_MESSAGE,
+                    extra={
+                        "project_id": str(project.id),
+                        "check_run_id": str(check_run.id),
+                    },
+                )
+                continue
+
+            scheduled_count += 1
+            logger.info(
+                "Scheduled check run enqueued.",
+                extra={
+                    "project_id": str(project.id),
+                    "check_run_id": str(check_run.id),
+                    "task_id": str(check_run.id),
+                },
+            )
+
+    return {
+        "due_project_count": scheduled_count + enqueue_failed_count,
+        "scheduled_count": scheduled_count,
+        "enqueue_failed_count": enqueue_failed_count,
+    }
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]

@@ -14,6 +14,14 @@ uv run playwright install chromium
 uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
 ```
 
+정기 스캔 스케줄링을 사용하려면 별도 프로세스로 Celery Beat를 함께 실행합니다.
+
+```powershell
+uv run celery -A aim_worker.celery_app.celery_app beat --loglevel=INFO
+```
+
+Beat는 `SCAN_SCHEDULER_INTERVAL_SECONDS`(기본 60초) 주기로 `schedule_due_check_runs` task를 실행합니다. 이 task는 소유권이 검증된 프로젝트 중 마지막 CheckRun 이후 `scan_interval_minutes`가 경과한 프로젝트를 찾아 `trigger_source="scheduled"`인 CheckRun을 생성하고 scan queue에 등록합니다. 검증되지 않은 프로젝트는 정기 스캔 대상에서 제외되며, `QUEUED`/`RUNNING`/`ANALYZING` 상태의 CheckRun이 남아 있는 프로젝트는 중복 실행과 큐 적체를 막기 위해 건너뜁니다. queue 등록에 실패한 scheduled CheckRun은 `FAILED`로 기록됩니다.
+
 현재 구현된 worker task는 CheckRun을 `RUNNING`으로 전환하고 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. ScenarioRun task는 저장된 Playwright step을 브라우저에서 순서대로 실행하고 StepResult를 기록합니다.
 
 scanner는 다음 항목을 측정하거나 판단합니다.

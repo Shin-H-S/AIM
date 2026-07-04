@@ -8,6 +8,7 @@ RUN_CHECK_RUN_TASK_NAME = "aim_worker.run_check_run"
 RUN_SCENARIO_RUN_TASK_NAME = "aim_worker.run_scenario_run"
 RUN_AI_REPORT_TASK_NAME = "aim_worker.generate_ai_report"
 DELIVER_EMAIL_ALERTS_TASK_NAME = "aim_worker.deliver_pending_email_alerts"
+SCHEDULE_CHECK_RUNS_TASK_NAME = "aim_worker.schedule_due_check_runs"
 
 
 class ScanQueueUnavailableError(Exception):

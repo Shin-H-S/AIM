@@ -1,4 +1,5 @@
 from aim_api.config import get_settings
+from aim_api.services.scan_queue import SCHEDULE_CHECK_RUNS_TASK_NAME
 from celery import Celery
 
 
@@ -16,6 +17,13 @@ def create_celery_app() -> Celery:
         task_time_limit=300,
         task_soft_time_limit=240,
         worker_prefetch_multiplier=1,
+        timezone="UTC",
+        beat_schedule={
+            "schedule-due-check-runs": {
+                "task": SCHEDULE_CHECK_RUNS_TASK_NAME,
+                "schedule": float(settings.scan_scheduler_interval_seconds),
+            },
+        },
     )
     return app
 

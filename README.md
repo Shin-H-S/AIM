@@ -100,6 +100,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - Signup 화면과 첫 Project 생성 온보딩 연결
 - Login 화면과 access token 저장
 - Project dashboard에서 프로젝트별 최신 CheckRun 목록 표시
+- Project dashboard에서 최신 CheckRun의 linked ScenarioRun 요약과 바로가기 표시
 - Project 생성·수정 화면
 - HTML meta-tag 기반 domain verification 안내 및 확인 화면
 - Project dashboard에서 수동 CheckRun 시작
@@ -216,6 +217,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 로그인 세션 또는 직접 입력한 access token 기반 프로젝트 목록 조회
 - 프로젝트별 service URL, environment, verification 상태
 - 프로젝트별 최신 CheckRun 상태와 실패 사유
+- 최신 CheckRun에 연결된 ScenarioRun 실패/진행 요약과 최근 결과 링크
 - Project 생성 화면 링크
 - Project 설정 및 domain verification 화면 링크
 - verified Project의 수동 CheckRun 시작 버튼
@@ -291,6 +293,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - risk gate reason
 - 이전 run 대비 변화
 - linked ScenarioRun 요약
+- linked ScenarioRun 결과 및 ScenarioRun 목록 페이지 링크
 - availability, SSL, Lighthouse 결과
 - artifact metadata와 다운로드 버튼
 
@@ -400,7 +403,7 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. Project dashboard와 결과 화면에서 최근 ScenarioRun 접근성 개선
-2. ScenarioRun 목록 상태 필터 UI 추가
+1. ScenarioRun 목록 상태 필터 UI 추가
+2. Project dashboard pagination/load more UI 추가
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

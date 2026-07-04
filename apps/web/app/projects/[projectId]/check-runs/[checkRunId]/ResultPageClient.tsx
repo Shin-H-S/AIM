@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import { AIReportDetailPanel } from "./AIReportDetailPanel";
@@ -576,10 +577,19 @@ function LinkedScenarioRunsCard({
 
   if (scenarioRuns.length === 0) {
     return (
-      <EmptyResultCard
-        title="Linked ScenarioRuns"
-        description="이 CheckRun에 연결된 ScenarioRun이 없습니다."
-      />
+      <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <h2 className="text-xl font-semibold text-slate-100">Linked ScenarioRuns</h2>
+        <p className="mt-3 text-sm leading-6 text-slate-400">
+          이 CheckRun에 연결된 ScenarioRun이 없습니다. Project의 Scenario 목록에서 수동 실행
+          이력과 설정을 확인할 수 있습니다.
+        </p>
+        <Link
+          className="mt-5 inline-flex rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20"
+          href={`/projects/${projectId}/scenarios`}
+        >
+          Scenario 목록 보기
+        </Link>
+      </article>
     );
   }
 
@@ -651,12 +661,20 @@ function LinkedScenarioRunsCard({
                 <Metric label="Finished" value={formatDateTime(scenarioRun.finished_at)} />
                 <Metric label="Failure" value={scenarioRun.failure_reason ?? "없음"} />
               </dl>
-              <a
-                className="mt-4 inline-flex rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20"
-                href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs/${scenarioRun.id}`}
-              >
-                ScenarioRun 결과 보기
-              </a>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  className="inline-flex rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20"
+                  href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs/${scenarioRun.id}`}
+                >
+                  ScenarioRun 결과 보기
+                </Link>
+                <Link
+                  className="inline-flex rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+                  href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs`}
+                >
+                  ScenarioRun 목록 보기
+                </Link>
+              </div>
             </li>
           );
         })}

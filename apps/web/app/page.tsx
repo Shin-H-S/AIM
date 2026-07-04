@@ -6,16 +6,20 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   createCheckRun,
   fetchApiHealth,
+  fetchCheckRunDetail,
   fetchCheckRuns,
   fetchCurrentUser,
   fetchProjects,
   getApiBaseUrl,
   logoutUser,
+  type CheckRunDetailResult,
   type CheckRunListResult,
   type CheckRunStatus,
   type CheckRunSummary,
   type HealthCheckResult,
   type Project,
+  type ScenarioRun,
+  type ScenarioRunStatus,
   type User
 } from "@/lib/api";
 import { clearStoredAccessToken, getStoredAccessToken, storeAccessToken } from "@/lib/auth";
@@ -38,10 +42,20 @@ const checkRunStatusCopy: Record<CheckRunStatus, string> = {
   CANCELLED: "취소됨"
 };
 
+const scenarioRunStatusCopy: Record<ScenarioRunStatus, string> = {
+  QUEUED: "대기 중",
+  RUNNING: "실행 중",
+  COMPLETED: "완료",
+  FAILED: "실패",
+  CANCELLED: "취소됨"
+};
+
 type DashboardProject = {
   project: Project;
   latestCheckRun: CheckRunSummary | null;
   latestCheckRunState: CheckRunListResult["state"];
+  latestLinkedScenarioRuns: ScenarioRun[];
+  latestLinkedScenarioRunsState: CheckRunDetailResult["state"] | "not-requested";
 };
 
 type CheckRunStartState =
@@ -138,12 +152,34 @@ export default function Home() {
           accessToken: normalizedToken,
           limit: 1
         });
+        const latestCheckRun =
+          checkRunsResult.state === "success" ? (checkRunsResult.checkRuns[0] ?? null) : null;
+
+        if (!latestCheckRun) {
+          return {
+            project,
+            latestCheckRun,
+            latestCheckRunState: checkRunsResult.state,
+            latestLinkedScenarioRuns: [],
+            latestLinkedScenarioRunsState: "not-requested" as const
+          };
+        }
+
+        const checkRunDetailResult = await fetchCheckRunDetail({
+          projectId: project.id,
+          checkRunId: latestCheckRun.id,
+          accessToken: normalizedToken
+        });
 
         return {
           project,
-          latestCheckRun:
-            checkRunsResult.state === "success" ? (checkRunsResult.checkRuns[0] ?? null) : null,
-          latestCheckRunState: checkRunsResult.state
+          latestCheckRun,
+          latestCheckRunState: checkRunsResult.state,
+          latestLinkedScenarioRuns:
+            checkRunDetailResult.state === "success"
+              ? checkRunDetailResult.checkRun.linked_scenario_runs
+              : [],
+          latestLinkedScenarioRunsState: checkRunDetailResult.state
         };
       })
     );
@@ -191,12 +227,19 @@ export default function Home() {
       ACTIVE_CHECK_RUN_STATUSES.includes(checkRun.status)
     ).length;
     const failedCount = latestRuns.filter((checkRun) => checkRun.status === "FAILED").length;
+    const linkedScenarioRuns = dashboard.projects.flatMap(
+      (project) => project.latestLinkedScenarioRuns
+    );
+    const scenarioFailureCount = linkedScenarioRuns.filter(
+      (scenarioRun) => scenarioRun.status === "FAILED"
+    ).length;
 
     return {
       projectCount: dashboard.projects.length,
       latestRunCount: latestRuns.length,
       activeCount,
-      failedCount
+      failedCount,
+      scenarioFailureCount
     };
   }, [dashboard]);
 
@@ -276,7 +319,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <StatusCard health={health} />
           <MetricCard
             label="Projects"
@@ -288,6 +331,16 @@ export default function Home() {
             value={dashboardSummary?.failedCount ?? "-"}
             description="최신 CheckRun이 실패한 프로젝트"
             tone={dashboardSummary && dashboardSummary.failedCount > 0 ? "danger" : "default"}
+          />
+          <MetricCard
+            label="Scenario failures"
+            value={dashboardSummary?.scenarioFailureCount ?? "-"}
+            description="최신 CheckRun에 연결된 실패 ScenarioRun"
+            tone={
+              dashboardSummary && dashboardSummary.scenarioFailureCount > 0
+                ? "danger"
+                : "default"
+            }
           />
         </div>
 
@@ -563,6 +616,8 @@ function ProjectDashboardCard({
         <LatestCheckRunCard
           latestCheckRun={latestCheckRun}
           latestCheckRunState={latestCheckRunState}
+          latestLinkedScenarioRuns={dashboardProject.latestLinkedScenarioRuns}
+          latestLinkedScenarioRunsState={dashboardProject.latestLinkedScenarioRunsState}
           projectId={project.id}
         />
       </div>
@@ -606,10 +661,14 @@ function CheckRunStartNotice({
 function LatestCheckRunCard({
   latestCheckRun,
   latestCheckRunState,
+  latestLinkedScenarioRuns,
+  latestLinkedScenarioRunsState,
   projectId
 }: {
   latestCheckRun: CheckRunSummary | null;
   latestCheckRunState: CheckRunListResult["state"];
+  latestLinkedScenarioRuns: ScenarioRun[];
+  latestLinkedScenarioRunsState: CheckRunDetailResult["state"] | "not-requested";
   projectId: string;
 }) {
   if (latestCheckRunState !== "success") {
@@ -674,6 +733,93 @@ function LatestCheckRunCard({
         <p className="mt-4 rounded-2xl bg-rose-950/40 p-3 text-sm leading-6 text-rose-100">
           {latestCheckRun.failure_reason}
         </p>
+      )}
+
+      <LatestScenarioRunAccess
+        projectId={projectId}
+        scenarioRuns={latestLinkedScenarioRuns}
+        state={latestLinkedScenarioRunsState}
+      />
+    </div>
+  );
+}
+
+function LatestScenarioRunAccess({
+  projectId,
+  scenarioRuns,
+  state
+}: {
+  projectId: string;
+  scenarioRuns: ScenarioRun[];
+  state: CheckRunDetailResult["state"] | "not-requested";
+}) {
+  if (state === "not-requested") {
+    return null;
+  }
+
+  if (state !== "success") {
+    return (
+      <div className="mt-4">
+        <Notice
+          description="최신 CheckRun의 linked ScenarioRun 요약을 불러오지 못했습니다. CheckRun 결과 화면에서 다시 확인하세요."
+          title="ScenarioRun 요약 조회 실패"
+          tone="danger"
+        />
+      </div>
+    );
+  }
+
+  if (scenarioRuns.length === 0) {
+    return (
+      <div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+        <p className="text-sm font-semibold text-slate-100">Linked ScenarioRun 없음</p>
+        <p className="mt-2 text-sm leading-6 text-slate-400">
+          최신 CheckRun에 연결된 browser scenario 실행 이력이 없습니다.
+        </p>
+      </div>
+    );
+  }
+
+  const latestScenarioRun = getLatestScenarioRun(scenarioRuns);
+  const summary = summarizeDashboardScenarioRuns(scenarioRuns);
+
+  return (
+    <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.05] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-cyan-100">최근 linked ScenarioRun</p>
+          <p className="mt-2 text-xs text-slate-400">
+            실패 {summary.failed}개 · 진행 중 {summary.active}개 · 전체 {summary.total}개
+          </p>
+        </div>
+        {latestScenarioRun && <ScenarioRunStatusBadge status={latestScenarioRun.status} />}
+      </div>
+
+      {latestScenarioRun && (
+        <>
+          <p className="mt-3 break-all font-mono text-xs text-slate-400">
+            {latestScenarioRun.id}
+          </p>
+          {latestScenarioRun.failure_reason && (
+            <p className="mt-3 rounded-2xl border border-rose-400/20 bg-rose-950/40 p-3 text-sm text-rose-100">
+              {latestScenarioRun.failure_reason}
+            </p>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              className="rounded-xl bg-cyan-300 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-cyan-200"
+              href={`/projects/${projectId}/scenarios/${latestScenarioRun.scenario_id}/runs/${latestScenarioRun.id}`}
+            >
+              최근 결과 보기
+            </Link>
+            <Link
+              className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20"
+              href={`/projects/${projectId}/scenarios/${latestScenarioRun.scenario_id}/runs`}
+            >
+              ScenarioRun 목록
+            </Link>
+          </div>
+        </>
       )}
     </div>
   );
@@ -747,6 +893,23 @@ function StatusBadge({ status }: { status: CheckRunStatus }) {
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
       {checkRunStatusCopy[status]}
+    </span>
+  );
+}
+
+function ScenarioRunStatusBadge({ status }: { status: ScenarioRunStatus }) {
+  const className =
+    status === "COMPLETED"
+      ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20"
+      : status === "FAILED"
+        ? "bg-rose-400/10 text-rose-300 ring-rose-400/20"
+        : status === "CANCELLED"
+          ? "bg-slate-500/10 text-slate-300 ring-slate-400/20"
+          : "bg-cyan-400/10 text-cyan-300 ring-cyan-400/20";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
+      {scenarioRunStatusCopy[status]}
     </span>
   );
 }
@@ -838,6 +1001,47 @@ function formatDateTime(value: string) {
 
 function formatNullableDateTime(value: string | null) {
   return value ? formatDateTime(value) : "아직 없음";
+}
+
+type DashboardScenarioRunSummary = {
+  total: number;
+  failed: number;
+  active: number;
+};
+
+function summarizeDashboardScenarioRuns(
+  scenarioRuns: ScenarioRun[]
+): DashboardScenarioRunSummary {
+  return scenarioRuns.reduce<DashboardScenarioRunSummary>(
+    (summary, scenarioRun) => {
+      if (scenarioRun.status === "FAILED") {
+        summary.failed += 1;
+      }
+
+      if (scenarioRun.status === "QUEUED" || scenarioRun.status === "RUNNING") {
+        summary.active += 1;
+      }
+
+      return summary;
+    },
+    {
+      total: scenarioRuns.length,
+      failed: 0,
+      active: 0
+    }
+  );
+}
+
+function getLatestScenarioRun(scenarioRuns: ScenarioRun[]): ScenarioRun | null {
+  return scenarioRuns.reduce<ScenarioRun | null>((latest, scenarioRun) => {
+    if (!latest) {
+      return scenarioRun;
+    }
+
+    return new Date(scenarioRun.queued_at).getTime() > new Date(latest.queued_at).getTime()
+      ? scenarioRun
+      : latest;
+  }, null);
 }
 
 const checkRunStartStateMessage: Record<

@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     lighthouse_timeout_seconds: int = 180
     artifact_storage_backend: str = "local"
     artifact_local_root: str = "artifacts"
+    scan_scheduler_interval_seconds: int = 60
     jwt_secret_key: str = "replace-with-a-local-development-secret"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30

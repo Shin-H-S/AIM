@@ -1,5 +1,7 @@
 # AIM
 
+[![CI](https://github.com/Shin-H-S/AIM/actions/workflows/ci.yml/badge.svg)](https://github.com/Shin-H-S/AIM/actions/workflows/ci.yml)
+
 AIM은 배포 후 웹서비스가 실제로 더 안정적이고 좋아졌는지 근거 기반으로 판단해주는 AI 품질 모니터링 플랫폼입니다.
 
 단순 uptime checker가 아니라, 서비스 가용성·웹 품질·핵심 사용자 흐름·이전 실행 대비 회귀 여부를 함께 보고 배포 위험을 판단하는 것을 목표로 합니다.
@@ -400,6 +402,14 @@ corepack pnpm web:typecheck
 corepack pnpm web:test
 corepack pnpm web:build
 ```
+
+### CI
+
+같은 검사를 GitHub Actions가 모든 pull request와 `main` push에서 자동 실행합니다(`.github/workflows/ci.yml`).
+
+- `Python checks`: ruff lint/format, mypy, pytest
+- `Web checks`: eslint, tsc, vitest, next build
+- `Database migrations`: PostgreSQL service container에서 alembic `upgrade head` → `downgrade base` → `upgrade head` 왕복 검증
 
 ## 다음 개발 우선순위
 

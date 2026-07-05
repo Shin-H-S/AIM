@@ -307,25 +307,25 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50">
+    <main className="min-h-screen bg-slate-100 text-slate-900">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
-        <header className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <header className="rounded-3xl border border-slate-200 bg-white p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-300">
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
                 AIM Alerts
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
                 Incident & Alert overview
               </h1>
-              <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">
-                이 화면은 <code className="text-cyan-200">{apiBaseUrlLabel}</code>에서
+              <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600">
+                이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>에서
                 프로젝트의 incident와 email alert 이력을 읽어옵니다. email alert 사용 여부와
                 수신자 email도 이 화면에서 저장할 수 있습니다.
               </p>
             </div>
             <Link
-              className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+              className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
               href="/"
             >
               Dashboard
@@ -342,9 +342,9 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
             }}
           >
             <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-200">Bearer token</span>
+              <span className="font-medium text-slate-700">Bearer token</span>
               <input
-                className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none ring-cyan-400/0 transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/10"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-cyan-400/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
                 onChange={(event) => setAccessToken(event.target.value)}
                 placeholder="로그인 API에서 받은 access_token을 입력하세요"
                 type="password"
@@ -352,7 +352,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
               />
             </label>
             <button
-              className="self-end rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="self-end rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!trimmedToken || loadState === "loading"}
               type="submit"
             >
@@ -441,15 +441,15 @@ function ProjectAlertSettingsCard({
   submitState: AlertSettingsSubmitState;
 }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <section className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-300">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">
             기본 Alert 기준
           </p>
-          <h2 className="mt-3 text-2xl font-bold text-slate-100">{project.name}</h2>
-          <p className="mt-2 break-all text-sm text-cyan-100">{project.service_url}</p>
-          <p className="mt-3 text-sm text-slate-400">
+          <h2 className="mt-3 text-2xl font-bold text-slate-900">{project.name}</h2>
+          <p className="mt-2 break-all text-sm text-cyan-700">{project.service_url}</p>
+          <p className="mt-3 text-sm text-slate-500">
             마지막 조회: {lastUpdatedAt ?? "아직 없음"}
           </p>
         </div>
@@ -475,21 +475,21 @@ function ProjectAlertSettingsCard({
       </dl>
 
       <form
-        className="mt-6 rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.04] p-5"
+        className="mt-6 rounded-2xl border border-cyan-200 bg-cyan-50/60 p-5"
         onSubmit={onSubmit}
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="text-lg font-bold text-slate-100">Email alert 설정</h3>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+            <h3 className="text-lg font-bold text-slate-900">Email alert 설정</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
               비활성화하면 새 incident open/recovery 시 pending email alert를 만들지 않습니다.
               수신자를 비워두면 Project owner email을 사용합니다.
             </p>
           </div>
-          <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300">
+          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
             <input
               checked={form.alertEmailEnabled}
-              className="h-4 w-4 accent-cyan-300"
+              className="h-4 w-4 accent-cyan-600"
               onChange={(event) =>
                 onChange({
                   ...form,
@@ -503,9 +503,9 @@ function ProjectAlertSettingsCard({
         </div>
 
         <label className="mt-5 block" htmlFor="alert-recipient-email">
-          <span className="text-sm font-semibold text-slate-300">Recipient email</span>
+          <span className="text-sm font-semibold text-slate-600">Recipient email</span>
           <input
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-cyan-300/0 transition placeholder:text-slate-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
             id="alert-recipient-email"
             maxLength={320}
             onChange={(event) =>
@@ -521,7 +521,7 @@ function ProjectAlertSettingsCard({
         </label>
 
         <button
-          className="mt-5 rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-5 rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={submitState === "submitting"}
           type="submit"
         >
@@ -532,8 +532,8 @@ function ProjectAlertSettingsCard({
           <p
             className={`mt-4 rounded-2xl border p-4 text-sm leading-6 ${
               submitState === "success"
-                ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-                : "border-rose-400/20 bg-rose-400/10 text-rose-100"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-rose-200 bg-rose-50 text-rose-800"
             }`}
           >
             {submitMessage}
@@ -546,7 +546,7 @@ function ProjectAlertSettingsCard({
 
 function IncidentSection({ incidents, projectId }: { incidents: Incident[]; projectId: string }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <section className="rounded-3xl border border-slate-200 bg-white p-6">
       <SectionHeader count={incidents.length} title="Incidents" />
       {incidents.length === 0 ? (
         <EmptyState description="아직 이 프로젝트에서 기록된 incident가 없습니다." />
@@ -563,7 +563,7 @@ function IncidentSection({ incidents, projectId }: { incidents: Incident[]; proj
 
 function IncidentCard({ incident, projectId }: { incident: Incident; projectId: string }) {
   return (
-    <li className="rounded-2xl border border-white/10 bg-slate-950/60 p-5">
+    <li className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap gap-2">
@@ -571,11 +571,11 @@ function IncidentCard({ incident, projectId }: { incident: Incident; projectId: 
             <SeverityBadge severity={incident.severity} />
             <Badge label={formatTriggerType(incident.trigger_type)} />
           </div>
-          <h3 className="mt-4 text-lg font-bold text-slate-100">{incident.title}</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-300">{incident.summary}</p>
+          <h3 className="mt-4 text-lg font-bold text-slate-900">{incident.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{incident.summary}</p>
         </div>
         <Link
-          className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+          className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500"
           href={`/projects/${projectId}/check-runs/${incident.opened_check_run_id}`}
         >
           시작 run 보기
@@ -588,7 +588,7 @@ function IncidentCard({ incident, projectId }: { incident: Incident; projectId: 
         <Metric label="Incident ID" value={incident.id} />
       </dl>
 
-      <pre className="mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-slate-900 p-4 text-xs leading-5 text-slate-300">
+      <pre className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4 text-xs leading-5 text-slate-600">
         {JSON.stringify(incident.evidence_json, null, 2)}
       </pre>
     </li>
@@ -625,15 +625,15 @@ function AlertSection({
   totalAlertCount: number;
 }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <section className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-slate-100">Email alerts</h2>
-          <p className="mt-2 text-sm text-slate-400">
+          <h2 className="text-xl font-semibold text-slate-900">Email alerts</h2>
+          <p className="mt-2 text-sm text-slate-500">
             로드된 alert {totalAlertCount}개 중 {alerts.length}개를 표시합니다.
           </p>
         </div>
-        <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300 ring-1 ring-cyan-400/20">
+        <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
           {alerts.length}개
         </span>
       </div>
@@ -665,14 +665,14 @@ function AlertSection({
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
-          className="rounded-2xl border border-cyan-300/30 px-4 py-2 text-sm font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-2xl border border-cyan-300 px-4 py-2 text-sm font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={!hasMoreAlerts || isLoadingMoreAlerts}
           onClick={onLoadMore}
           type="button"
         >
           {isLoadingMoreAlerts ? "더 불러오는 중" : "Alert 더 보기"}
         </button>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-slate-500">
           {hasMoreAlerts
             ? `${LIST_LIMIT}개 단위로 더 불러옵니다.`
             : "현재 로드된 목록이 마지막 page입니다."}
@@ -680,7 +680,7 @@ function AlertSection({
       </div>
 
       {listMessage && (
-        <p className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4 text-sm text-cyan-100">
+        <p className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-700">
           {listMessage}
         </p>
       )}
@@ -728,8 +728,8 @@ function AlertFilterBar({
           <button
             className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
               isSelected
-                ? "bg-cyan-300 text-slate-950"
-                : "border border-white/10 text-slate-300 hover:border-cyan-300/50 hover:text-cyan-100"
+                ? "bg-cyan-600 text-white"
+                : "border border-slate-200 text-slate-600 hover:border-cyan-400 hover:text-cyan-700"
             }`}
             key={filter.value}
             onClick={() => onChange(filter.value)}
@@ -759,7 +759,7 @@ function AlertCard({
   const canRetry = alert.status === "FAILED";
 
   return (
-    <li className="rounded-2xl border border-white/10 bg-slate-950/60 p-5">
+    <li className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap gap-2">
@@ -767,15 +767,15 @@ function AlertCard({
             <Badge label={alert.channel} />
             <Badge label={formatAlertType(alert.alert_type)} />
           </div>
-          <h3 className="mt-4 text-lg font-bold text-slate-100">{alert.subject}</h3>
-          <p className="mt-2 text-sm text-slate-400">
+          <h3 className="mt-4 text-lg font-bold text-slate-900">{alert.subject}</h3>
+          <p className="mt-2 text-sm text-slate-500">
             수신자: {alert.recipient_email ?? "미설정"} · 시도 횟수: {alert.delivery_attempts}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {canRetry && (
             <button
-              className="rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={retrying}
               onClick={() => onRetry(alert)}
               type="button"
@@ -785,7 +785,7 @@ function AlertCard({
           )}
           {alert.check_run_id && (
             <Link
-              className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+              className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500"
               href={`/projects/${projectId}/check-runs/${alert.check_run_id}`}
             >
               관련 run 보기
@@ -801,7 +801,7 @@ function AlertCard({
       </dl>
 
       {alert.last_error && (
-        <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100">
+        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
           {alert.last_error}
         </p>
       )}
@@ -810,8 +810,8 @@ function AlertCard({
         <p
           className={`mt-4 rounded-2xl border p-4 text-sm leading-6 ${
             retryFeedback.state === "success"
-              ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-              : "border-rose-400/20 bg-rose-400/10 text-rose-100"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-rose-200 bg-rose-50 text-rose-800"
           }`}
         >
           {retryFeedback.message}
@@ -870,8 +870,8 @@ function ResultNotice({
 function SectionHeader({ count, title }: { count: number; title: string }) {
   return (
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-xl font-semibold text-slate-100">{title}</h2>
-      <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300 ring-1 ring-cyan-400/20">
+      <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+      <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
         {count}개
       </span>
     </div>
@@ -880,11 +880,11 @@ function SectionHeader({ count, title }: { count: number; title: string }) {
 
 function Identifier({ label, value }: { label: string; value: string }) {
   return (
-    <div className="mt-5 rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+    <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
         {label}
       </p>
-      <p className="break-all font-mono text-xs text-slate-200">{value}</p>
+      <p className="break-all font-mono text-xs text-slate-700">{value}</p>
     </div>
   );
 }
@@ -892,8 +892,8 @@ function Identifier({ label, value }: { label: string; value: string }) {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</dt>
-      <dd className="mt-1 break-words text-slate-200">{value}</dd>
+      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
+      <dd className="mt-1 break-words text-slate-700">{value}</dd>
     </div>
   );
 }
@@ -909,8 +909,8 @@ function Notice({
 }) {
   const className =
     tone === "info"
-      ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-100"
-      : "border-rose-400/20 bg-rose-400/10 text-rose-100";
+      ? "border-cyan-200 bg-cyan-50 text-cyan-700"
+      : "border-rose-200 bg-rose-50 text-rose-800";
 
   return (
     <article className={`rounded-3xl border p-6 ${className}`}>
@@ -922,7 +922,7 @@ function Notice({
 
 function EmptyState({ description }: { description: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-5 text-sm text-slate-400">
+    <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-5 text-sm text-slate-500">
       {description}
     </div>
   );
@@ -930,7 +930,7 @@ function EmptyState({ description }: { description: string }) {
 
 function Badge({ label }: { label: string }) {
   return (
-    <span className="rounded-full bg-slate-700/80 px-3 py-1 text-xs font-bold text-slate-200 ring-1 ring-white/10">
+    <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-700 ring-1 ring-slate-200">
       {label}
     </span>
   );
@@ -939,8 +939,8 @@ function Badge({ label }: { label: string }) {
 function StatusBadge({ status }: { status: string }) {
   const className =
     status === "OPEN"
-      ? "bg-rose-400/10 text-rose-300 ring-rose-400/20"
-      : "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20";
+      ? "bg-rose-50 text-rose-700 ring-rose-200"
+      : "bg-emerald-50 text-emerald-700 ring-emerald-200";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
@@ -952,8 +952,8 @@ function StatusBadge({ status }: { status: string }) {
 function SeverityBadge({ severity }: { severity: string }) {
   const className =
     severity === "RISK"
-      ? "bg-rose-400/10 text-rose-300 ring-rose-400/20"
-      : "bg-amber-400/10 text-amber-300 ring-amber-400/20";
+      ? "bg-rose-50 text-rose-700 ring-rose-200"
+      : "bg-amber-50 text-amber-700 ring-amber-200";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
@@ -965,10 +965,10 @@ function SeverityBadge({ severity }: { severity: string }) {
 function AlertStatusBadge({ status }: { status: string }) {
   const className =
     status === "SENT"
-      ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
       : status === "FAILED"
-        ? "bg-rose-400/10 text-rose-300 ring-rose-400/20"
-        : "bg-cyan-400/10 text-cyan-300 ring-cyan-400/20";
+        ? "bg-rose-50 text-rose-700 ring-rose-200"
+        : "bg-cyan-50 text-cyan-700 ring-cyan-200";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>

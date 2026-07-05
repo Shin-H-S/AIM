@@ -128,23 +128,23 @@ export function ScenarioRunResultPageClient({
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50">
+    <main className="min-h-screen bg-slate-100 text-slate-900">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
-        <header className="flex flex-col gap-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <header className="flex flex-col gap-6 rounded-3xl border border-slate-200 bg-white p-6">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-300">
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
               AIM Scenario Result
             </p>
             <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
               ScenarioRun 결과
             </h1>
-            <p className="mt-4 text-sm leading-6 text-slate-300">
-              이 화면은 <code className="text-cyan-200">{apiBaseUrlLabel}</code>의
+            <p className="mt-4 text-sm leading-6 text-slate-600">
+              이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의
               ScenarioRun 단건 API를 polling해서 step 결과와 실패 근거를 보여줍니다.
             </p>
           </div>
 
-          <div className="grid gap-3 text-sm text-slate-300 md:grid-cols-3">
+          <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-3">
             <Identifier label="Project ID" value={projectId} />
             <Identifier label="Scenario ID" value={scenarioId} />
             <Identifier label="ScenarioRun ID" value={scenarioRunId} />
@@ -158,9 +158,9 @@ export function ScenarioRunResultPageClient({
             }}
           >
             <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-200">Bearer token</span>
+              <span className="font-medium text-slate-700">Bearer token</span>
               <input
-                className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none ring-cyan-400/0 transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/10"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-cyan-400/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
                 type="password"
                 value={accessToken}
                 placeholder="로그인 API에서 받은 access_token을 입력하세요"
@@ -168,7 +168,7 @@ export function ScenarioRunResultPageClient({
               />
             </label>
             <button
-              className="self-end rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="self-end rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
               type="submit"
               disabled={!trimmedToken || isLoading}
             >
@@ -248,11 +248,11 @@ export function ScenarioRunResultPageClient({
 
 function Identifier({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
         {label}
       </p>
-      <p className="break-all font-mono text-xs text-slate-200">{value}</p>
+      <p className="break-all font-mono text-xs text-slate-700">{value}</p>
     </div>
   );
 }
@@ -269,14 +269,14 @@ function StatusSummary({
   const badgeClassName = getStatusBadgeClassName(scenarioRun.status);
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">실행 상태</h2>
         <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${badgeClassName}`}>
           {statusLabels[scenarioRun.status]}
         </span>
       </div>
-      <dl className="grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
+      <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric label="Trigger" value={scenarioRun.trigger_source} />
         <Metric label="Linked CheckRun" value={scenarioRun.check_run_id ?? "없음"} />
         <Metric label="Polling" value={shouldPoll ? "자동 새로고침 중" : "중지됨"} />
@@ -290,9 +290,9 @@ function StatusSummary({
 
 function TimelineCard({ scenarioRun }: { scenarioRun: ScenarioRunDetail }) {
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <h2 className="mb-5 text-xl font-semibold">타임라인</h2>
-      <dl className="grid gap-4 text-sm text-slate-300">
+      <dl className="grid gap-4 text-sm text-slate-600">
         <Metric label="Queued" value={formatDateTime(scenarioRun.queued_at)} />
         <Metric label="Started" value={formatDateTime(scenarioRun.started_at)} />
         <Metric label="Finished" value={formatDateTime(scenarioRun.finished_at)} />
@@ -319,25 +319,25 @@ function StepResultsCard({
   }
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">Step results</h2>
-        <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300 ring-1 ring-cyan-400/20">
+        <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
           {stepResults.length}개
         </span>
       </div>
       <ol className="grid gap-3">
         {stepResults.map((stepResult) => (
           <li
-            className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300"
+            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"
             key={stepResult.id}
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="font-semibold text-slate-100">
+                <p className="font-semibold text-slate-900">
                   #{stepResult.step_order} {actionLabels[stepResult.action]}
                 </p>
-                <p className="mt-2 break-all font-mono text-xs text-slate-400">
+                <p className="mt-2 break-all font-mono text-xs text-slate-500">
                   {stepResult.target ?? "target 없음"}
                 </p>
               </div>
@@ -359,7 +359,7 @@ function StepResultsCard({
               />
             </dl>
             {stepResult.error_message && (
-              <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100">
+              <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
                 {stepResult.error_message}
               </p>
             )}
@@ -394,8 +394,8 @@ function EvidenceSummaryCard({
   const totalEvidenceCount = consoleErrors.length + networkFailures.length;
   const hasEvidence = totalEvidenceCount > 0;
   const className = hasEvidence
-    ? "border-rose-400/20 bg-rose-400/10 text-rose-100"
-    : "border-emerald-400/20 bg-emerald-400/10 text-emerald-100";
+    ? "border-rose-200 bg-rose-50 text-rose-800"
+    : "border-emerald-200 bg-emerald-50 text-emerald-800";
 
   return (
     <article className={`rounded-3xl border p-6 ${className}`}>
@@ -411,7 +411,7 @@ function EvidenceSummaryCard({
             {getEvidenceSummaryDescription(consoleErrors, networkFailures)}
           </p>
         </div>
-        <span className="rounded-full bg-black/20 px-3 py-1 text-xs font-bold ring-1 ring-white/10">
+        <span className="rounded-full bg-black/20 px-3 py-1 text-xs font-bold ring-1 ring-slate-200">
           {totalEvidenceCount}개
         </span>
       </div>
@@ -519,27 +519,27 @@ function EvidenceListCard({
   }[];
 }) {
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-rose-300">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-rose-700">
             Evidence
           </p>
           <h2 className="mt-2 text-xl font-semibold">{title}</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
         </div>
-        <span className="rounded-full bg-rose-400/10 px-3 py-1 text-xs font-bold text-rose-300 ring-1 ring-rose-400/20">
+        <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700 ring-1 ring-rose-200">
           {count}개
         </span>
       </div>
       <ul className="grid gap-3">
         {items.map((item) => (
           <li
-            className="rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-slate-300"
+            className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-slate-600"
             key={item.id}
           >
-            <p className="break-words font-semibold text-slate-100">{item.title}</p>
-            <p className="mt-2 break-all font-mono text-xs text-slate-400">{item.subtitle}</p>
+            <p className="break-words font-semibold text-slate-900">{item.title}</p>
+            <p className="mt-2 break-all font-mono text-xs text-slate-500">{item.subtitle}</p>
             <dl className="mt-4 grid gap-3 sm:grid-cols-2">
               {item.details.map(([label, value]) => (
                 <Metric key={label} label={label} value={value} />
@@ -554,9 +554,9 @@ function EvidenceListCard({
 
 function EmptyResultCard({ title, description }: { title: string; description: string }) {
   return (
-    <article className="rounded-3xl border border-dashed border-white/10 bg-white/[0.02] p-6">
+    <article className="rounded-3xl border border-dashed border-slate-200 bg-white/60 p-6">
       <h2 className="text-xl font-semibold">{title}</h2>
-      <p className="mt-4 text-sm text-slate-400">{description}</p>
+      <p className="mt-4 text-sm text-slate-500">{description}</p>
     </article>
   );
 }
@@ -564,8 +564,8 @@ function EmptyResultCard({ title, description }: { title: string; description: s
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</dt>
-      <dd className="mt-1 break-words text-slate-200">{value}</dd>
+      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
+      <dd className="mt-1 break-words text-slate-700">{value}</dd>
     </div>
   );
 }
@@ -581,8 +581,8 @@ function Notice({
 }) {
   const className =
     tone === "info"
-      ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-100"
-      : "border-rose-400/20 bg-rose-400/10 text-rose-100";
+      ? "border-cyan-200 bg-cyan-50 text-cyan-700"
+      : "border-rose-200 bg-rose-50 text-rose-800";
 
   return (
     <article className={`rounded-3xl border p-6 ${className}`}>
@@ -594,26 +594,26 @@ function Notice({
 
 function getStatusBadgeClassName(status: ScenarioRunStatus) {
   if (status === "COMPLETED") {
-    return "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20";
+    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   }
 
   if (status === "FAILED" || status === "CANCELLED") {
-    return "bg-rose-400/10 text-rose-300 ring-rose-400/20";
+    return "bg-rose-50 text-rose-700 ring-rose-200";
   }
 
-  return "bg-cyan-400/10 text-cyan-300 ring-cyan-400/20";
+  return "bg-cyan-50 text-cyan-700 ring-cyan-200";
 }
 
 function getStepStatusBadgeClassName(status: StepResultStatus) {
   if (status === "PASSED") {
-    return "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20";
+    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   }
 
   if (status === "FAILED") {
-    return "bg-rose-400/10 text-rose-300 ring-rose-400/20";
+    return "bg-rose-50 text-rose-700 ring-rose-200";
   }
 
-  return "bg-slate-700 text-slate-300 ring-white/10";
+  return "bg-slate-200 text-slate-600 ring-slate-200";
 }
 
 function formatDateTime(value: string | null) {

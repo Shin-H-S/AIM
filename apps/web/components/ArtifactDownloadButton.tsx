@@ -49,7 +49,7 @@ export function ArtifactDownloadButton({
   return (
     <div className="flex flex-col items-start gap-2">
       <button
-        className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
         type="button"
         disabled={!trimmedToken || state === "downloading"}
         onClick={() => {
@@ -61,7 +61,7 @@ export function ArtifactDownloadButton({
       {message && (
         <p
           className={`text-xs ${
-            state === "error" ? "text-rose-200" : "text-emerald-200"
+            state === "error" ? "text-rose-700" : "text-emerald-700"
           }`}
         >
           {message}

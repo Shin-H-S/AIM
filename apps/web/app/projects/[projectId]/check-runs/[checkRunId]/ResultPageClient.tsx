@@ -332,23 +332,23 @@ export function ResultPageClient({
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50">
+    <main className="min-h-screen bg-slate-100 text-slate-900">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
-        <header className="flex flex-col gap-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <header className="flex flex-col gap-6 rounded-3xl border border-slate-200 bg-white p-6">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-300">
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
               AIM Scan Result
             </p>
             <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
               CheckRun 결과
             </h1>
-            <p className="mt-4 text-sm leading-6 text-slate-300">
-              이 화면은 <code className="text-cyan-200">{apiBaseUrlLabel}</code>의 CheckRun 단건
+            <p className="mt-4 text-sm leading-6 text-slate-600">
+              이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의 CheckRun 단건
               API를 polling해서 상태와 저장된 scanner result를 보여줍니다.
             </p>
           </div>
 
-          <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
+          <div className="grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
             <Identifier label="Project ID" value={projectId} />
             <Identifier label="CheckRun ID" value={checkRunId} />
           </div>
@@ -361,9 +361,9 @@ export function ResultPageClient({
             }}
           >
             <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-200">Bearer token</span>
+              <span className="font-medium text-slate-700">Bearer token</span>
               <input
-                className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none ring-cyan-400/0 transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-400/10"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-cyan-400/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
                 type="password"
                 value={accessToken}
                 placeholder="로그인 API에서 받은 access_token을 입력하세요"
@@ -376,7 +376,7 @@ export function ResultPageClient({
               />
             </label>
             <button
-              className="self-end rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="self-end rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
               type="submit"
               disabled={!trimmedToken || isLoading}
             >
@@ -476,11 +476,11 @@ export function ResultPageClient({
 
 function Identifier({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
         {label}
       </p>
-      <p className="break-all font-mono text-xs text-slate-200">{value}</p>
+      <p className="break-all font-mono text-xs text-slate-700">{value}</p>
     </div>
   );
 }
@@ -503,14 +503,14 @@ function StatusSummary({
   const badgeClassName = getStatusBadgeClassName(checkRun.status);
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">실행 상태</h2>
         <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${badgeClassName}`}>
           {statusLabels[checkRun.status]}
         </span>
       </div>
-      <dl className="grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
+      <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric label="Trigger" value={checkRun.trigger_source} />
         <Metric label="Polling" value={shouldPoll ? "자동 새로고침 중" : "중지됨"} />
         <Metric label="Failure" value={checkRun.failure_reason ?? "없음"} />
@@ -520,21 +520,21 @@ function StatusSummary({
       {shouldPoll && (
         <div className="mt-5">
           <button
-            className="rounded-2xl border border-rose-300/30 bg-rose-300/10 px-4 py-2 text-sm font-bold text-rose-100 transition hover:border-rose-200 hover:bg-rose-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-bold text-rose-800 transition hover:border-rose-500 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isCancelling}
             onClick={onCancel}
             type="button"
           >
             {isCancelling ? "취소 요청 중" : "이 CheckRun 취소"}
           </button>
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-slate-500">
             대기·실행·분석 중인 CheckRun만 취소할 수 있습니다.
           </p>
         </div>
       )}
 
       {cancelError && (
-        <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100">
+        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
           {cancelError}
         </p>
       )}
@@ -544,9 +544,9 @@ function StatusSummary({
 
 function TimelineCard({ checkRun }: { checkRun: CheckRunDetail }) {
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <h2 className="mb-5 text-xl font-semibold">타임라인</h2>
-      <dl className="grid gap-4 text-sm text-slate-300">
+      <dl className="grid gap-4 text-sm text-slate-600">
         <Metric label="Queued" value={formatDateTime(checkRun.queued_at)} />
         <Metric label="Started" value={formatDateTime(checkRun.started_at)} />
         <Metric label="Finished" value={formatDateTime(checkRun.finished_at)} />
@@ -564,19 +564,19 @@ function ScoreCard({ result }: { result: ScoreResult | null }) {
   const riskClassName = getRiskBadgeClassName(result.deployment_risk);
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
             Deterministic score
           </p>
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <p className="text-5xl font-black tracking-tight">{result.grade}</p>
-            <p className="pb-1 text-xl font-semibold text-slate-200">
+            <p className="pb-1 text-xl font-semibold text-slate-700">
               {result.overall_score}/100
             </p>
           </div>
-          <p className="mt-3 text-sm text-slate-400">
+          <p className="mt-3 text-sm text-slate-500">
             현재 구현된 scanner 기준 {result.evaluated_weight}% 가중치만 평가했습니다.
           </p>
         </div>
@@ -595,7 +595,7 @@ function ScoreCard({ result }: { result: ScoreResult | null }) {
         </div>
       )}
 
-      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
+      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
         <Metric label="Availability" value={formatScore(result.availability_score)} />
         <Metric
           label="Functional stability"
@@ -638,14 +638,14 @@ function AIReportSummaryCard({
   const riskClassName = getRiskBadgeClassName(report.deployment_risk);
 
   return (
-    <article className="rounded-3xl border border-cyan-300/20 bg-cyan-300/[0.04] p-6">
+    <article className="rounded-3xl border border-cyan-200 bg-cyan-50/60 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
             AI diagnosis
           </p>
           <h2 className="mt-3 text-2xl font-bold">근거 기반 진단 요약</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">{report.summary}</p>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{report.summary}</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${riskClassName}`}>
           {riskLabels[report.deployment_risk]}
@@ -662,21 +662,21 @@ function AIReportSummaryCard({
         </div>
       )}
 
-      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
         <Metric label="Grade" value={report.grade} />
         <Metric label="Overall score" value={`${report.overall_score}/100`} />
         <Metric label="Generated" value={formatDateTime(report.generated_at)} />
         <Metric label="Updated" value={formatDateTime(report.updated_at)} />
       </dl>
 
-      <p className="mt-5 rounded-2xl border border-white/10 bg-slate-950/40 p-4 text-xs leading-5 text-slate-400">
+      <p className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-500">
         이 요약은 AIM이 수집한 score, scanner result, scenario evidence를 바탕으로 생성됩니다.
         내부 원인이나 소스 코드 위치를 확정 사실처럼 표시하지 않습니다.
       </p>
 
       <div className="mt-5">
         <button
-          className="rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-2xl border border-cyan-300 bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isLoadingDetail}
           onClick={onLoadDetail}
           type="button"
@@ -737,20 +737,20 @@ function ComparisonCard({ result }: { result: RunComparison | null }) {
   }
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
             Previous run comparison
           </p>
           <h2 className="mt-3 text-2xl font-bold">직전 run 대비 변화</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-300">{result.summary}</p>
+          <p className="mt-3 text-sm leading-6 text-slate-600">{result.summary}</p>
         </div>
-        <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300 ring-1 ring-white/10">
+        <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
           {result.comparison_type}
         </span>
       </div>
-      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
+      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
         <Metric label="Baseline run" value={result.baseline_check_run_id} />
         <Metric label="Overall score" value={formatDelta(result.overall_score_delta)} />
         <Metric label="Availability" value={formatDelta(result.availability_score_delta)} />
@@ -809,20 +809,20 @@ function BaselineComparisonCard({
   const canPin = isTerminal && checkRun.score_result !== null;
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
             Baseline comparison
           </p>
           <h2 className="mt-3 text-2xl font-bold">Baseline 대비 변화</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
             프로젝트 baseline은 배포 전 마지막 정상 run 같은 기준점입니다. 직전 run 비교와 달리
             항상 같은 기준과 비교하므로 배포가 실제로 나아졌는지 판단할 수 있습니다.
           </p>
         </div>
         {isCurrentBaseline && (
-          <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
             현재 baseline
           </span>
         )}
@@ -831,7 +831,7 @@ function BaselineComparisonCard({
       <div className="mt-5 flex flex-wrap items-center gap-3">
         {isCurrentBaseline ? (
           <button
-            className="rounded-2xl border border-rose-300/30 bg-rose-300/10 px-4 py-3 text-sm font-bold text-rose-100 transition hover:border-rose-200 hover:bg-rose-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800 transition hover:border-rose-500 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isMutating}
             onClick={onClearBaseline}
             type="button"
@@ -840,7 +840,7 @@ function BaselineComparisonCard({
           </button>
         ) : (
           <button
-            className="rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-2xl border border-cyan-300 bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={!canPin || isMutating}
             onClick={onSetBaseline}
             type="button"
@@ -849,7 +849,7 @@ function BaselineComparisonCard({
           </button>
         )}
         {!isCurrentBaseline && !canPin && (
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             terminal 상태이고 score가 계산된 run만 baseline으로 지정할 수 있습니다.
           </p>
         )}
@@ -915,7 +915,7 @@ function BaselineComparisonBody({
   }
 
   if (!comparisonResult) {
-    return <p className="text-sm text-slate-400">baseline 비교를 불러오는 중입니다.</p>;
+    return <p className="text-sm text-slate-500">baseline 비교를 불러오는 중입니다.</p>;
   }
 
   if (comparisonResult.state === "unauthorized") {
@@ -962,8 +962,8 @@ function BaselineComparisonBody({
 
   return (
     <div>
-      <p className="text-sm leading-6 text-slate-300">{comparison.summary}</p>
-      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
+      <p className="text-sm leading-6 text-slate-600">{comparison.summary}</p>
+      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
         <Metric label="Baseline run" value={comparison.baseline_check_run_id} />
         <Metric label="Overall score" value={formatDelta(comparison.overall_score_delta)} />
         <Metric label="Availability" value={formatDelta(comparison.availability_score_delta)} />
@@ -1009,14 +1009,14 @@ function LinkedScenarioRunsCard({
 
   if (scenarioRuns.length === 0) {
     return (
-      <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-        <h2 className="text-xl font-semibold text-slate-100">Linked ScenarioRuns</h2>
-        <p className="mt-3 text-sm leading-6 text-slate-400">
+      <article className="rounded-3xl border border-slate-200 bg-white p-6">
+        <h2 className="text-xl font-semibold text-slate-900">Linked ScenarioRuns</h2>
+        <p className="mt-3 text-sm leading-6 text-slate-500">
           이 CheckRun에 연결된 ScenarioRun이 없습니다. Project의 Scenario 목록에서 수동 실행
           이력과 설정을 확인할 수 있습니다.
         </p>
         <Link
-          className="mt-5 inline-flex rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20"
+          className="mt-5 inline-flex rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100"
           href={`/projects/${projectId}/scenarios`}
         >
           Scenario 목록 보기
@@ -1026,15 +1026,15 @@ function LinkedScenarioRunsCard({
   }
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
             Functional checks
           </p>
           <h2 className="mt-2 text-xl font-semibold">연결된 ScenarioRun</h2>
         </div>
-        <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300 ring-1 ring-cyan-400/20">
+        <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
           {scenarioRuns.length}개
         </span>
       </div>
@@ -1057,17 +1057,17 @@ function LinkedScenarioRunsCard({
 
           return (
             <li
-              className={`rounded-2xl border p-4 text-sm text-slate-300 ${
+              className={`rounded-2xl border p-4 text-sm text-slate-600 ${
                 isFailed
-                  ? "border-rose-400/20 bg-rose-400/10"
-                  : "border-white/10 bg-slate-900/60"
+                  ? "border-rose-200 bg-rose-50"
+                  : "border-slate-200 bg-slate-50"
               }`}
               key={scenarioRun.id}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-slate-100">ScenarioRun</p>
-                  <p className="mt-2 break-all font-mono text-xs text-slate-400">
+                  <p className="font-semibold text-slate-900">ScenarioRun</p>
+                  <p className="mt-2 break-all font-mono text-xs text-slate-500">
                     {scenarioRun.id}
                   </p>
                 </div>
@@ -1080,7 +1080,7 @@ function LinkedScenarioRunsCard({
                 </span>
               </div>
               {isFailed && (
-                <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-950/40 p-3 text-sm text-rose-100">
+                <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-100 p-3 text-sm text-rose-800">
                   우선 확인 필요: {scenarioRun.failure_reason ?? "실패 사유가 기록되지 않았습니다."}
                 </p>
               )}
@@ -1095,13 +1095,13 @@ function LinkedScenarioRunsCard({
               </dl>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link
-                  className="inline-flex rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20"
+                  className="inline-flex rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100"
                   href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs/${scenarioRun.id}`}
                 >
                   ScenarioRun 결과 보기
                 </Link>
                 <Link
-                  className="inline-flex rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+                  className="inline-flex rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
                   href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs`}
                 >
                   ScenarioRun 목록 보기
@@ -1188,18 +1188,18 @@ function getScenarioSummaryDescription(summary: ScenarioRunSummary) {
 
 function getScenarioSummaryClassName(summary: ScenarioRunSummary) {
   if (summary.failed > 0) {
-    return "border-rose-400/20 bg-rose-400/10 text-rose-100";
+    return "border-rose-200 bg-rose-50 text-rose-800";
   }
 
   if (summary.active > 0) {
-    return "border-cyan-400/20 bg-cyan-400/10 text-cyan-100";
+    return "border-cyan-200 bg-cyan-50 text-cyan-700";
   }
 
   if (summary.cancelled > 0) {
-    return "border-amber-400/20 bg-amber-400/10 text-amber-100";
+    return "border-amber-200 bg-amber-50 text-amber-800";
   }
 
-  return "border-emerald-400/20 bg-emerald-400/10 text-emerald-100";
+  return "border-emerald-200 bg-emerald-50 text-emerald-800";
 }
 
 function AvailabilityCard({ result }: { result: AvailabilityResult | null }) {
@@ -1208,14 +1208,14 @@ function AvailabilityCard({ result }: { result: AvailabilityResult | null }) {
   }
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <ResultHeader
         title="Availability"
         isHealthy={result.is_available}
         healthyLabel="사용 가능"
         unhealthyLabel="사용 불가"
       />
-      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
+      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric label="Status code" value={formatNullable(result.status_code)} />
         <Metric label="Response time" value={formatMilliseconds(result.response_time_ms)} />
         <Metric label="Redirects" value={String(result.redirect_count)} />
@@ -1223,7 +1223,7 @@ function AvailabilityCard({ result }: { result: AvailabilityResult | null }) {
         <Metric label="Timed out" value={result.timed_out ? "예" : "아니오"} />
         <Metric label="Failure" value={result.failure_reason ?? "없음"} />
       </dl>
-      <p className="mt-5 break-all text-xs text-slate-400">
+      <p className="mt-5 break-all text-xs text-slate-500">
         Final URL: {result.final_url ?? "없음"}
       </p>
     </article>
@@ -1238,14 +1238,14 @@ function SslCard({ result }: { result: SslResult | null }) {
   const isHealthy = result.is_applicable ? result.is_valid === true : true;
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <ResultHeader
         title="SSL"
         isHealthy={isHealthy}
         healthyLabel={result.is_applicable ? "유효" : "대상 아님"}
         unhealthyLabel="문제 있음"
       />
-      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
+      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric label="Applicable" value={result.is_applicable ? "예" : "아니오"} />
         <Metric label="Valid" value={formatBoolean(result.is_valid)} />
         <Metric label="Expires at" value={formatDateTime(result.expires_at)} />
@@ -1259,7 +1259,7 @@ function SslCard({ result }: { result: SslResult | null }) {
         />
         <Metric label="Failure" value={result.failure_reason ?? "없음"} />
       </dl>
-      <p className="mt-5 break-all text-xs text-slate-400">Service URL: {result.service_url}</p>
+      <p className="mt-5 break-all text-xs text-slate-500">Service URL: {result.service_url}</p>
     </article>
   );
 }
@@ -1272,14 +1272,14 @@ function LighthouseCard({ result }: { result: LighthouseResult | null }) {
   }
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <ResultHeader
         title="Lighthouse"
         isHealthy={result.is_successful}
         healthyLabel="실행 성공"
         unhealthyLabel="실행 실패"
       />
-      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2">
+      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric label="Performance" value={formatScore(result.performance_score)} />
         <Metric label="Accessibility" value={formatScore(result.accessibility_score)} />
         <Metric label="SEO" value={formatScore(result.seo_score)} />
@@ -1290,7 +1290,7 @@ function LighthouseCard({ result }: { result: LighthouseResult | null }) {
         <Metric label="Raw JSON artifact" value={result.raw_json_artifact_id ?? "없음"} />
         <Metric label="Failure" value={result.failure_reason ?? "없음"} />
       </dl>
-      <p className="mt-5 break-all text-xs text-slate-400">Service URL: {result.service_url}</p>
+      <p className="mt-5 break-all text-xs text-slate-500">Service URL: {result.service_url}</p>
     </article>
   );
 }
@@ -1307,21 +1307,21 @@ function ArtifactCard({
   }
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">Artifacts</h2>
-        <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300 ring-1 ring-cyan-400/20">
+        <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
           {artifacts.length}개
         </span>
       </div>
       <ul className="grid gap-3">
         {artifacts.map((artifact) => (
           <li
-            className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-300"
+            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"
             key={artifact.id}
           >
-            <p className="font-semibold text-slate-100">{artifact.artifact_type}</p>
-            <p className="mt-2 break-all font-mono text-xs text-slate-400">
+            <p className="font-semibold text-slate-900">{artifact.artifact_type}</p>
+            <p className="mt-2 break-all font-mono text-xs text-slate-500">
               {artifact.storage_backend}:{artifact.storage_path}
             </p>
             <dl className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -1342,9 +1342,9 @@ function ArtifactCard({
 
 function EmptyResultCard({ title, description }: { title: string; description: string }) {
   return (
-    <article className="rounded-3xl border border-dashed border-white/10 bg-white/[0.02] p-6">
+    <article className="rounded-3xl border border-dashed border-slate-200 bg-white/60 p-6">
       <h2 className="text-xl font-semibold">{title}</h2>
-      <p className="mt-4 text-sm text-slate-400">{description}</p>
+      <p className="mt-4 text-sm text-slate-500">{description}</p>
     </article>
   );
 }
@@ -1366,8 +1366,8 @@ function ResultHeader({
       <span
         className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${
           isHealthy
-            ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20"
-            : "bg-rose-400/10 text-rose-300 ring-rose-400/20"
+            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+            : "bg-rose-50 text-rose-700 ring-rose-200"
         }`}
       >
         {isHealthy ? healthyLabel : unhealthyLabel}
@@ -1379,8 +1379,8 @@ function ResultHeader({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</dt>
-      <dd className="mt-1 break-words text-slate-200">{value}</dd>
+      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
+      <dd className="mt-1 break-words text-slate-700">{value}</dd>
     </div>
   );
 }
@@ -1396,8 +1396,8 @@ function Notice({
 }) {
   const className =
     tone === "info"
-      ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-100"
-      : "border-rose-400/20 bg-rose-400/10 text-rose-100";
+      ? "border-cyan-200 bg-cyan-50 text-cyan-700"
+      : "border-rose-200 bg-rose-50 text-rose-800";
 
   return (
     <article className={`rounded-3xl border p-6 ${className}`}>
@@ -1409,26 +1409,26 @@ function Notice({
 
 function getStatusBadgeClassName(status: CheckRunStatus | ScenarioRunStatus) {
   if (status === "COMPLETED") {
-    return "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20";
+    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   }
 
   if (status === "FAILED" || status === "CANCELLED") {
-    return "bg-rose-400/10 text-rose-300 ring-rose-400/20";
+    return "bg-rose-50 text-rose-700 ring-rose-200";
   }
 
-  return "bg-cyan-400/10 text-cyan-300 ring-cyan-400/20";
+  return "bg-cyan-50 text-cyan-700 ring-cyan-200";
 }
 
 function getRiskBadgeClassName(risk: ScoreResult["deployment_risk"]) {
   if (risk === "STABLE") {
-    return "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20";
+    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   }
 
   if (risk === "RISK") {
-    return "bg-rose-400/10 text-rose-300 ring-rose-400/20";
+    return "bg-rose-50 text-rose-700 ring-rose-200";
   }
 
-  return "bg-amber-400/10 text-amber-300 ring-amber-400/20";
+  return "bg-amber-50 text-amber-700 ring-amber-200";
 }
 
 function formatDateTime(value: string | null) {

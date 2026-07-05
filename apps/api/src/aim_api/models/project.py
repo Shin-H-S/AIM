@@ -13,6 +13,9 @@ from sqlalchemy import (
     Uuid,
     func,
 )
+from sqlalchemy import (
+    false as sa_false,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from aim_api.database import Base
@@ -62,6 +65,12 @@ class Project(Base):
     description: Mapped[str | None] = mapped_column(Text)
     environment: Mapped[str] = mapped_column(String(32), nullable=False, default="development")
     scan_interval_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    scheduled_scans_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+    )
     response_time_threshold_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=2000)
     quality_score_threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=80)
     alert_email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

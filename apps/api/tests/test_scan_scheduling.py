@@ -45,6 +45,7 @@ def create_project(
     is_verified: bool = True,
     has_owner: bool = True,
     scan_interval_minutes: int = 60,
+    scheduled_scans_enabled: bool = True,
 ) -> Project:
     owner_id = create_user(session).id if has_owner else None
     project = Project(
@@ -54,6 +55,7 @@ def create_project(
         verified_at=NOW - timedelta(days=1) if is_verified else None,
         environment="production",
         scan_interval_minutes=scan_interval_minutes,
+        scheduled_scans_enabled=scheduled_scans_enabled,
     )
     session.add(project)
     session.commit()
@@ -91,6 +93,12 @@ def test_verified_project_without_check_runs_is_due(session: Session) -> None:
     project = create_project(session)
 
     assert list_due_project_ids(session) == [project.id]
+
+
+def test_project_without_opt_in_is_not_due(session: Session) -> None:
+    create_project(session, scheduled_scans_enabled=False)
+
+    assert list_due_project_ids(session) == []
 
 
 def test_unverified_project_is_not_due(session: Session) -> None:

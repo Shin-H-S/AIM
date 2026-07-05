@@ -24,6 +24,7 @@ type ProjectFormState = {
   description: string;
   environment: ProjectEnvironment;
   scanIntervalMinutes: string;
+  scheduledScansEnabled: boolean;
   responseTimeThresholdMs: string;
   qualityScoreThreshold: string;
 };
@@ -46,6 +47,7 @@ const initialForm: ProjectFormState = {
   description: "",
   environment: "development",
   scanIntervalMinutes: "60",
+  scheduledScansEnabled: false,
   responseTimeThresholdMs: "2000",
   qualityScoreThreshold: "80"
 };
@@ -389,6 +391,29 @@ function ProjectForm({
             value={form.qualityScoreThreshold}
           />
         </div>
+
+        <label
+          className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950 p-4"
+          htmlFor="scheduled_scans_enabled"
+        >
+          <input
+            checked={form.scheduledScansEnabled}
+            className="mt-1 h-4 w-4 accent-cyan-300"
+            id="scheduled_scans_enabled"
+            name="scheduled_scans_enabled"
+            onChange={(event) =>
+              onChange({ ...form, scheduledScansEnabled: event.target.checked })
+            }
+            type="checkbox"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-slate-200">정기 스캔 사용</span>
+            <span className="mt-1 block text-xs leading-5 text-slate-400">
+              체크하면 verified 상태에서 위 Scan interval 주기로 자동 스캔합니다. 기본은 수동
+              스캔 전용입니다.
+            </span>
+          </span>
+        </label>
       </div>
 
       <button
@@ -711,6 +736,7 @@ function formFromProject(project: Project): ProjectFormState {
     description: project.description ?? "",
     environment: project.environment,
     scanIntervalMinutes: String(project.scan_interval_minutes),
+    scheduledScansEnabled: project.scheduled_scans_enabled,
     responseTimeThresholdMs: String(project.response_time_threshold_ms),
     qualityScoreThreshold: String(project.quality_score_threshold)
   };
@@ -757,6 +783,7 @@ function buildProjectPayload(
       description: description || null,
       environment: form.environment,
       scan_interval_minutes: scanIntervalMinutes,
+      scheduled_scans_enabled: form.scheduledScansEnabled,
       response_time_threshold_ms: responseTimeThresholdMs,
       quality_score_threshold: qualityScoreThreshold
     }

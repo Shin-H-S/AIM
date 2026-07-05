@@ -52,11 +52,12 @@ def is_project_due(
 
 
 def list_due_projects(session: Session, *, now: datetime | None = None) -> list[Project]:
-    """Return verified projects whose scan interval has elapsed and have no active run."""
+    """Return opted-in verified projects whose scan interval has elapsed with no active run."""
     current_time = now or datetime.now(UTC)
     statement = select(Project).where(
         Project.verified_at.is_not(None),
         Project.owner_id.is_not(None),
+        Project.scheduled_scans_enabled.is_(True),
     )
     verified_projects = list(session.scalars(statement))
     if not verified_projects:

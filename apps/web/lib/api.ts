@@ -63,6 +63,7 @@ export type Project = {
   description: string | null;
   environment: ProjectEnvironment;
   scan_interval_minutes: number;
+  scheduled_scans_enabled: boolean;
   response_time_threshold_ms: number;
   quality_score_threshold: number;
   alert_email_enabled: boolean;
@@ -79,6 +80,7 @@ export type ProjectPayload = {
   description: string | null;
   environment: ProjectEnvironment;
   scan_interval_minutes: number;
+  scheduled_scans_enabled?: boolean;
   response_time_threshold_ms: number;
   quality_score_threshold: number;
   alert_email_enabled?: boolean;

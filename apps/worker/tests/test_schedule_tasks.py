@@ -56,6 +56,7 @@ def create_project(
     *,
     is_verified: bool = True,
     scan_interval_minutes: int = 60,
+    scheduled_scans_enabled: bool = True,
 ) -> Project:
     user = User(email=f"{uuid4()}@example.com", password_hash="hashed-password")
     session.add(user)
@@ -67,6 +68,7 @@ def create_project(
         verified_at=datetime.now(UTC) - timedelta(days=1) if is_verified else None,
         environment="production",
         scan_interval_minutes=scan_interval_minutes,
+        scheduled_scans_enabled=scheduled_scans_enabled,
     )
     session.add(project)
     session.commit()
@@ -113,6 +115,23 @@ def test_schedule_due_check_runs_creates_and_enqueues_scheduled_run(
     assert scheduled_run.status == CheckRunStatus.QUEUED.value
     assert scheduled_run.trigger_source == SCHEDULED_TRIGGER_SOURCE
     assert scheduled_check_run_queue == [str(scheduled_run.id)]
+
+
+def test_schedule_due_check_runs_skips_project_without_opt_in(
+    session: Session,
+    scheduled_check_run_queue: list[str],
+) -> None:
+    create_project(session, scheduled_scans_enabled=False)
+
+    result = tasks.schedule_due_check_runs.run()
+
+    assert result == {
+        "due_project_count": 0,
+        "scheduled_count": 0,
+        "enqueue_failed_count": 0,
+    }
+    assert list_check_runs(session) == []
+    assert scheduled_check_run_queue == []
 
 
 def test_schedule_due_check_runs_skips_unverified_project(

@@ -53,17 +53,23 @@ def run_lighthouse_scan(
     )
 
     try:
-        completed_process = command_runner(command, settings.lighthouse_timeout_seconds)
-        if completed_process.returncode != 0:
-            return failed_lighthouse_result(service_url, "Lighthouse CLI failed.")
+        try:
+            completed_process = command_runner(command, settings.lighthouse_timeout_seconds)
+        except FileNotFoundError:
+            return failed_lighthouse_result(service_url, "Lighthouse CLI is not available.")
+        except subprocess.TimeoutExpired:
+            return failed_lighthouse_result(service_url, "Lighthouse scan timed out.")
 
-        raw_json = parse_lighthouse_output(output_path)
-    except FileNotFoundError:
-        return failed_lighthouse_result(service_url, "Lighthouse CLI is not available.")
-    except subprocess.TimeoutExpired:
-        return failed_lighthouse_result(service_url, "Lighthouse scan timed out.")
-    except (JSONDecodeError, OSError):
-        return failed_lighthouse_result(service_url, "Lighthouse output could not be parsed.")
+        # The CLI can exit non-zero after writing a complete report (for example
+        # chrome-launcher's temp-profile cleanup fails on Windows), so the output
+        # file is the source of truth and the exit code only matters without one.
+        try:
+            raw_json = parse_lighthouse_output(output_path)
+        except (JSONDecodeError, OSError):
+            if completed_process.returncode != 0:
+                return failed_lighthouse_result(service_url, "Lighthouse CLI failed.")
+
+            return failed_lighthouse_result(service_url, "Lighthouse output could not be parsed.")
     finally:
         output_path.unlink(missing_ok=True)
 

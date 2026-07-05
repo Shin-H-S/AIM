@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     app_log_level: str = "INFO"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    cors_allowed_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
     database_url: str = "postgresql+psycopg://aim:aim@localhost:5432/aim"
     redis_url: str = "redis://localhost:6379/0"
     scanner_timeout_seconds: float = 10.0

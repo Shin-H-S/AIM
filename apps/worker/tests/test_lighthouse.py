@@ -126,3 +126,20 @@ def test_run_lighthouse_scan_records_timeout() -> None:
 
     assert result.is_successful is False
     assert result.failure_reason == "Lighthouse scan timed out."
+
+
+def test_run_lighthouse_scan_prefers_report_over_nonzero_exit_code() -> None:
+    def runner(command: Sequence[str], timeout_seconds: int) -> subprocess.CompletedProcess[str]:
+        _ = timeout_seconds
+        write_lighthouse_payload(get_output_path(command))
+        return subprocess.CompletedProcess(command, 1, stdout="", stderr="cleanup failed")
+
+    result = run_lighthouse_scan(
+        "https://example.com",
+        resolver=public_resolver,
+        runner=runner,
+    )
+
+    assert result.is_successful is True
+    assert result.performance_score == 92
+    assert result.failure_reason is None

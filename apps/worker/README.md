@@ -14,6 +14,13 @@ uv run playwright install chromium
 uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO
 ```
 
+Windows에서는 두 가지를 조정해야 합니다. Celery prefork pool이 동작하지 않으므로 `--pool=solo`를 사용하고, 기본 Lighthouse 명령의 `corepack`은 `.cmd` 스크립트라 worker subprocess가 직접 실행할 수 없으므로 `LIGHTHOUSE_COMMAND`로 node 직접 실행을 지정합니다.
+
+```powershell
+$env:LIGHTHOUSE_COMMAND = "node node_modules/lighthouse/cli/index.js"
+uv run celery -A aim_worker.celery_app.celery_app worker --loglevel=INFO --pool=solo
+```
+
 정기 스캔 스케줄링을 사용하려면 별도 프로세스로 Celery Beat를 함께 실행합니다.
 
 ```powershell

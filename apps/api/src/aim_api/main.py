@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from aim_api.config import get_settings
 from aim_api.routers.alerts import router as alerts_router
@@ -17,6 +18,12 @@ def create_app() -> FastAPI:
         title="AIM API",
         version="0.1.0",
         debug=settings.app_env == "development",
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_methods=["*"],
+        allow_headers=["Authorization", "Content-Type"],
     )
     app.include_router(health_router)
     app.include_router(database_health_router)

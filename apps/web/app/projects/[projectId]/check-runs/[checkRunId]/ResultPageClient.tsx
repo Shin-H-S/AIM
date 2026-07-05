@@ -5,17 +5,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import { AIReportDetailPanel } from "./AIReportDetailPanel";
 import {
+  clearProjectBaseline,
+  fetchBaselineComparison,
   fetchCheckRunAIReport,
   fetchCheckRunDetail,
+  fetchProject,
   getApiBaseUrl,
+  setProjectBaseline,
   type AIReportDetailResult,
   type AIReportSummary,
   type Artifact,
   type AvailabilityResult,
+  type BaselineComparisonResult,
   type CheckRunDetail,
   type CheckRunDetailResult,
   type CheckRunStatus,
   type LighthouseResult,
+  type Project,
+  type ProjectDetailResult,
   type RunComparison,
   type ScoreResult,
   type ScenarioRun,
@@ -65,9 +72,17 @@ export function ResultPageClient({
     useState<AIReportDetailResult | null>(null);
   const [isAIReportDetailLoading, setIsAIReportDetailLoading] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [projectResult, setProjectResult] = useState<ProjectDetailResult | null>(null);
+  const [baselineComparisonResult, setBaselineComparisonResult] =
+    useState<BaselineComparisonResult | null>(null);
+  const [isBaselineMutating, setIsBaselineMutating] = useState(false);
+  const [baselineActionError, setBaselineActionError] = useState<string | null>(null);
   const trimmedToken = accessToken.trim();
   const checkRun = result?.state === "success" ? result.checkRun : null;
   const shouldPoll = checkRun ? ACTIVE_STATUSES.has(checkRun.status) : false;
+  const project = projectResult?.state === "success" ? projectResult.project : null;
+  const baselineCheckRunId = project?.baseline_check_run_id ?? null;
+  const isCheckRunTerminal = checkRun ? !ACTIVE_STATUSES.has(checkRun.status) : false;
   const visibleAIReportDetailResult =
     checkRun?.ai_report &&
     aiReportDetailResult?.state === "success" &&
@@ -102,9 +117,32 @@ export function ResultPageClient({
     setIsLoading(false);
   }, [checkRunId, projectId]);
 
+  const loadProject = useCallback(
+    async (token: string) => {
+      const normalizedToken = token.trim();
+
+      if (!normalizedToken) {
+        setProjectResult(null);
+        return;
+      }
+
+      const nextResult = await fetchProject({
+        projectId,
+        accessToken: normalizedToken
+      });
+
+      if (nextResult.state === "unauthorized") {
+        clearStoredAccessTokenIfMatches(normalizedToken);
+      }
+
+      setProjectResult(nextResult);
+    },
+    [projectId]
+  );
+
   const refresh = useCallback(async () => {
-    await loadCheckRun(trimmedToken);
-  }, [loadCheckRun, trimmedToken]);
+    await Promise.all([loadCheckRun(trimmedToken), loadProject(trimmedToken)]);
+  }, [loadCheckRun, loadProject, trimmedToken]);
 
   const loadAIReportDetail = useCallback(async () => {
     if (!trimmedToken) {
@@ -139,8 +177,109 @@ export function ResultPageClient({
 
       setAccessToken(storedAccessToken);
       void loadCheckRun(storedAccessToken);
+      void loadProject(storedAccessToken);
     });
-  }, [loadCheckRun]);
+  }, [loadCheckRun, loadProject]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (
+      !trimmedToken ||
+      !baselineCheckRunId ||
+      baselineCheckRunId === checkRunId ||
+      !isCheckRunTerminal
+    ) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setBaselineComparisonResult(null);
+        }
+      });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void (async () => {
+      const nextResult = await fetchBaselineComparison({
+        projectId,
+        checkRunId,
+        accessToken: trimmedToken
+      });
+
+      if (cancelled) {
+        return;
+      }
+
+      if (nextResult.state === "unauthorized") {
+        clearStoredAccessTokenIfMatches(trimmedToken);
+      }
+
+      setBaselineComparisonResult(nextResult);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baselineCheckRunId, checkRunId, isCheckRunTerminal, projectId, trimmedToken]);
+
+  const handleSetBaseline = useCallback(async () => {
+    if (!trimmedToken || isBaselineMutating) {
+      return;
+    }
+
+    setIsBaselineMutating(true);
+    setBaselineActionError(null);
+    const mutationResult = await setProjectBaseline({
+      projectId,
+      checkRunId,
+      accessToken: trimmedToken
+    });
+
+    if (mutationResult.state === "success") {
+      setProjectResult({ state: "success", project: mutationResult.project });
+    } else if (mutationResult.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(trimmedToken);
+      setBaselineActionError("인증이 만료되었습니다. 다시 로그인한 뒤 시도하세요.");
+    } else if (mutationResult.state === "conflict") {
+      setBaselineActionError(
+        "terminal 상태이고 score가 계산된 CheckRun만 baseline으로 지정할 수 있습니다."
+      );
+    } else if (mutationResult.state === "not-found") {
+      setBaselineActionError("프로젝트 또는 CheckRun을 찾을 수 없습니다.");
+    } else {
+      setBaselineActionError("baseline 설정 요청이 실패했습니다. API 서버 상태를 확인하세요.");
+    }
+
+    setIsBaselineMutating(false);
+  }, [checkRunId, isBaselineMutating, projectId, trimmedToken]);
+
+  const handleClearBaseline = useCallback(async () => {
+    if (!trimmedToken || isBaselineMutating) {
+      return;
+    }
+
+    setIsBaselineMutating(true);
+    setBaselineActionError(null);
+    const mutationResult = await clearProjectBaseline({
+      projectId,
+      accessToken: trimmedToken
+    });
+
+    if (mutationResult.state === "success") {
+      setProjectResult({ state: "success", project: mutationResult.project });
+    } else if (mutationResult.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(trimmedToken);
+      setBaselineActionError("인증이 만료되었습니다. 다시 로그인한 뒤 시도하세요.");
+    } else if (mutationResult.state === "not-found") {
+      setBaselineActionError("프로젝트를 찾을 수 없습니다.");
+    } else {
+      setBaselineActionError("baseline 해제 요청이 실패했습니다. API 서버 상태를 확인하세요.");
+    }
+
+    setIsBaselineMutating(false);
+  }, [isBaselineMutating, projectId, trimmedToken]);
 
   useEffect(() => {
     if (!shouldPoll || !trimmedToken) {
@@ -201,6 +340,8 @@ export function ResultPageClient({
                 onChange={(event) => {
                   setAccessToken(event.target.value);
                   setAIReportDetailResult(null);
+                  setBaselineComparisonResult(null);
+                  setBaselineActionError(null);
                 }}
               />
             </label>
@@ -273,6 +414,15 @@ export function ResultPageClient({
               report={checkRun.ai_report}
             />
             <ComparisonCard result={checkRun.comparison_result} />
+            <BaselineComparisonCard
+              actionError={baselineActionError}
+              checkRun={checkRun}
+              comparisonResult={baselineComparisonResult}
+              isMutating={isBaselineMutating}
+              onClearBaseline={handleClearBaseline}
+              onSetBaseline={handleSetBaseline}
+              project={project}
+            />
             <LinkedScenarioRunsCard
               projectId={projectId}
               scenarioRuns={checkRun.linked_scenario_runs}
@@ -563,6 +713,227 @@ function ComparisonCard({ result }: { result: RunComparison | null }) {
         />
       </dl>
     </article>
+  );
+}
+
+function BaselineComparisonCard({
+  actionError,
+  checkRun,
+  comparisonResult,
+  isMutating,
+  onClearBaseline,
+  onSetBaseline,
+  project
+}: {
+  actionError: string | null;
+  checkRun: CheckRunDetail;
+  comparisonResult: BaselineComparisonResult | null;
+  isMutating: boolean;
+  onClearBaseline: () => void;
+  onSetBaseline: () => void;
+  project: Project | null;
+}) {
+  if (!project) {
+    return (
+      <EmptyResultCard
+        title="Baseline comparison"
+        description="프로젝트 정보를 불러온 뒤 baseline 지정과 비교를 사용할 수 있습니다."
+      />
+    );
+  }
+
+  const baselineCheckRunId = project.baseline_check_run_id;
+  const isCurrentBaseline = baselineCheckRunId === checkRun.id;
+  const isTerminal = !ACTIVE_STATUSES.has(checkRun.status);
+  const canPin = isTerminal && checkRun.score_result !== null;
+
+  return (
+    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+            Baseline comparison
+          </p>
+          <h2 className="mt-3 text-2xl font-bold">Baseline 대비 변화</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+            프로젝트 baseline은 배포 전 마지막 정상 run 같은 기준점입니다. 직전 run 비교와 달리
+            항상 같은 기준과 비교하므로 배포가 실제로 나아졌는지 판단할 수 있습니다.
+          </p>
+        </div>
+        {isCurrentBaseline && (
+          <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+            현재 baseline
+          </span>
+        )}
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        {isCurrentBaseline ? (
+          <button
+            className="rounded-2xl border border-rose-300/30 bg-rose-300/10 px-4 py-3 text-sm font-bold text-rose-100 transition hover:border-rose-200 hover:bg-rose-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isMutating}
+            onClick={onClearBaseline}
+            type="button"
+          >
+            {isMutating ? "baseline 해제 중" : "baseline 해제"}
+          </button>
+        ) : (
+          <button
+            className="rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!canPin || isMutating}
+            onClick={onSetBaseline}
+            type="button"
+          >
+            {isMutating ? "baseline 지정 중" : "이 run을 baseline으로 지정"}
+          </button>
+        )}
+        {!isCurrentBaseline && !canPin && (
+          <p className="text-xs text-slate-400">
+            terminal 상태이고 score가 계산된 run만 baseline으로 지정할 수 있습니다.
+          </p>
+        )}
+      </div>
+
+      {actionError && (
+        <div className="mt-5">
+          <Notice tone="danger" title="Baseline 요청 실패" description={actionError} />
+        </div>
+      )}
+
+      <div className="mt-5">
+        <BaselineComparisonBody
+          baselineCheckRunId={baselineCheckRunId}
+          comparisonResult={comparisonResult}
+          isCurrentBaseline={isCurrentBaseline}
+          isTerminal={isTerminal}
+        />
+      </div>
+    </article>
+  );
+}
+
+function BaselineComparisonBody({
+  baselineCheckRunId,
+  comparisonResult,
+  isCurrentBaseline,
+  isTerminal
+}: {
+  baselineCheckRunId: string | null;
+  comparisonResult: BaselineComparisonResult | null;
+  isCurrentBaseline: boolean;
+  isTerminal: boolean;
+}) {
+  if (!baselineCheckRunId) {
+    return (
+      <Notice
+        tone="info"
+        title="아직 baseline이 없습니다"
+        description="terminal 상태의 run에서 baseline을 지정하면 이후 모든 run을 같은 기준과 비교할 수 있습니다."
+      />
+    );
+  }
+
+  if (isCurrentBaseline) {
+    return (
+      <Notice
+        tone="info"
+        title="이 run이 프로젝트 baseline입니다"
+        description="다른 CheckRun 결과 페이지에서 이 baseline 대비 변화를 확인할 수 있습니다."
+      />
+    );
+  }
+
+  if (!isTerminal) {
+    return (
+      <Notice
+        tone="info"
+        title="run이 아직 완료되지 않았습니다"
+        description="CheckRun이 terminal 상태가 되면 baseline 비교를 계산합니다."
+      />
+    );
+  }
+
+  if (!comparisonResult) {
+    return <p className="text-sm text-slate-400">baseline 비교를 불러오는 중입니다.</p>;
+  }
+
+  if (comparisonResult.state === "unauthorized") {
+    return (
+      <Notice
+        tone="danger"
+        title="baseline 비교 인증 실패"
+        description="토큰이 만료되었거나 이 프로젝트에 접근할 권한이 없습니다."
+      />
+    );
+  }
+
+  if (comparisonResult.state === "not-found") {
+    return (
+      <Notice
+        tone="danger"
+        title="baseline run을 찾을 수 없습니다"
+        description="baseline으로 지정된 CheckRun이 더 이상 존재하지 않습니다. baseline을 다시 지정하세요."
+      />
+    );
+  }
+
+  if (comparisonResult.state === "conflict") {
+    return (
+      <Notice
+        tone="info"
+        title="baseline 비교를 계산할 수 없습니다"
+        description="baseline 또는 이 run에 score result가 없어 비교할 수 없습니다."
+      />
+    );
+  }
+
+  if (comparisonResult.state === "unavailable") {
+    return (
+      <Notice
+        tone="danger"
+        title="baseline 비교 요청 실패"
+        description="API 서버 상태와 네트워크 연결을 확인한 뒤 다시 시도하세요."
+      />
+    );
+  }
+
+  const comparison = comparisonResult.comparison;
+
+  return (
+    <div>
+      <p className="text-sm leading-6 text-slate-300">{comparison.summary}</p>
+      <dl className="mt-5 grid gap-4 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
+        <Metric label="Baseline run" value={comparison.baseline_check_run_id} />
+        <Metric label="Overall score" value={formatDelta(comparison.overall_score_delta)} />
+        <Metric label="Availability" value={formatDelta(comparison.availability_score_delta)} />
+        <Metric
+          label="Performance score"
+          value={formatDelta(comparison.performance_score_delta)}
+        />
+        <Metric
+          label="Web performance"
+          value={formatDelta(comparison.web_performance_score_delta)}
+        />
+        <Metric
+          label="Accessibility"
+          value={formatDelta(comparison.accessibility_score_delta)}
+        />
+        <Metric
+          label="SEO/basic quality"
+          value={formatDelta(comparison.seo_basic_quality_score_delta)}
+        />
+        <Metric
+          label="Response time"
+          value={formatMillisecondsDelta(comparison.response_time_delta_ms)}
+        />
+        <Metric
+          label="Deployment risk"
+          value={`${riskLabels[comparison.baseline_deployment_risk]} → ${
+            riskLabels[comparison.current_deployment_risk]
+          }`}
+        />
+      </dl>
+    </div>
   );
 }
 

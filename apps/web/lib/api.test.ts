@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  clearProjectBaseline,
   createCheckRun,
   createProject,
   createScenario,
@@ -7,6 +8,7 @@ import {
   deleteScenario,
   downloadArtifact,
   fetchApiHealth,
+  fetchBaselineComparison,
   fetchCheckRuns,
   fetchCheckRunAIReport,
   fetchCheckRunDetail,
@@ -22,6 +24,7 @@ import {
   getApiBaseUrl,
   getApiHealthUrl,
   getArtifactDownloadUrl,
+  getBaselineComparisonUrl,
   getCheckRunsUrl,
   getCheckRunAIReportUrl,
   getCheckRunDetailUrl,
@@ -30,6 +33,7 @@ import {
   getLoginUrl,
   getLogoutUrl,
   getProjectAlertsUrl,
+  getProjectBaselineUrl,
   getProjectDetailUrl,
   getProjectIncidentsUrl,
   getProjectVerificationUrl,
@@ -44,6 +48,7 @@ import {
   loginUser,
   logoutUser,
   retryAlert,
+  setProjectBaseline,
   signupUser,
   updateScenario,
   updateProject,
@@ -2363,6 +2368,218 @@ describe("createScenarioRun", () => {
       createScenarioRun({
         projectId: "project-id",
         scenarioId: "scenario-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "conflict" });
+  });
+});
+
+describe("project baseline URL builders", () => {
+  it("builds the project baseline URL", () => {
+    expect(getProjectBaselineUrl("project-id", "http://localhost:8000")).toBe(
+      "http://localhost:8000/projects/project-id/baseline"
+    );
+  });
+
+  it("builds the baseline comparison URL", () => {
+    expect(getBaselineComparisonUrl("project-id", "check-run-id", "http://localhost:8000")).toBe(
+      "http://localhost:8000/projects/project-id/check-runs/check-run-id/baseline-comparison"
+    );
+  });
+
+  it("appends an explicit baseline check run id", () => {
+    expect(
+      getBaselineComparisonUrl(
+        "project-id",
+        "check-run-id",
+        "http://localhost:8000",
+        "baseline-id"
+      )
+    ).toBe(
+      "http://localhost:8000/projects/project-id/check-runs/check-run-id/baseline-comparison?baseline_check_run_id=baseline-id"
+    );
+  });
+});
+
+const baselineProjectPayload = {
+  id: "project-id",
+  owner_id: "user-id",
+  name: "AIM Website",
+  service_url: "https://example.com",
+  description: null,
+  environment: "production",
+  scan_interval_minutes: 60,
+  response_time_threshold_ms: 2000,
+  quality_score_threshold: 80,
+  alert_email_enabled: true,
+  alert_recipient_email: null,
+  is_verified: true,
+  baseline_check_run_id: "check-run-id",
+  created_at: "2026-07-04T00:00:00Z",
+  updated_at: "2026-07-04T00:00:00Z"
+};
+
+describe("setProjectBaseline", () => {
+  it("sets the project baseline with an authenticated PUT request", async () => {
+    const fetcher = vi.fn(async () => Response.json(baselineProjectPayload));
+
+    await expect(
+      setProjectBaseline({
+        projectId: "project-id",
+        checkRunId: "check-run-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      project: baselineProjectPayload
+    });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id/baseline", {
+      method: "PUT",
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ check_run_id: "check-run-id" })
+    });
+  });
+
+  it("returns conflict when the check run cannot be used as a baseline", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 409 }));
+
+    await expect(
+      setProjectBaseline({
+        projectId: "project-id",
+        checkRunId: "check-run-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "conflict" });
+  });
+
+  it("returns not-found when the check run does not belong to the project", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 404 }));
+
+    await expect(
+      setProjectBaseline({
+        projectId: "project-id",
+        checkRunId: "check-run-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("clearProjectBaseline", () => {
+  it("clears the project baseline with an authenticated DELETE request", async () => {
+    const clearedProject = { ...baselineProjectPayload, baseline_check_run_id: null };
+    const fetcher = vi.fn(async () => Response.json(clearedProject));
+
+    await expect(
+      clearProjectBaseline({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      project: clearedProject
+    });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id/baseline", {
+      method: "DELETE",
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token"
+      }
+    });
+  });
+});
+
+describe("fetchBaselineComparison", () => {
+  const comparison = {
+    check_run_id: "check-run-id",
+    baseline_check_run_id: "baseline-id",
+    comparison_type: "baseline",
+    overall_score_delta: 3,
+    availability_score_delta: 0,
+    web_performance_score_delta: 10,
+    accessibility_score_delta: 0,
+    seo_basic_quality_score_delta: 0,
+    response_time_delta_ms: -200,
+    performance_score_delta: 10,
+    current_deployment_risk: "STABLE",
+    baseline_deployment_risk: "STABLE",
+    deployment_risk_changed: false,
+    summary: "Overall score improved by 3. Response time improved by 200ms."
+  };
+
+  it("returns the baseline comparison when the API request succeeds", async () => {
+    const fetcher = vi.fn(async () => Response.json(comparison));
+
+    await expect(
+      fetchBaselineComparison({
+        projectId: "project-id",
+        checkRunId: "check-run-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      comparison
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/check-runs/check-run-id/baseline-comparison",
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+  });
+
+  it("requests an explicit baseline when provided", async () => {
+    const fetcher = vi.fn(async () => Response.json(comparison));
+
+    await fetchBaselineComparison({
+      projectId: "project-id",
+      checkRunId: "check-run-id",
+      baselineCheckRunId: "baseline-id",
+      accessToken: "token",
+      fetcher,
+      apiBaseUrl: "http://localhost:8000"
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/check-runs/check-run-id/baseline-comparison?baseline_check_run_id=baseline-id",
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+  });
+
+  it("returns conflict when no baseline is configured", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 409 }));
+
+    await expect(
+      fetchBaselineComparison({
+        projectId: "project-id",
+        checkRunId: "check-run-id",
         accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"

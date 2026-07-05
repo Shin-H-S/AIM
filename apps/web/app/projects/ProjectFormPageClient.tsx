@@ -279,20 +279,20 @@ export function ProjectFormPageClient({
       : "서비스 URL, 환경, 검사 기준을 수정하고 domain verification 상태를 확인합니다.";
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50">
+    <main className="min-h-screen bg-slate-100 text-slate-900">
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-12">
         <div>
           <Link
-            className="inline-flex rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            className="inline-flex rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
             href="/"
           >
             Dashboard로 돌아가기
           </Link>
-          <p className="mt-8 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-300">
+          <p className="mt-8 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
             AIM Project Management
           </p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-6xl">{title}</h1>
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">{subtitle}</p>
+          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">{subtitle}</p>
         </div>
 
         <LoadStateNotice loadState={loadState} />
@@ -354,20 +354,20 @@ function DangerZone({
   const isConfirmed = deleteConfirmName.trim() === projectName;
 
   return (
-    <aside className="rounded-3xl border border-rose-400/20 bg-rose-400/[0.04] p-6">
-      <h2 className="text-2xl font-bold text-rose-100">Project 삭제</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-400">
+    <aside className="rounded-3xl border border-rose-200 bg-rose-50/60 p-6">
+      <h2 className="text-2xl font-bold text-rose-800">Project 삭제</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-500">
         Project와 CheckRun, Scenario, artifact metadata, alert 기록이 모두 삭제되며 되돌릴
         수 없습니다.
       </p>
 
       <label className="mt-5 block" htmlFor="delete_confirm_name">
-        <span className="text-sm font-semibold text-slate-300">
-          확인을 위해 Project 이름(<span className="text-rose-200">{projectName}</span>)을
+        <span className="text-sm font-semibold text-slate-600">
+          확인을 위해 Project 이름(<span className="text-rose-700">{projectName}</span>)을
           입력하세요
         </span>
         <input
-          className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-rose-300/0 transition placeholder:text-slate-600 focus:border-rose-300/60 focus:ring-4 focus:ring-rose-300/10"
+          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-rose-300/0 transition placeholder:text-slate-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20"
           id="delete_confirm_name"
           onChange={(event) => onChangeConfirmName(event.target.value)}
           placeholder={projectName}
@@ -376,7 +376,7 @@ function DangerZone({
       </label>
 
       <button
-        className="mt-4 w-full rounded-2xl border border-rose-300/30 bg-rose-300/10 px-5 py-3 text-sm font-bold text-rose-100 transition hover:border-rose-200 hover:bg-rose-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-4 w-full rounded-2xl border border-rose-300 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-800 transition hover:border-rose-500 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
         disabled={!isConfirmed || isDeleting}
         onClick={onDelete}
         type="button"
@@ -385,7 +385,7 @@ function DangerZone({
       </button>
 
       {deleteError && (
-        <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm leading-6 text-rose-100">
+        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
           {deleteError}
         </p>
       )}
@@ -410,14 +410,14 @@ function ProjectForm({
 }) {
   return (
     <form
-      className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-cyan-950/20"
+      className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60"
       onSubmit={onSubmit}
     >
       <div>
-        <h2 className="text-2xl font-bold text-slate-100">
+        <h2 className="text-2xl font-bold text-slate-900">
           {mode === "create" ? "새 Project 정보" : "Project 정보"}
         </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-400">
+        <p className="mt-2 text-sm leading-6 text-slate-500">
           URL은 서버에서 SSRF-safe validation을 다시 수행합니다. localhost, private IP,
           cloud metadata endpoint 같은 내부 주소는 등록할 수 없습니다.
         </p>
@@ -442,9 +442,9 @@ function ProjectForm({
         />
 
         <label className="block" htmlFor="environment">
-          <span className="text-sm font-semibold text-slate-300">Environment</span>
+          <span className="text-sm font-semibold text-slate-600">Environment</span>
           <select
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-cyan-300/0 transition focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
             id="environment"
             onChange={(event) =>
               onChange({
@@ -461,9 +461,9 @@ function ProjectForm({
         </label>
 
         <label className="block" htmlFor="description">
-          <span className="text-sm font-semibold text-slate-300">Description</span>
+          <span className="text-sm font-semibold text-slate-600">Description</span>
           <textarea
-            className="mt-2 min-h-28 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-cyan-300/0 transition placeholder:text-slate-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+            className="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
             id="description"
             maxLength={1000}
             onChange={(event) => onChange({ ...form, description: event.target.value })}
@@ -503,12 +503,12 @@ function ProjectForm({
         </div>
 
         <label
-          className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-950 p-4"
+          className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4"
           htmlFor="scheduled_scans_enabled"
         >
           <input
             checked={form.scheduledScansEnabled}
-            className="mt-1 h-4 w-4 accent-cyan-300"
+            className="mt-1 h-4 w-4 accent-cyan-600"
             id="scheduled_scans_enabled"
             name="scheduled_scans_enabled"
             onChange={(event) =>
@@ -517,8 +517,8 @@ function ProjectForm({
             type="checkbox"
           />
           <span>
-            <span className="block text-sm font-semibold text-slate-200">정기 스캔 사용</span>
-            <span className="mt-1 block text-xs leading-5 text-slate-400">
+            <span className="block text-sm font-semibold text-slate-700">정기 스캔 사용</span>
+            <span className="mt-1 block text-xs leading-5 text-slate-500">
               체크하면 verified 상태에서 위 Scan interval 주기로 자동 스캔합니다. 기본은 수동
               스캔 전용입니다.
             </span>
@@ -527,7 +527,7 @@ function ProjectForm({
       </div>
 
       <button
-        className="mt-6 w-full rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-6 w-full rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
         disabled={submitState === "submitting"}
         type="submit"
       >
@@ -562,19 +562,19 @@ function VerificationPanel({
   verifyActionState: VerifyActionState;
 }) {
   return (
-    <aside className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-cyan-950/20">
+    <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-100">Domain verification</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
+          <h2 className="text-2xl font-bold text-slate-900">Domain verification</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
             recurring scan을 안전하게 실행하기 전, target service를 제어할 수 있는지 확인합니다.
           </p>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${
             project.is_verified
-              ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20"
-              : "bg-amber-400/10 text-amber-300 ring-amber-400/20"
+              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+              : "bg-amber-50 text-amber-700 ring-amber-200"
           }`}
         >
           {project.is_verified ? "verified" : "unverified"}
@@ -585,7 +585,7 @@ function VerificationPanel({
         <VerificationContent verification={verification} verificationState={verificationState} />
 
         <button
-          className="w-full rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={verificationState !== "success" || verifyActionState === "verifying"}
           onClick={onVerify}
           type="button"
@@ -649,10 +649,10 @@ function VerificationContent({
       />
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
           Meta tag
         </p>
-        <pre className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950 p-4 text-xs leading-6 text-cyan-100">
+        <pre className="mt-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4 text-xs leading-6 text-cyan-700">
           {verification.meta_tag}
         </pre>
       </div>
@@ -667,9 +667,9 @@ function VerificationContent({
 
 function CreationGuide() {
   return (
-    <aside className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-cyan-950/20">
-      <h2 className="text-2xl font-bold text-slate-100">생성 후 다음 단계</h2>
-      <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-6 text-slate-400">
+    <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
+      <h2 className="text-2xl font-bold text-slate-900">생성 후 다음 단계</h2>
+      <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-6 text-slate-500">
         <li>Project 생성이 완료되면 settings 화면으로 이동합니다.</li>
         <li>AIM이 생성한 HTML meta tag를 target service의 head에 추가합니다.</li>
         <li>배포 후 Meta tag 확인 버튼으로 domain ownership을 검증합니다.</li>
@@ -764,10 +764,10 @@ function TextField({
 }) {
   return (
     <label className="block" htmlFor={name}>
-      <span className="text-sm font-semibold text-slate-300">{label}</span>
-      <div className="mt-2 flex overflow-hidden rounded-2xl border border-white/10 bg-slate-950 ring-cyan-300/0 transition focus-within:border-cyan-300/60 focus-within:ring-4 focus-within:ring-cyan-300/10">
+      <span className="text-sm font-semibold text-slate-600">{label}</span>
+      <div className="mt-2 flex overflow-hidden rounded-2xl border border-slate-200 bg-white ring-cyan-300/0 transition focus-within:border-cyan-500 focus-within:ring-4 focus-within:ring-cyan-500/20">
         <input
-          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-600"
+          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
           id={name}
           min={type === "number" ? 0 : undefined}
           onChange={(event) => onChange(event.target.value)}
@@ -777,7 +777,7 @@ function TextField({
           value={value}
         />
         {suffix && (
-          <span className="border-l border-white/10 px-3 py-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+          <span className="border-l border-slate-200 px-3 py-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
             {suffix}
           </span>
         )}
@@ -797,10 +797,10 @@ function Notice({
 }) {
   const className =
     tone === "danger"
-      ? "border-rose-400/20 bg-rose-400/10 text-rose-100"
+      ? "border-rose-200 bg-rose-50 text-rose-800"
       : tone === "success"
-        ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-        : "border-cyan-300/20 bg-cyan-300/10 text-cyan-100";
+        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+        : "border-cyan-200 bg-cyan-50 text-cyan-700";
 
   return (
     <div className={`rounded-2xl border p-4 ${className}`}>
@@ -821,8 +821,8 @@ function StatusMessage({
     <p
       className={`mt-4 rounded-2xl border p-4 text-sm leading-6 ${
         tone === "success"
-          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-          : "border-rose-400/20 bg-rose-400/10 text-rose-100"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : "border-rose-200 bg-rose-50 text-rose-800"
       }`}
     >
       {message}
@@ -833,8 +833,8 @@ function StatusMessage({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</dt>
-      <dd className="mt-1 break-all text-slate-200">{value}</dd>
+      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
+      <dd className="mt-1 break-all text-slate-700">{value}</dd>
     </div>
   );
 }

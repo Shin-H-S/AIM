@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 * {
@@ -19,7 +19,7 @@ body {
     Arial,
     Helvetica,
     sans-serif;
-  background: #020617;
+  background: #f1f5f9;
 }
 
 button,

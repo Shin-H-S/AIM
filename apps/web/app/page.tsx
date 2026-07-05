@@ -304,16 +304,16 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50">
+    <main className="min-h-screen bg-slate-100 text-slate-900">
       <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-12">
         <div className="max-w-4xl">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-300">
+          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
             AIM MVP Dashboard
           </p>
           <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
             프로젝트별 최신 CheckRun을 한눈에 확인합니다
           </h1>
-          <p className="mt-6 text-lg leading-8 text-slate-300">
+          <p className="mt-6 text-lg leading-8 text-slate-600">
             AIM은 프로젝트, 서비스 URL, 최신 검사 상태를 모아 배포 후 서비스가 실제로
             안정적인지 빠르게 확인할 수 있게 돕습니다.
           </p>
@@ -391,29 +391,29 @@ function DashboardPanel({
   trimmedToken: string;
 }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-cyan-950/20">
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-100">Project dashboard</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+          <h2 className="text-2xl font-bold text-slate-900">Project dashboard</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
             로그인 페이지에서 저장한 access token을 자동으로 사용합니다. 필요하면 access
             token을 직접 입력해 Dashboard를 갱신할 수도 있습니다.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             {currentUser ? (
               <>
-                <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-200 ring-1 ring-emerald-400/20">
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
                   로그인됨: {currentUser.email}
                 </span>
                 <button
-                  className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-slate-300 transition hover:border-cyan-300/50 hover:text-cyan-100"
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700"
                   onClick={onLogout}
                   type="button"
                 >
                   로그아웃
                 </button>
                 <Link
-                  className="rounded-full bg-cyan-300 px-3 py-1 text-xs font-bold text-slate-950 transition hover:bg-cyan-200"
+                  className="rounded-full bg-cyan-600 px-3 py-1 text-xs font-bold text-white transition hover:bg-cyan-500"
                   href="/projects/new"
                 >
                   새 Project
@@ -422,13 +422,13 @@ function DashboardPanel({
             ) : (
               <>
                 <Link
-                  className="rounded-full bg-cyan-300 px-3 py-1 text-xs font-bold text-slate-950 transition hover:bg-cyan-200"
+                  className="rounded-full bg-cyan-600 px-3 py-1 text-xs font-bold text-white transition hover:bg-cyan-500"
                   href="/signup"
                 >
                   회원가입
                 </Link>
                 <Link
-                  className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-slate-300 transition hover:border-cyan-300/50 hover:text-cyan-100"
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700"
                   href="/login"
                 >
                   로그인하기
@@ -436,16 +436,16 @@ function DashboardPanel({
               </>
             )}
           </div>
-          {lastUpdatedAt && <p className="mt-2 text-xs text-slate-500">마지막 갱신: {lastUpdatedAt}</p>}
+          {lastUpdatedAt && <p className="mt-2 text-xs text-slate-400">마지막 갱신: {lastUpdatedAt}</p>}
         </div>
 
         <form className="flex w-full flex-col gap-3 lg:max-w-xl" onSubmit={onSubmit}>
-          <label className="text-sm font-semibold text-slate-300" htmlFor="dashboard-token">
+          <label className="text-sm font-semibold text-slate-600" htmlFor="dashboard-token">
             Access token
           </label>
           <div className="flex flex-col gap-3 sm:flex-row">
             <input
-              className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-cyan-300/0 transition placeholder:text-slate-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+              className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
               id="dashboard-token"
               onChange={(event) => onAccessTokenChange(event.target.value)}
               placeholder="Bearer 없이 access_token만 입력"
@@ -453,7 +453,7 @@ function DashboardPanel({
               value={accessToken}
             />
             <button
-              className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!trimmedToken || dashboard.state === "loading"}
               type="submit"
             >
@@ -551,16 +551,16 @@ function ProjectDashboardCard({
   const { latestCheckRun, latestCheckRunState, project } = dashboardProject;
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-slate-950/40 p-5">
+    <article className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-3 flex flex-wrap gap-2">
             <Badge label={project.environment} />
             <Badge label={project.is_verified ? "verified" : "unverified"} tone={project.is_verified ? "success" : "warning"} />
           </div>
-          <h3 className="text-xl font-bold text-slate-100">{project.name}</h3>
+          <h3 className="text-xl font-bold text-slate-900">{project.name}</h3>
           <a
-            className="mt-2 block break-all text-sm text-cyan-200 hover:text-cyan-100"
+            className="mt-2 block break-all text-sm text-cyan-700 hover:text-cyan-700"
             href={project.service_url}
             rel="noreferrer"
             target="_blank"
@@ -570,31 +570,31 @@ function ProjectDashboardCard({
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
             href={`/projects/${project.id}/settings`}
           >
             Settings
           </Link>
           <Link
-            className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
             href={`/projects/${project.id}/check-runs`}
           >
             Runs
           </Link>
           <Link
-            className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
             href={`/projects/${project.id}/scenarios`}
           >
             Scenarios
           </Link>
           <Link
-            className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
             href={`/projects/${project.id}/alerts`}
           >
             Alerts
           </Link>
           <button
-            className="rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+            className="rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             disabled={!project.is_verified || startState === "starting"}
             onClick={() => onStartCheckRun(project)}
             type="button"
@@ -608,7 +608,7 @@ function ProjectDashboardCard({
         </div>
       </div>
 
-      {project.description && <p className="mt-4 text-sm leading-6 text-slate-400">{project.description}</p>}
+      {project.description && <p className="mt-4 text-sm leading-6 text-slate-500">{project.description}</p>}
 
       <CheckRunStartNotice project={project} startState={startState} />
 
@@ -618,7 +618,7 @@ function ProjectDashboardCard({
         <Metric label="Quality threshold" value={`${project.quality_score_threshold}`} />
       </dl>
 
-      <div className="mt-5 border-t border-white/10 pt-5">
+      <div className="mt-5 border-t border-slate-200 pt-5">
         <LatestCheckRunCard
           latestCheckRun={latestCheckRun}
           latestCheckRunState={latestCheckRunState}
@@ -704,26 +704,26 @@ function LatestCheckRunCard({
     <div
       className={`rounded-2xl border p-4 ${
         isFailed
-          ? "border-rose-400/30 bg-rose-400/10"
+          ? "border-rose-300 bg-rose-50"
           : isActive
-            ? "border-cyan-300/30 bg-cyan-300/10"
-            : "border-white/10 bg-white/[0.03]"
+            ? "border-cyan-300 bg-cyan-50"
+            : "border-slate-200 bg-white"
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
             Latest CheckRun
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StatusBadge status={latestCheckRun.status} />
-            <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300 ring-1 ring-white/10">
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
               {latestCheckRun.trigger_source}
             </span>
           </div>
         </div>
         <Link
-          className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+          className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500"
           href={`/projects/${projectId}/check-runs/${latestCheckRun.id}`}
         >
           결과 보기
@@ -736,7 +736,7 @@ function LatestCheckRunCard({
       </dl>
 
       {latestCheckRun.failure_reason && (
-        <p className="mt-4 rounded-2xl bg-rose-950/40 p-3 text-sm leading-6 text-rose-100">
+        <p className="mt-4 rounded-2xl bg-rose-100 p-3 text-sm leading-6 text-rose-800">
           {latestCheckRun.failure_reason}
         </p>
       )}
@@ -777,9 +777,9 @@ function LatestScenarioRunAccess({
 
   if (scenarioRuns.length === 0) {
     return (
-      <div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-        <p className="text-sm font-semibold text-slate-100">Linked ScenarioRun 없음</p>
-        <p className="mt-2 text-sm leading-6 text-slate-400">
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-sm font-semibold text-slate-900">Linked ScenarioRun 없음</p>
+        <p className="mt-2 text-sm leading-6 text-slate-500">
           최신 CheckRun에 연결된 browser scenario 실행 이력이 없습니다.
         </p>
       </div>
@@ -790,11 +790,11 @@ function LatestScenarioRunAccess({
   const summary = summarizeDashboardScenarioRuns(scenarioRuns);
 
   return (
-    <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.05] p-4">
+    <div className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50/60 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-cyan-100">최근 linked ScenarioRun</p>
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="text-sm font-semibold text-cyan-700">최근 linked ScenarioRun</p>
+          <p className="mt-2 text-xs text-slate-500">
             실패 {summary.failed}개 · 진행 중 {summary.active}개 · 전체 {summary.total}개
           </p>
         </div>
@@ -803,23 +803,23 @@ function LatestScenarioRunAccess({
 
       {latestScenarioRun && (
         <>
-          <p className="mt-3 break-all font-mono text-xs text-slate-400">
+          <p className="mt-3 break-all font-mono text-xs text-slate-500">
             {latestScenarioRun.id}
           </p>
           {latestScenarioRun.failure_reason && (
-            <p className="mt-3 rounded-2xl border border-rose-400/20 bg-rose-950/40 p-3 text-sm text-rose-100">
+            <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-100 p-3 text-sm text-rose-800">
               {latestScenarioRun.failure_reason}
             </p>
           )}
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
-              className="rounded-xl bg-cyan-300 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-cyan-200"
+              className="rounded-xl bg-cyan-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-cyan-500"
               href={`/projects/${projectId}/scenarios/${latestScenarioRun.scenario_id}/runs/${latestScenarioRun.id}`}
             >
               최근 결과 보기
             </Link>
             <Link
-              className="rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/20"
+              className="rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100"
               href={`/projects/${projectId}/scenarios/${latestScenarioRun.scenario_id}/runs`}
             >
               ScenarioRun 목록
@@ -835,24 +835,24 @@ function StatusCard({ health }: { health: HealthCheckResult }) {
   const isAvailable = health.state === "available";
   const apiBaseUrlLabel = getApiBaseUrlLabel();
   const badgeClassName = isAvailable
-    ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20"
+    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
     : health.state === "loading"
-      ? "bg-cyan-400/10 text-cyan-300 ring-cyan-400/20"
-      : "bg-rose-400/10 text-rose-300 ring-rose-400/20";
+      ? "bg-cyan-50 text-cyan-700 ring-cyan-200"
+      : "bg-rose-50 text-rose-700 ring-rose-200";
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-cyan-950/20">
+    <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
       <div className="mb-5 flex items-center justify-between gap-4">
         <h2 className="text-lg font-semibold">API 상태</h2>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${badgeClassName}`}>
           {healthStatusCopy[health.state]}
         </span>
       </div>
-      <p className="text-sm leading-6 text-slate-300">
-        프론트엔드는 <code className="text-cyan-200">{apiBaseUrlLabel}</code>의{" "}
-        <code className="text-cyan-200">/health</code> 응답을 확인합니다.
+      <p className="text-sm leading-6 text-slate-600">
+        프론트엔드는 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의{" "}
+        <code className="text-cyan-700">/health</code> 응답을 확인합니다.
       </p>
-      <p className="mt-4 text-sm text-slate-400">
+      <p className="mt-4 text-sm text-slate-500">
         {health.state === "available" && `서비스: ${health.service}`}
         {health.state === "loading" && "FastAPI 서버 상태를 불러오는 중입니다."}
         {health.state === "unavailable" &&
@@ -876,12 +876,12 @@ function MetricCard({
   return (
     <article
       className={`rounded-3xl border p-6 ${
-        tone === "danger" ? "border-rose-400/20 bg-rose-400/10" : "border-white/10 bg-white/[0.03]"
+        tone === "danger" ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"
       }`}
     >
-      <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">{label}</p>
-      <p className="mt-3 text-4xl font-bold text-slate-100">{value}</p>
-      <p className="mt-3 text-sm leading-6 text-slate-400">{description}</p>
+      <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">{label}</p>
+      <p className="mt-3 text-4xl font-bold text-slate-900">{value}</p>
+      <p className="mt-3 text-sm leading-6 text-slate-500">{description}</p>
     </article>
   );
 }
@@ -889,12 +889,12 @@ function MetricCard({
 function StatusBadge({ status }: { status: CheckRunStatus }) {
   const className =
     status === "COMPLETED"
-      ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
       : status === "FAILED"
-        ? "bg-rose-400/10 text-rose-300 ring-rose-400/20"
+        ? "bg-rose-50 text-rose-700 ring-rose-200"
         : status === "CANCELLED"
-          ? "bg-slate-500/10 text-slate-300 ring-slate-400/20"
-          : "bg-cyan-400/10 text-cyan-300 ring-cyan-400/20";
+          ? "bg-slate-100 text-slate-600 ring-slate-300"
+          : "bg-cyan-50 text-cyan-700 ring-cyan-200";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
@@ -906,12 +906,12 @@ function StatusBadge({ status }: { status: CheckRunStatus }) {
 function ScenarioRunStatusBadge({ status }: { status: ScenarioRunStatus }) {
   const className =
     status === "COMPLETED"
-      ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
       : status === "FAILED"
-        ? "bg-rose-400/10 text-rose-300 ring-rose-400/20"
+        ? "bg-rose-50 text-rose-700 ring-rose-200"
         : status === "CANCELLED"
-          ? "bg-slate-500/10 text-slate-300 ring-slate-400/20"
-          : "bg-cyan-400/10 text-cyan-300 ring-cyan-400/20";
+          ? "bg-slate-100 text-slate-600 ring-slate-300"
+          : "bg-cyan-50 text-cyan-700 ring-cyan-200";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
@@ -929,10 +929,10 @@ function Badge({
 }) {
   const className =
     tone === "success"
-      ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
       : tone === "warning"
-        ? "bg-amber-400/10 text-amber-300 ring-amber-400/20"
-        : "bg-slate-700/80 text-slate-200 ring-white/10";
+        ? "bg-amber-50 text-amber-700 ring-amber-200"
+        : "bg-slate-200 text-slate-700 ring-slate-200";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
@@ -944,8 +944,8 @@ function Badge({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</dt>
-      <dd className="mt-1 break-words text-slate-200">{value}</dd>
+      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
+      <dd className="mt-1 break-words text-slate-700">{value}</dd>
     </div>
   );
 }
@@ -963,8 +963,8 @@ function Notice({
     <div
       className={`rounded-2xl border p-4 ${
         tone === "danger"
-          ? "border-rose-400/20 bg-rose-400/10 text-rose-100"
-          : "border-cyan-300/20 bg-cyan-300/10 text-cyan-100"
+          ? "border-rose-200 bg-rose-50 text-rose-800"
+          : "border-cyan-200 bg-cyan-50 text-cyan-700"
       }`}
     >
       <h3 className="font-semibold">{title}</h3>
@@ -983,9 +983,9 @@ function EmptyState({
   title: string;
 }) {
   return (
-    <div className={`rounded-2xl border border-white/10 bg-slate-950/50 ${compact ? "p-4" : "p-6"}`}>
-      <h3 className="font-semibold text-slate-100">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p>
+    <div className={`rounded-2xl border border-slate-200 bg-slate-50 ${compact ? "p-4" : "p-6"}`}>
+      <h3 className="font-semibold text-slate-900">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
     </div>
   );
 }

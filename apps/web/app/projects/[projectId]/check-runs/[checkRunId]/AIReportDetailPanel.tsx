@@ -17,9 +17,9 @@ export function AIReportDetailPanel({ report }: { report: AIReportDetail }) {
 
   return (
     <section className="mt-6 grid gap-5">
-      <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-        <h3 className="text-lg font-semibold text-slate-100">상세 리포트 메타데이터</h3>
-        <dl className="mt-4 grid gap-4 text-sm text-slate-300 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <h3 className="text-lg font-semibold text-slate-900">상세 리포트 메타데이터</h3>
+        <dl className="mt-4 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
           <Metric label="Report schema" value={report.schema_version} />
           <Metric label="Input schema" value={report.input_schema_version} />
           <Metric label="Generated" value={formatDateTime(payload.generated_at)} />
@@ -52,7 +52,7 @@ export function AIReportDetailPanel({ report }: { report: AIReportDetail }) {
 function AIReportIssuesList({ issues }: { issues: AIReportIssue[] }) {
   if (issues.length === 0) {
     return (
-      <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-emerald-100">
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
         <h3 className="text-lg font-semibold">우선 이슈 없음</h3>
         <p className="mt-2 text-sm opacity-80">
           AIReport에 top issue가 없습니다. 안정 상태 리포트일 때 정상적으로 발생할 수 있습니다.
@@ -62,18 +62,18 @@ function AIReportIssuesList({ issues }: { issues: AIReportIssue[] }) {
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold text-slate-100">우선 확인 이슈</h3>
-        <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300 ring-1 ring-cyan-400/20">
+        <h3 className="text-lg font-semibold text-slate-900">우선 확인 이슈</h3>
+        <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
           {issues.length}개
         </span>
       </div>
       <ul className="grid gap-4">
         {issues.map((issue) => (
-          <li className="rounded-2xl border border-white/10 bg-slate-900/70 p-4" key={issue.id}>
+          <li className="rounded-2xl border border-slate-200 bg-slate-50 p-4" key={issue.id}>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-slate-700 px-3 py-1 text-xs font-bold text-slate-100">
+              <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-900">
                 #{issue.priority}
               </span>
               <span
@@ -83,38 +83,38 @@ function AIReportIssuesList({ issues }: { issues: AIReportIssue[] }) {
               >
                 {severityLabels[issue.severity]}
               </span>
-              <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-100 ring-1 ring-cyan-400/20">
+              <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
                 {statementTypeLabels[issue.statement_type]}
               </span>
-              <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300 ring-1 ring-white/10">
+              <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
                 {issue.category}
               </span>
             </div>
 
-            <h4 className="mt-4 text-lg font-semibold text-slate-100">{issue.title}</h4>
-            <p className="mt-2 text-sm leading-6 text-slate-300">{issue.summary}</p>
+            <h4 className="mt-4 text-lg font-semibold text-slate-900">{issue.title}</h4>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{issue.summary}</p>
 
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                   Expected user impact
                 </p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
+                <p className="mt-2 text-sm leading-6 text-slate-600">
                   {issue.expected_user_impact}
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
                   Recommended next action
                 </p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
+                <p className="mt-2 text-sm leading-6 text-slate-600">
                   {issue.recommended_next_action}
                 </p>
               </div>
             </div>
 
             {issue.unknown_reason && (
-              <p className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-100">
+              <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                 원인 미확인 이유: {issue.unknown_reason}
               </p>
             )}
@@ -139,22 +139,22 @@ function AIReportChangesCard({
   title: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold text-slate-100">{title}</h3>
-        <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300 ring-1 ring-white/10">
+        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+        <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
           {changes.length}개
         </span>
       </div>
 
       {changes.length === 0 ? (
-        <p className="text-sm text-slate-400">{emptyDescription}</p>
+        <p className="text-sm text-slate-500">{emptyDescription}</p>
       ) : (
         <ul className="grid gap-3">
           {changes.map((change) => (
-            <li className="rounded-2xl border border-white/10 bg-slate-900/70 p-4" key={change.id}>
-              <p className="text-sm font-semibold text-slate-100">{change.summary}</p>
-              <dl className="mt-3 grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
+            <li className="rounded-2xl border border-slate-200 bg-slate-50 p-4" key={change.id}>
+              <p className="text-sm font-semibold text-slate-900">{change.summary}</p>
+              <dl className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
                 <Metric label="Metric" value={change.metric_name ?? "알 수 없음"} />
                 <Metric label="Category" value={change.category} />
                 <Metric label="Previous" value={formatReportValue(change.previous_value)} />
@@ -173,19 +173,19 @@ function AIReportChangesCard({
 function AIReportWarningsCard({ warnings }: { warnings: string[] }) {
   if (warnings.length === 0) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-        <h3 className="text-lg font-semibold text-slate-100">생성 경고</h3>
-        <p className="mt-2 text-sm text-slate-400">기록된 generation warning이 없습니다.</p>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <h3 className="text-lg font-semibold text-slate-900">생성 경고</h3>
+        <p className="mt-2 text-sm text-slate-500">기록된 generation warning이 없습니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-amber-100">
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
       <h3 className="text-lg font-semibold">생성 경고</h3>
       <ul className="mt-3 grid gap-2 text-sm">
         {warnings.map((warning) => (
-          <li className="rounded-xl bg-amber-950/30 p-3" key={warning}>
+          <li className="rounded-xl bg-amber-100 p-3" key={warning}>
             {warning}
           </li>
         ))}
@@ -196,18 +196,18 @@ function AIReportWarningsCard({ warnings }: { warnings: string[] }) {
 
 function EvidenceIdList({ ids }: { ids: string[] }) {
   if (ids.length === 0) {
-    return <p className="text-xs text-slate-500">Evidence ID 없음</p>;
+    return <p className="text-xs text-slate-400">Evidence ID 없음</p>;
   }
 
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
         Evidence IDs
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         {ids.map((id) => (
           <span
-            className="rounded-full bg-slate-800 px-2.5 py-1 font-mono text-xs text-slate-300 ring-1 ring-white/10"
+            className="rounded-full bg-slate-200 px-2.5 py-1 font-mono text-xs text-slate-600 ring-1 ring-slate-200"
             key={id}
           >
             {id}
@@ -221,22 +221,22 @@ function EvidenceIdList({ ids }: { ids: string[] }) {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</dt>
-      <dd className="mt-1 break-words text-slate-200">{value}</dd>
+      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
+      <dd className="mt-1 break-words text-slate-700">{value}</dd>
     </div>
   );
 }
 
 function getSeverityBadgeClassName(severity: AIReportIssue["severity"]) {
   if (severity === "risk") {
-    return "bg-rose-400/10 text-rose-300 ring-rose-400/20";
+    return "bg-rose-50 text-rose-700 ring-rose-200";
   }
 
   if (severity === "warning") {
-    return "bg-amber-400/10 text-amber-300 ring-amber-400/20";
+    return "bg-amber-50 text-amber-700 ring-amber-200";
   }
 
-  return "bg-cyan-400/10 text-cyan-300 ring-cyan-400/20";
+  return "bg-cyan-50 text-cyan-700 ring-cyan-200";
 }
 
 function formatDateTime(value: string | null) {

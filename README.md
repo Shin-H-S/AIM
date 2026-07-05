@@ -133,16 +133,13 @@ apps/
   web/            Next.js 사용자 인터페이스
   api/            FastAPI HTTP API
   worker/         스캔 및 분석 백그라운드 작업
-packages/
-  contracts/      서비스 경계에서 공유하는 계약
 infra/            로컬 개발 및 배포 인프라
 migrations/       데이터베이스 마이그레이션
 docs/
   architecture/   시스템 구조와 주요 흐름
   api/            API 계약
   decisions/      아키텍처 결정 기록
-scripts/          반복 가능한 개발 자동화
-tests/            저장소 수준 통합·E2E 테스트
+  deployment/     배포 절차
 ```
 
 ## 로컬 실행

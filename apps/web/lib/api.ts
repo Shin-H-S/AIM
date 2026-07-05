@@ -68,6 +68,7 @@ export type Project = {
   alert_email_enabled: boolean;
   alert_recipient_email: string | null;
   is_verified: boolean;
+  baseline_check_run_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -211,6 +212,23 @@ export type RunComparison = {
   summary: string;
   created_at: string;
   updated_at: string;
+};
+
+export type BaselineComparison = {
+  check_run_id: string;
+  baseline_check_run_id: string;
+  comparison_type: string;
+  overall_score_delta: number;
+  availability_score_delta: number | null;
+  web_performance_score_delta: number | null;
+  accessibility_score_delta: number | null;
+  seo_basic_quality_score_delta: number | null;
+  response_time_delta_ms: number | null;
+  performance_score_delta: number | null;
+  current_deployment_risk: "STABLE" | "WARNING" | "RISK";
+  baseline_deployment_risk: "STABLE" | "WARNING" | "RISK";
+  deployment_risk_changed: boolean;
+  summary: string;
 };
 
 export type AIReportSummary = {
@@ -801,6 +819,42 @@ export type ArtifactDownloadResult =
       state: "unavailable";
     };
 
+export type ProjectBaselineMutationResult =
+  | {
+      state: "success";
+      project: Project;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "conflict";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type BaselineComparisonResult =
+  | {
+      state: "success";
+      comparison: BaselineComparison;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "conflict";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type HealthCheckResult =
   | {
       state: "loading";
@@ -956,6 +1010,33 @@ export function getCheckRunAIReportUrl(
     )}/ai-report`,
     getApiBaseUrl(apiBaseUrl)
   ).toString();
+}
+
+export function getProjectBaselineUrl(projectId: string, apiBaseUrl = getApiBaseUrl()): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/baseline`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export function getBaselineComparisonUrl(
+  projectId: string,
+  checkRunId: string,
+  apiBaseUrl = getApiBaseUrl(),
+  baselineCheckRunId?: string
+): string {
+  const url = new URL(
+    `/projects/${encodeURIComponent(projectId)}/check-runs/${encodeURIComponent(
+      checkRunId
+    )}/baseline-comparison`,
+    getApiBaseUrl(apiBaseUrl)
+  );
+
+  if (baselineCheckRunId) {
+    url.searchParams.set("baseline_check_run_id", baselineCheckRunId);
+  }
+
+  return url.toString();
 }
 
 export function getScenarioRunsUrl(
@@ -1870,6 +1951,158 @@ export async function fetchCheckRunAIReport({
     return {
       state: "success",
       report: (await response.json()) as AIReportDetail
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function setProjectBaseline({
+  projectId,
+  checkRunId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  checkRunId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<ProjectBaselineMutationResult> {
+  try {
+    const response = await fetcher(
+      getProjectBaselineUrl(projectId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "PUT",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ check_run_id: checkRunId })
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (response.status === 409) {
+      return { state: "conflict" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      project: (await response.json()) as Project
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function clearProjectBaseline({
+  projectId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<ProjectBaselineMutationResult> {
+  try {
+    const response = await fetcher(
+      getProjectBaselineUrl(projectId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "DELETE",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      project: (await response.json()) as Project
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchBaselineComparison({
+  projectId,
+  checkRunId,
+  baselineCheckRunId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  checkRunId: string;
+  baselineCheckRunId?: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<BaselineComparisonResult> {
+  try {
+    const response = await fetcher(
+      getBaselineComparisonUrl(
+        projectId,
+        checkRunId,
+        apiBaseUrl ?? getApiBaseUrl(),
+        baselineCheckRunId
+      ),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (response.status === 409) {
+      return { state: "conflict" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      comparison: (await response.json()) as BaselineComparison
     };
   } catch {
     return { state: "unavailable" };

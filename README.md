@@ -366,6 +366,32 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 수신자 email을 비워두면 Project owner email을 사용합니다. SMTP host/from email 같은 전역 발송 설정은 `.env`와 배포 환경에서 관리합니다.
 
+## 배포
+
+초기 운영 배포 목표는 GCP Compute Engine VM 한 대에 Docker Compose로 AIM 전체를 올리는 방식입니다.
+
+```text
+GCP VM
+  ├─ Caddy
+  ├─ Web
+  ├─ API
+  ├─ Worker
+  ├─ Beat
+  ├─ PostgreSQL
+  └─ Redis
+```
+
+배포용 구성 파일:
+
+- `apps/api/Dockerfile`
+- `apps/worker/Dockerfile`
+- `apps/web/Dockerfile`
+- `infra/compose.yaml`
+- `infra/Caddyfile`
+- `infra/env.production.example`
+
+자세한 VM 준비, 환경변수 작성, migration, 실행, 백업 절차는 [GCP VM Docker Compose 배포 가이드](docs/deployment/gcp-vm-compose.md)를 참고합니다.
+
 ## 주요 API
 
 자세한 API 설명은 [apps/api/README.md](apps/api/README.md)를 참고합니다.

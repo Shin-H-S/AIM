@@ -247,6 +247,7 @@ docker compose --env-file .env.production -f infra/compose.yaml exec -T postgres
 - `CELERY_WORKER_CONCURRENCY=1`로 시작합니다.
 - Lighthouse와 Playwright는 CPU/RAM 사용량이 크므로 동시 scan 수를 작게 유지합니다.
 - local artifact volume은 디스크를 사용하므로 주기적으로 용량을 확인합니다.
+- 컨테이너 로그는 compose의 logging 설정으로 서비스당 최대 100MB(20MB x 5개 파일)로 회전합니다. 설정을 바꾼 뒤에는 `up -d`로 컨테이너가 재생성되어야 적용됩니다.
 - GCP Billing budget alert를 설정합니다.
 
 ## 13. 현재 제한

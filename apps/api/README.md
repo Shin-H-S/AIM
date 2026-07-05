@@ -38,6 +38,8 @@ Invoke-RestMethod http://localhost:8000/health/database
 
 `/health`는 애플리케이션 프로세스의 liveness를 확인하며, `/health/database`는 PostgreSQL 연결 readiness를 확인합니다.
 
+웹 개발 서버(`http://localhost:3000`)의 브라우저 요청을 허용하도록 CORS 허용 origin 기본값은 `http://localhost:3000`과 `http://127.0.0.1:3000`입니다. 다른 origin에서 API를 호출해야 하면 `CORS_ALLOWED_ORIGINS` 환경 변수에 JSON 배열로 지정합니다. 예: `CORS_ALLOWED_ORIGINS=["https://app.example.com"]`
+
 ## 인증 API
 
 이메일/비밀번호 기반 회원가입과 로그인을 지원합니다. 로그인에 성공하면 JWT access token을 반환하며, 보호된 API는 `Authorization: Bearer <token>` 헤더를 사용합니다.

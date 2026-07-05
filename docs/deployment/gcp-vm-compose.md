@@ -255,3 +255,30 @@ docker compose --env-file .env.production -f infra/compose.yaml exec -T postgres
 - Cloud Storage, Secret Manager, Cloud SQL 분리는 이후 단계입니다.
 - 이메일 발송은 SMTP 설정이 있어야 실제 전송됩니다.
 - `ANTHROPIC_API_KEY`가 비어 있으면 deterministic AI report generator를 사용합니다.
+
+## 14. 부록: 도메인 없이 IP + HTTP로 임시 운영
+
+도메인이 아직 없으면 `infra/compose.http.yaml` overlay로 HTTP 전용 모드로 배포할 수 있습니다. Caddy가 hostname 대신 포트 주소로 listen 하므로 인증서 발급 없이 동작합니다.
+
+`.env.production`에서 hostname 관련 값만 다음처럼 바꿉니다. `<VM_EXTERNAL_IP>`는 VM 고정 외부 IP입니다.
+
+```bash
+AIM_WEB_HOSTNAME=:80
+AIM_API_HOSTNAME=:8080
+NEXT_PUBLIC_API_URL=http://<VM_EXTERNAL_IP>:8080
+CORS_ALLOWED_ORIGINS=["http://<VM_EXTERNAL_IP>"]
+```
+
+모든 compose 명령에 overlay 파일을 추가로 지정합니다.
+
+```bash
+docker compose --env-file .env.production   -f infra/compose.yaml -f infra/compose.http.yaml up -d
+```
+
+GCP 방화벽에서 `tcp:8080`을 추가로 허용해야 web이 API를 호출할 수 있습니다.
+
+주의사항:
+
+- 트래픽이 평문 HTTP로 오가므로 실사용자 운영이 아닌 임시 확인 용도로만 사용합니다.
+- `NEXT_PUBLIC_API_URL`은 web 이미지 빌드에 포함되므로 도메인 전환 시 web 이미지를 다시 빌드합니다.
+- 도메인이 준비되면 `.env.production`을 hostname 기반 값으로 되돌리고 overlay 없이 배포하면 HTTPS 모드로 돌아갑니다.

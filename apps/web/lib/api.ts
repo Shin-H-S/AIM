@@ -821,6 +821,35 @@ export type ArtifactDownloadResult =
       state: "unavailable";
     };
 
+export type CancelCheckRunResult =
+  | {
+      state: "success";
+      checkRun: CheckRunSummary;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type DeleteProjectResult =
+  | {
+      state: "success";
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type ProjectBaselineMutationResult =
   | {
       state: "success";
@@ -1010,6 +1039,19 @@ export function getCheckRunAIReportUrl(
     `/projects/${encodeURIComponent(projectId)}/check-runs/${encodeURIComponent(
       checkRunId
     )}/ai-report`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export function getCancelCheckRunUrl(
+  projectId: string,
+  checkRunId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/check-runs/${encodeURIComponent(
+      checkRunId
+    )}/cancel`,
     getApiBaseUrl(apiBaseUrl)
   ).toString();
 }
@@ -1954,6 +1996,93 @@ export async function fetchCheckRunAIReport({
       state: "success",
       report: (await response.json()) as AIReportDetail
     };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function cancelCheckRun({
+  projectId,
+  checkRunId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  checkRunId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<CancelCheckRunResult> {
+  try {
+    const response = await fetcher(
+      getCancelCheckRunUrl(projectId, checkRunId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      checkRun: (await response.json()) as CheckRunSummary
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function deleteProject({
+  projectId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<DeleteProjectResult> {
+  try {
+    const response = await fetcher(
+      getProjectDetailUrl(projectId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "DELETE",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return { state: "success" };
   } catch {
     return { state: "unavailable" };
   }

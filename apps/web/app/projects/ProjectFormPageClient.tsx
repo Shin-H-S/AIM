@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   createProject,
+  deleteProject,
   fetchProject,
   fetchProjectVerification,
   updateProject,
@@ -69,6 +70,9 @@ export function ProjectFormPageClient({
   const [verification, setVerification] = useState<ProjectVerification | null>(null);
   const [verificationState, setVerificationState] = useState<VerificationState>("idle");
   const [verifyActionState, setVerifyActionState] = useState<VerifyActionState>("idle");
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const loadVerification = useCallback(async (token: string, targetProjectId: string) => {
     setVerificationState("loading");
@@ -229,6 +233,45 @@ export function ProjectFormPageClient({
     );
   }
 
+  async function handleDeleteProject() {
+    if (!project || isDeleting) {
+      return;
+    }
+
+    if (!accessToken) {
+      setDeleteError("로그인 세션이 없습니다. 다시 로그인하세요.");
+      return;
+    }
+
+    if (deleteConfirmName.trim() !== project.name) {
+      setDeleteError("확인을 위해 Project 이름을 정확히 입력하세요.");
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+    const result = await deleteProject({
+      projectId: project.id,
+      accessToken
+    });
+
+    if (result.state === "success") {
+      router.replace("/");
+      return;
+    }
+
+    if (result.state === "unauthorized") {
+      clearStoredAccessToken();
+      setDeleteError("로그인 세션이 만료되었습니다. 다시 로그인하세요.");
+    } else if (result.state === "not-found") {
+      setDeleteError("Project를 찾을 수 없습니다. 이미 삭제되었을 수 있습니다.");
+    } else {
+      setDeleteError("삭제 요청이 실패했습니다. API 서버 상태를 확인하세요.");
+    }
+
+    setIsDeleting(false);
+  }
+
   const title = mode === "create" ? "Project 생성" : "Project 설정";
   const subtitle =
     mode === "create"
@@ -266,13 +309,23 @@ export function ProjectFormPageClient({
             />
 
             {mode === "edit" && project ? (
-              <VerificationPanel
-                onVerify={handleVerifyProject}
-                project={project}
-                verification={verification}
-                verificationState={verificationState}
-                verifyActionState={verifyActionState}
-              />
+              <div className="flex flex-col gap-6">
+                <VerificationPanel
+                  onVerify={handleVerifyProject}
+                  project={project}
+                  verification={verification}
+                  verificationState={verificationState}
+                  verifyActionState={verifyActionState}
+                />
+                <DangerZone
+                  onDelete={() => void handleDeleteProject()}
+                  deleteConfirmName={deleteConfirmName}
+                  deleteError={deleteError}
+                  isDeleting={isDeleting}
+                  onChangeConfirmName={setDeleteConfirmName}
+                  projectName={project.name}
+                />
+              </div>
             ) : (
               <CreationGuide />
             )}
@@ -280,6 +333,63 @@ export function ProjectFormPageClient({
         )}
       </section>
     </main>
+  );
+}
+
+function DangerZone({
+  deleteConfirmName,
+  deleteError,
+  isDeleting,
+  onChangeConfirmName,
+  onDelete,
+  projectName
+}: {
+  deleteConfirmName: string;
+  deleteError: string | null;
+  isDeleting: boolean;
+  onChangeConfirmName: (value: string) => void;
+  onDelete: () => void;
+  projectName: string;
+}) {
+  const isConfirmed = deleteConfirmName.trim() === projectName;
+
+  return (
+    <aside className="rounded-3xl border border-rose-400/20 bg-rose-400/[0.04] p-6">
+      <h2 className="text-2xl font-bold text-rose-100">Project 삭제</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-400">
+        Project와 CheckRun, Scenario, artifact metadata, alert 기록이 모두 삭제되며 되돌릴
+        수 없습니다.
+      </p>
+
+      <label className="mt-5 block" htmlFor="delete_confirm_name">
+        <span className="text-sm font-semibold text-slate-300">
+          확인을 위해 Project 이름(<span className="text-rose-200">{projectName}</span>)을
+          입력하세요
+        </span>
+        <input
+          className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-rose-300/0 transition placeholder:text-slate-600 focus:border-rose-300/60 focus:ring-4 focus:ring-rose-300/10"
+          id="delete_confirm_name"
+          onChange={(event) => onChangeConfirmName(event.target.value)}
+          placeholder={projectName}
+          value={deleteConfirmName}
+        />
+      </label>
+
+      <button
+        className="mt-4 w-full rounded-2xl border border-rose-300/30 bg-rose-300/10 px-5 py-3 text-sm font-bold text-rose-100 transition hover:border-rose-200 hover:bg-rose-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={!isConfirmed || isDeleting}
+        onClick={onDelete}
+        type="button"
+      >
+        {isDeleting ? "삭제 중" : "이 Project를 영구 삭제"}
+      </button>
+
+      {deleteError && (
+        <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm leading-6 text-rose-100">
+          {deleteError}
+        </p>
+      )}
+    </aside>
   );
 }
 

@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  cancelCheckRun,
   clearProjectBaseline,
   createCheckRun,
   createProject,
   createScenario,
   createScenarioRun,
+  deleteProject,
   deleteScenario,
   downloadArtifact,
   fetchApiHealth,
@@ -25,6 +27,7 @@ import {
   getApiHealthUrl,
   getArtifactDownloadUrl,
   getBaselineComparisonUrl,
+  getCancelCheckRunUrl,
   getCheckRunsUrl,
   getCheckRunAIReportUrl,
   getCheckRunDetailUrl,
@@ -2585,5 +2588,102 @@ describe("fetchBaselineComparison", () => {
         apiBaseUrl: "http://localhost:8000"
       })
     ).resolves.toEqual({ state: "conflict" });
+  });
+});
+
+
+describe("cancelCheckRun", () => {
+  it("cancels an active check run with an authenticated POST request", async () => {
+    const checkRun = {
+      id: "check-run-id",
+      project_id: "project-id",
+      requested_by_id: "user-id",
+      status: "CANCELLED",
+      trigger_source: "manual",
+      failure_reason: null,
+      queued_at: "2026-07-05T00:00:00Z",
+      started_at: null,
+      finished_at: "2026-07-05T00:00:10Z",
+      created_at: "2026-07-05T00:00:00Z",
+      updated_at: "2026-07-05T00:00:10Z"
+    };
+    const fetcher = vi.fn(async () => Response.json(checkRun));
+
+    await expect(
+      cancelCheckRun({
+        projectId: "project-id",
+        checkRunId: "check-run-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({
+      state: "success",
+      checkRun
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/projects/project-id/check-runs/check-run-id/cancel",
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: "Bearer token"
+        }
+      }
+    );
+    expect(getCancelCheckRunUrl("project-id", "check-run-id", "http://localhost:8000")).toBe(
+      "http://localhost:8000/projects/project-id/check-runs/check-run-id/cancel"
+    );
+  });
+
+  it("returns not-found when the check run does not exist", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 404 }));
+
+    await expect(
+      cancelCheckRun({
+        projectId: "project-id",
+        checkRunId: "check-run-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "not-found" });
+  });
+});
+
+describe("deleteProject", () => {
+  it("deletes a project with an authenticated DELETE request", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 204 }));
+
+    await expect(
+      deleteProject({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "success" });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id", {
+      method: "DELETE",
+      cache: "no-store",
+      headers: {
+        Authorization: "Bearer token"
+      }
+    });
+  });
+
+  it("returns unauthorized when the session has expired", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 401 }));
+
+    await expect(
+      deleteProject({
+        projectId: "project-id",
+        accessToken: "token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unauthorized" });
   });
 });

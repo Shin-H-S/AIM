@@ -577,6 +577,12 @@ function ProjectDashboardCard({
           </Link>
           <Link
             className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
+            href={`/projects/${project.id}/check-runs`}
+          >
+            Runs
+          </Link>
+          <Link
+            className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-cyan-300/50 hover:text-cyan-100"
             href={`/projects/${project.id}/scenarios`}
           >
             Scenarios

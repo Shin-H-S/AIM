@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import { AIReportDetailPanel } from "./AIReportDetailPanel";
 import {
+  cancelCheckRun,
   clearProjectBaseline,
   fetchBaselineComparison,
   fetchCheckRunAIReport,
@@ -77,6 +78,8 @@ export function ResultPageClient({
     useState<BaselineComparisonResult | null>(null);
   const [isBaselineMutating, setIsBaselineMutating] = useState(false);
   const [baselineActionError, setBaselineActionError] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const trimmedToken = accessToken.trim();
   const checkRun = result?.state === "success" ? result.checkRun : null;
   const shouldPoll = checkRun ? ACTIVE_STATUSES.has(checkRun.status) : false;
@@ -293,6 +296,33 @@ export function ResultPageClient({
     return () => window.clearInterval(intervalId);
   }, [refresh, shouldPoll, trimmedToken]);
 
+  const handleCancelCheckRun = useCallback(async () => {
+    if (!trimmedToken || isCancelling) {
+      return;
+    }
+
+    setIsCancelling(true);
+    setCancelError(null);
+    const cancelResult = await cancelCheckRun({
+      projectId,
+      checkRunId,
+      accessToken: trimmedToken
+    });
+
+    if (cancelResult.state === "success") {
+      await loadCheckRun(trimmedToken);
+    } else if (cancelResult.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(trimmedToken);
+      setCancelError("인증이 만료되었습니다. 다시 로그인한 뒤 시도하세요.");
+    } else if (cancelResult.state === "not-found") {
+      setCancelError("CheckRun을 찾을 수 없습니다.");
+    } else {
+      setCancelError("취소 요청이 실패했습니다. API 서버 상태를 확인하세요.");
+    }
+
+    setIsCancelling(false);
+  }, [checkRunId, isCancelling, loadCheckRun, projectId, trimmedToken]);
+
   const apiBaseUrlLabel = useMemo(() => {
     try {
       return getApiBaseUrl();
@@ -399,9 +429,12 @@ export function ResultPageClient({
           <>
             <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
               <StatusSummary
+                cancelError={cancelError}
                 checkRun={checkRun}
-                shouldPoll={shouldPoll}
+                isCancelling={isCancelling}
                 lastUpdatedAt={lastUpdatedAt}
+                onCancel={() => void handleCancelCheckRun()}
+                shouldPoll={shouldPoll}
               />
               <TimelineCard checkRun={checkRun} />
             </section>
@@ -453,13 +486,19 @@ function Identifier({ label, value }: { label: string; value: string }) {
 }
 
 function StatusSummary({
+  cancelError,
   checkRun,
-  shouldPoll,
-  lastUpdatedAt
+  isCancelling,
+  lastUpdatedAt,
+  onCancel,
+  shouldPoll
 }: {
+  cancelError: string | null;
   checkRun: CheckRunDetail;
-  shouldPoll: boolean;
+  isCancelling: boolean;
   lastUpdatedAt: string | null;
+  onCancel: () => void;
+  shouldPoll: boolean;
 }) {
   const badgeClassName = getStatusBadgeClassName(checkRun.status);
 
@@ -477,6 +516,28 @@ function StatusSummary({
         <Metric label="Failure" value={checkRun.failure_reason ?? "없음"} />
         <Metric label="Last refresh" value={lastUpdatedAt ?? "아직 없음"} />
       </dl>
+
+      {shouldPoll && (
+        <div className="mt-5">
+          <button
+            className="rounded-2xl border border-rose-300/30 bg-rose-300/10 px-4 py-2 text-sm font-bold text-rose-100 transition hover:border-rose-200 hover:bg-rose-300/20 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isCancelling}
+            onClick={onCancel}
+            type="button"
+          >
+            {isCancelling ? "취소 요청 중" : "이 CheckRun 취소"}
+          </button>
+          <p className="mt-2 text-xs text-slate-400">
+            대기·실행·분석 중인 CheckRun만 취소할 수 있습니다.
+          </p>
+        </div>
+      )}
+
+      {cancelError && (
+        <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100">
+          {cancelError}
+        </p>
+      )}
     </article>
   );
 }

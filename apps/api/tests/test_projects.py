@@ -387,3 +387,28 @@ def test_other_user_cannot_delete_project(client: TestClient) -> None:
 
 def test_project_table_is_registered_in_metadata() -> None:
     assert Project.__tablename__ in Base.metadata.tables
+
+
+def test_project_scheduled_scans_default_off_and_toggle(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    created = create_project(client, headers=headers)
+
+    assert created["scheduled_scans_enabled"] is False
+
+    enable_response = client.patch(
+        f"/projects/{created['id']}",
+        json={"scheduled_scans_enabled": True},
+        headers=headers,
+    )
+
+    assert enable_response.status_code == 200
+    assert enable_response.json()["scheduled_scans_enabled"] is True
+
+    disable_response = client.patch(
+        f"/projects/{created['id']}",
+        json={"scheduled_scans_enabled": False},
+        headers=headers,
+    )
+
+    assert disable_response.status_code == 200
+    assert disable_response.json()["scheduled_scans_enabled"] is False

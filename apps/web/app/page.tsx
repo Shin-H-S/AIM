@@ -2,27 +2,35 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createCheckRun,
   fetchApiHealth,
   fetchCheckRunDetail,
   fetchCheckRuns,
-  fetchCurrentUser,
   fetchProjects,
   getApiBaseUrl,
-  logoutUser,
   type CheckRunDetailResult,
   type CheckRunListResult,
   type CheckRunStatus,
   type CheckRunSummary,
   type HealthCheckResult,
   type Project,
-  type ScenarioRun,
-  type ScenarioRunStatus,
-  type User
+  type ScenarioRun
 } from "@/lib/api";
-import { clearStoredAccessToken, getStoredAccessToken, storeAccessToken } from "@/lib/auth";
+import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
+import { formatDateTime, formatNullableDateTime } from "@/lib/format";
+import {
+  Badge,
+  CheckRunStatusBadge,
+  EmptyState,
+  LinkButton,
+  LoginRequiredNotice,
+  Metric,
+  Notice,
+  RefreshButton,
+  ScenarioRunStatusBadge
+} from "@/components/ui";
 
 const PROJECT_DASHBOARD_LIMIT = 20;
 const ACTIVE_CHECK_RUN_STATUSES: CheckRunStatus[] = ["QUEUED", "RUNNING", "ANALYZING"];
@@ -31,23 +39,6 @@ const healthStatusCopy: Record<HealthCheckResult["state"], string> = {
   loading: "확인 중",
   available: "연결됨",
   unavailable: "연결 실패"
-};
-
-const checkRunStatusCopy: Record<CheckRunStatus, string> = {
-  QUEUED: "대기 중",
-  RUNNING: "실행 중",
-  ANALYZING: "분석 중",
-  COMPLETED: "완료",
-  FAILED: "실패",
-  CANCELLED: "취소됨"
-};
-
-const scenarioRunStatusCopy: Record<ScenarioRunStatus, string> = {
-  QUEUED: "대기 중",
-  RUNNING: "실행 중",
-  COMPLETED: "완료",
-  FAILED: "실패",
-  CANCELLED: "취소됨"
 };
 
 type DashboardProject = {
@@ -68,7 +59,7 @@ type CheckRunStartState =
 
 type DashboardState =
   | {
-      state: "idle";
+      state: "signed-out";
     }
   | {
       state: "loading";
@@ -89,55 +80,31 @@ export default function Home() {
   const [health, setHealth] = useState<HealthCheckResult>({
     state: "loading"
   });
-  const [accessToken, setAccessToken] = useState("");
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [dashboard, setDashboard] = useState<DashboardState>({ state: "idle" });
+  const [dashboard, setDashboard] = useState<DashboardState>({ state: "loading" });
   const [checkRunStartStates, setCheckRunStartStates] = useState<
     Record<string, CheckRunStartState>
   >({});
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
-  const trimmedToken = accessToken.trim();
 
-  const loadDashboardWithToken = useCallback(async (token: string) => {
-    const normalizedToken = token.trim();
+  const loadDashboard = useCallback(async () => {
+    const accessToken = getStoredAccessToken();
 
-    if (!normalizedToken) {
-      clearStoredAccessToken();
-      setCurrentUser(null);
-      setDashboard({ state: "idle" });
+    if (!accessToken) {
+      setDashboard({ state: "signed-out" });
       setLastUpdatedAt(null);
       return;
     }
 
     setDashboard({ state: "loading" });
 
-    const currentUserResult = await fetchCurrentUser({
-      accessToken: normalizedToken
-    });
-
-    if (currentUserResult.state !== "success") {
-      if (currentUserResult.state === "unauthorized") {
-        clearStoredAccessToken();
-      }
-
-      setCurrentUser(null);
-      setDashboard({ state: currentUserResult.state });
-      setLastUpdatedAt(null);
-      return;
-    }
-
-    setCurrentUser(currentUserResult.user);
-    storeAccessToken(normalizedToken);
-
     const projectsResult = await fetchProjects({
-      accessToken: normalizedToken,
+      accessToken,
       limit: PROJECT_DASHBOARD_LIMIT
     });
 
     if (projectsResult.state !== "success") {
       if (projectsResult.state === "unauthorized") {
         clearStoredAccessToken();
-        setCurrentUser(null);
       }
 
       setDashboard({ state: projectsResult.state });
@@ -149,7 +116,7 @@ export default function Home() {
       projectsResult.projects.map(async (project) => {
         const checkRunsResult = await fetchCheckRuns({
           projectId: project.id,
-          accessToken: normalizedToken,
+          accessToken,
           limit: 1
         });
         const latestCheckRun =
@@ -168,7 +135,7 @@ export default function Home() {
         const checkRunDetailResult = await fetchCheckRunDetail({
           projectId: project.id,
           checkRunId: latestCheckRun.id,
-          accessToken: normalizedToken
+          accessToken
         });
 
         return {
@@ -203,17 +170,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const storedAccessToken = getStoredAccessToken();
-
-    if (!storedAccessToken) {
-      return;
-    }
-
     queueMicrotask(() => {
-      setAccessToken(storedAccessToken);
-      void loadDashboardWithToken(storedAccessToken);
+      void loadDashboard();
     });
-  }, [loadDashboardWithToken]);
+  }, [loadDashboard]);
 
   const dashboardSummary = useMemo(() => {
     if (dashboard.state !== "success") {
@@ -243,13 +203,10 @@ export default function Home() {
     };
   }, [dashboard]);
 
-  function handleDashboardSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    void loadDashboardWithToken(trimmedToken);
-  }
-
   async function handleStartCheckRun(project: Project) {
-    if (!trimmedToken) {
+    const accessToken = getStoredAccessToken();
+
+    if (!accessToken) {
       setCheckRunStartStates((currentStates) => ({
         ...currentStates,
         [project.id]: "unauthorized"
@@ -264,14 +221,12 @@ export default function Home() {
 
     const result = await createCheckRun({
       projectId: project.id,
-      accessToken: trimmedToken
+      accessToken
     });
 
     if (result.state !== "success") {
       if (result.state === "unauthorized") {
         clearStoredAccessToken();
-        setAccessToken("");
-        setCurrentUser(null);
       }
 
       setCheckRunStartStates((currentStates) => ({
@@ -288,24 +243,9 @@ export default function Home() {
     router.push(`/projects/${project.id}/check-runs/${result.checkRun.id}`);
   }
 
-  function handleLogout() {
-    if (trimmedToken) {
-      void logoutUser({
-        accessToken: trimmedToken
-      });
-    }
-
-    clearStoredAccessToken();
-    setAccessToken("");
-    setCurrentUser(null);
-    setCheckRunStartStates({});
-    setDashboard({ state: "idle" });
-    setLastUpdatedAt(null);
-  }
-
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
-      <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-12">
+    <main>
+      <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-12">
         <div className="max-w-4xl">
           <p className="mb-4 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
             AIM MVP Dashboard
@@ -324,7 +264,7 @@ export default function Home() {
           <MetricCard
             label="Projects"
             value={dashboardSummary?.projectCount ?? "-"}
-            description="현재 토큰으로 조회한 프로젝트 수"
+            description="현재 세션으로 조회한 프로젝트 수"
           />
           <MetricCard
             label="Latest failures"
@@ -345,22 +285,11 @@ export default function Home() {
         </div>
 
         <DashboardPanel
-          accessToken={accessToken}
           checkRunStartStates={checkRunStartStates}
-          currentUser={currentUser}
           dashboard={dashboard}
           lastUpdatedAt={lastUpdatedAt}
-          onAccessTokenChange={(value) => {
-            setAccessToken(value);
-            setCurrentUser(null);
-            setCheckRunStartStates({});
-            setDashboard({ state: "idle" });
-            setLastUpdatedAt(null);
-          }}
-          onLogout={handleLogout}
+          onRefresh={() => void loadDashboard()}
           onStartCheckRun={handleStartCheckRun}
-          onSubmit={handleDashboardSubmit}
-          trimmedToken={trimmedToken}
         />
       </section>
     </main>
@@ -368,27 +297,17 @@ export default function Home() {
 }
 
 function DashboardPanel({
-  accessToken,
   checkRunStartStates,
-  currentUser,
   dashboard,
   lastUpdatedAt,
-  onAccessTokenChange,
-  onLogout,
-  onStartCheckRun,
-  onSubmit,
-  trimmedToken
+  onRefresh,
+  onStartCheckRun
 }: {
-  accessToken: string;
   checkRunStartStates: Record<string, CheckRunStartState>;
-  currentUser: User | null;
   dashboard: DashboardState;
   lastUpdatedAt: string | null;
-  onAccessTokenChange: (value: string) => void;
-  onLogout: () => void;
+  onRefresh: () => void;
   onStartCheckRun: (project: Project) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  trimmedToken: string;
 }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
@@ -396,71 +315,21 @@ function DashboardPanel({
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Project dashboard</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            로그인 페이지에서 저장한 access token을 자동으로 사용합니다. 필요하면 access
-            token을 직접 입력해 Dashboard를 갱신할 수도 있습니다.
+            로그인 세션으로 프로젝트와 최신 CheckRun을 자동 조회합니다.
           </p>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            {currentUser ? (
-              <>
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
-                  로그인됨: {currentUser.email}
-                </span>
-                <button
-                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700"
-                  onClick={onLogout}
-                  type="button"
-                >
-                  로그아웃
-                </button>
-                <Link
-                  className="rounded-full bg-cyan-600 px-3 py-1 text-xs font-bold text-white transition hover:bg-cyan-500"
-                  href="/projects/new"
-                >
-                  새 Project
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link
-                  className="rounded-full bg-cyan-600 px-3 py-1 text-xs font-bold text-white transition hover:bg-cyan-500"
-                  href="/signup"
-                >
-                  회원가입
-                </Link>
-                <Link
-                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700"
-                  href="/login"
-                >
-                  로그인하기
-                </Link>
-              </>
-            )}
-          </div>
           {lastUpdatedAt && <p className="mt-2 text-xs text-slate-400">마지막 갱신: {lastUpdatedAt}</p>}
         </div>
 
-        <form className="flex w-full flex-col gap-3 lg:max-w-xl" onSubmit={onSubmit}>
-          <label className="text-sm font-semibold text-slate-600" htmlFor="dashboard-token">
-            Access token
-          </label>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
-              id="dashboard-token"
-              onChange={(event) => onAccessTokenChange(event.target.value)}
-              placeholder="Bearer 없이 access_token만 입력"
-              type="password"
-              value={accessToken}
-            />
-            <button
-              className="rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!trimmedToken || dashboard.state === "loading"}
-              type="submit"
-            >
-              {dashboard.state === "loading" ? "불러오는 중" : "Dashboard 갱신"}
-            </button>
-          </div>
-        </form>
+        <div className="flex flex-wrap items-center gap-2">
+          {dashboard.state !== "signed-out" && (
+            <LinkButton href="/projects/new" label="새 Project" variant="primary" />
+          )}
+          <RefreshButton
+            isLoading={dashboard.state === "loading"}
+            label="Dashboard 갱신"
+            onClick={onRefresh}
+          />
+        </div>
       </div>
 
       <div className="mt-6">
@@ -483,13 +352,8 @@ function DashboardContent({
   dashboard: DashboardState;
   onStartCheckRun: (project: Project) => void;
 }) {
-  if (dashboard.state === "idle") {
-    return (
-      <EmptyState
-        description="로그인 페이지에서 로그인하거나 access token을 직접 입력하고 Dashboard를 갱신하세요."
-        title="Dashboard 대기 중"
-      />
-    );
+  if (dashboard.state === "signed-out") {
+    return <LoginRequiredNotice />;
   }
 
   if (dashboard.state === "loading") {
@@ -497,13 +361,7 @@ function DashboardContent({
   }
 
   if (dashboard.state === "unauthorized") {
-    return (
-      <Notice
-        description="토큰이 없거나 만료되었습니다. 로그인 페이지에서 다시 로그인하세요."
-        title="인증 실패"
-        tone="danger"
-      />
-    );
+    return <LoginRequiredNotice expired />;
   }
 
   if (dashboard.state === "unavailable") {
@@ -569,30 +427,10 @@ function ProjectDashboardCard({
           </a>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
-            href={`/projects/${project.id}/settings`}
-          >
-            Settings
-          </Link>
-          <Link
-            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
-            href={`/projects/${project.id}/check-runs`}
-          >
-            Runs
-          </Link>
-          <Link
-            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
-            href={`/projects/${project.id}/scenarios`}
-          >
-            Scenarios
-          </Link>
-          <Link
-            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
-            href={`/projects/${project.id}/alerts`}
-          >
-            Alerts
-          </Link>
+          <LinkButton href={`/projects/${project.id}/settings`} label="Settings" />
+          <LinkButton href={`/projects/${project.id}/check-runs`} label="Runs" />
+          <LinkButton href={`/projects/${project.id}/scenarios`} label="Scenarios" />
+          <LinkButton href={`/projects/${project.id}/alerts`} label="Alerts" />
           <button
             className="rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             disabled={!project.is_verified || startState === "starting"}
@@ -691,7 +529,7 @@ function LatestCheckRunCard({
     return (
       <EmptyState
         compact
-        description="아직 실행된 CheckRun이 없습니다. CheckRun 생성 UI가 연결되면 여기에서 첫 검사를 시작할 수 있습니다."
+        description="아직 실행된 CheckRun이 없습니다. 검사 시작 버튼으로 첫 검사를 시작할 수 있습니다."
         title="최신 CheckRun 없음"
       />
     );
@@ -716,18 +554,17 @@ function LatestCheckRunCard({
             Latest CheckRun
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <StatusBadge status={latestCheckRun.status} />
+            <CheckRunStatusBadge status={latestCheckRun.status} />
             <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
               {latestCheckRun.trigger_source}
             </span>
           </div>
         </div>
-        <Link
-          className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500"
+        <LinkButton
           href={`/projects/${projectId}/check-runs/${latestCheckRun.id}`}
-        >
-          결과 보기
-        </Link>
+          label="결과 보기"
+          variant="dark"
+        />
       </div>
 
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
@@ -886,127 +723,12 @@ function MetricCard({
   );
 }
 
-function StatusBadge({ status }: { status: CheckRunStatus }) {
-  const className =
-    status === "COMPLETED"
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-      : status === "FAILED"
-        ? "bg-rose-50 text-rose-700 ring-rose-200"
-        : status === "CANCELLED"
-          ? "bg-slate-100 text-slate-600 ring-slate-300"
-          : "bg-cyan-50 text-cyan-700 ring-cyan-200";
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
-      {checkRunStatusCopy[status]}
-    </span>
-  );
-}
-
-function ScenarioRunStatusBadge({ status }: { status: ScenarioRunStatus }) {
-  const className =
-    status === "COMPLETED"
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-      : status === "FAILED"
-        ? "bg-rose-50 text-rose-700 ring-rose-200"
-        : status === "CANCELLED"
-          ? "bg-slate-100 text-slate-600 ring-slate-300"
-          : "bg-cyan-50 text-cyan-700 ring-cyan-200";
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
-      {scenarioRunStatusCopy[status]}
-    </span>
-  );
-}
-
-function Badge({
-  label,
-  tone = "default"
-}: {
-  label: string;
-  tone?: "default" | "success" | "warning";
-}) {
-  const className =
-    tone === "success"
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-      : tone === "warning"
-        ? "bg-amber-50 text-amber-700 ring-amber-200"
-        : "bg-slate-200 text-slate-700 ring-slate-200";
-
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
-      {label}
-    </span>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
-      <dd className="mt-1 break-words text-slate-700">{value}</dd>
-    </div>
-  );
-}
-
-function Notice({
-  description,
-  title,
-  tone = "info"
-}: {
-  description: string;
-  title: string;
-  tone?: "info" | "danger";
-}) {
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        tone === "danger"
-          ? "border-rose-200 bg-rose-50 text-rose-800"
-          : "border-cyan-200 bg-cyan-50 text-cyan-700"
-      }`}
-    >
-      <h3 className="font-semibold">{title}</h3>
-      <p className="mt-2 text-sm leading-6 opacity-85">{description}</p>
-    </div>
-  );
-}
-
-function EmptyState({
-  compact = false,
-  description,
-  title
-}: {
-  compact?: boolean;
-  description: string;
-  title: string;
-}) {
-  return (
-    <div className={`rounded-2xl border border-slate-200 bg-slate-50 ${compact ? "p-4" : "p-6"}`}>
-      <h3 className="font-semibold text-slate-900">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
-    </div>
-  );
-}
-
 function getApiBaseUrlLabel() {
   try {
     return getApiBaseUrl();
   } catch {
     return "잘못된 NEXT_PUBLIC_API_URL";
   }
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short"
-  }).format(new Date(value));
-}
-
-function formatNullableDateTime(value: string | null) {
-  return value ? formatDateTime(value) : "아직 없음";
 }
 
 type DashboardScenarioRunSummary = {

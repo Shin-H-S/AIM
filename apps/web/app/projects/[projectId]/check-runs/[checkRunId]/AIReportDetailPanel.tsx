@@ -1,4 +1,6 @@
 import { type AIReportChange, type AIReportDetail, type AIReportIssue } from "@/lib/api";
+import { formatDetailDateTime } from "@/lib/format";
+import { Metric } from "@/components/ui";
 
 const statementTypeLabels: Record<AIReportIssue["statement_type"], string> = {
   confirmed_observation: "확인된 관찰",
@@ -22,7 +24,7 @@ export function AIReportDetailPanel({ report }: { report: AIReportDetail }) {
         <dl className="mt-4 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
           <Metric label="Report schema" value={report.schema_version} />
           <Metric label="Input schema" value={report.input_schema_version} />
-          <Metric label="Generated" value={formatDateTime(payload.generated_at)} />
+          <Metric label="Generated" value={formatDetailDateTime(payload.generated_at)} />
           <Metric label="Score evidence" value={formatEvidenceIds(payload.score.evidence_ids)} />
           <Metric label="Project ID" value={payload.project_id} />
           <Metric label="CheckRun ID" value={payload.check_run_id} />
@@ -218,15 +220,6 @@ function EvidenceIdList({ ids }: { ids: string[] }) {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
-      <dd className="mt-1 break-words text-slate-700">{value}</dd>
-    </div>
-  );
-}
-
 function getSeverityBadgeClassName(severity: AIReportIssue["severity"]) {
   if (severity === "risk") {
     return "bg-rose-50 text-rose-700 ring-rose-200";
@@ -237,17 +230,6 @@ function getSeverityBadgeClassName(severity: AIReportIssue["severity"]) {
   }
 
   return "bg-cyan-50 text-cyan-700 ring-cyan-200";
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "없음";
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "medium"
-  }).format(new Date(value));
 }
 
 function formatEvidenceIds(ids: string[]) {

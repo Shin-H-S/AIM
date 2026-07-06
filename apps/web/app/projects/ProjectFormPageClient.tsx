@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
@@ -16,6 +15,7 @@ import {
   type ProjectVerification
 } from "@/lib/api";
 import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
+import { Identifier, LoginRequiredNotice, Metric, Notice } from "@/components/ui";
 
 type ProjectFormMode = "create" | "edit";
 
@@ -61,7 +61,6 @@ export function ProjectFormPageClient({
   projectId?: string;
 }) {
   const router = useRouter();
-  const [accessToken, setAccessToken] = useState("");
   const [project, setProject] = useState<Project | null>(null);
   const [form, setForm] = useState<ProjectFormState>(initialForm);
   const [loadState, setLoadState] = useState<LoadState>("checking-auth");
@@ -131,8 +130,6 @@ export function ProjectFormPageClient({
         return;
       }
 
-      setAccessToken(storedAccessToken);
-
       if (mode === "create") {
         setLoadState("ready");
         return;
@@ -152,6 +149,8 @@ export function ProjectFormPageClient({
       setSubmitMessage(payloadResult.message);
       return;
     }
+
+    const accessToken = getStoredAccessToken();
 
     if (!accessToken) {
       setSubmitState("unauthorized");
@@ -200,6 +199,8 @@ export function ProjectFormPageClient({
   }
 
   async function handleVerifyProject() {
+    const accessToken = getStoredAccessToken();
+
     if (!project || !accessToken) {
       setVerifyActionState("unauthorized");
       return;
@@ -237,6 +238,8 @@ export function ProjectFormPageClient({
     if (!project || isDeleting) {
       return;
     }
+
+    const accessToken = getStoredAccessToken();
 
     if (!accessToken) {
       setDeleteError("로그인 세션이 없습니다. 다시 로그인하세요.");
@@ -279,16 +282,10 @@ export function ProjectFormPageClient({
       : "서비스 URL, 환경, 검사 기준을 수정하고 domain verification 상태를 확인합니다.";
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
-      <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-12">
+    <main>
+      <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
         <div>
-          <Link
-            className="inline-flex rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
-            href="/"
-          >
-            Dashboard로 돌아가기
-          </Link>
-          <p className="mt-8 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
+          <p className="text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
             AIM Project Management
           </p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-6xl">{title}</h1>
@@ -657,8 +654,9 @@ function VerificationContent({
         </pre>
       </div>
 
+      <Identifier label="Verification token" value={verification.verification_token} />
+
       <dl className="grid gap-3 text-sm">
-        <Metric label="Verification token" value={verification.verification_token} />
         <Metric label="Verified at" value={verification.verified_at ?? "아직 없음"} />
       </dl>
     </div>
@@ -689,13 +687,7 @@ function LoadStateNotice({ loadState }: { loadState: LoadState }) {
   }
 
   if (loadState === "unauthorized") {
-    return (
-      <Notice
-        description="Project를 관리하려면 먼저 로그인해야 합니다."
-        title="로그인 필요"
-        tone="danger"
-      />
-    );
+    return <LoginRequiredNotice />;
   }
 
   if (loadState === "not-found") {
@@ -786,30 +778,6 @@ function TextField({
   );
 }
 
-function Notice({
-  description,
-  title,
-  tone = "info"
-}: {
-  description: string;
-  title: string;
-  tone?: "info" | "danger" | "success";
-}) {
-  const className =
-    tone === "danger"
-      ? "border-rose-200 bg-rose-50 text-rose-800"
-      : tone === "success"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-        : "border-cyan-200 bg-cyan-50 text-cyan-700";
-
-  return (
-    <div className={`rounded-2xl border p-4 ${className}`}>
-      <h3 className="font-semibold">{title}</h3>
-      <p className="mt-2 text-sm leading-6 opacity-85">{description}</p>
-    </div>
-  );
-}
-
 function StatusMessage({
   message,
   tone
@@ -827,15 +795,6 @@ function StatusMessage({
     >
       {message}
     </p>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
-      <dd className="mt-1 break-all text-slate-700">{value}</dd>
-    </div>
   );
 }
 

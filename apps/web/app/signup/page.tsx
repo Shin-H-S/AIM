@@ -77,8 +77,8 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
-      <section className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-6 py-12">
+    <main>
+      <section className="mx-auto flex w-full max-w-6xl items-center px-6 py-12">
         <div className="grid w-full gap-8 lg:grid-cols-[1fr_460px] lg:items-center">
           <div>
             <p className="mb-4 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">

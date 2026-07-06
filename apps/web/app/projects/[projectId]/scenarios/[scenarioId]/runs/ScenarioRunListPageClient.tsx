@@ -1,25 +1,26 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchScenarioRuns,
   getApiBaseUrl,
   type ScenarioRun,
-  type ScenarioRunListResult,
-  type ScenarioRunStatus
+  type ScenarioRunListResult
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import { formatDateTime, formatMilliseconds, formatNullableDateTime } from "@/lib/format";
+import {
+  Badge,
+  Identifier,
+  LinkButton,
+  LoginRequiredNotice,
+  Metric,
+  Notice,
+  RefreshButton,
+  ScenarioRunStatusBadge
+} from "@/components/ui";
 
 const LIST_LIMIT = 20;
-
-const statusLabels: Record<ScenarioRunStatus, string> = {
-  QUEUED: "대기 중",
-  RUNNING: "실행 중",
-  COMPLETED: "완료",
-  FAILED: "실패",
-  CANCELLED: "취소됨"
-};
 
 type ScenarioRunSummary = {
   total: number;
@@ -29,6 +30,11 @@ type ScenarioRunSummary = {
   cancelled: number;
 };
 
+type ScenarioRunListPageState =
+  | { state: "checking" }
+  | { state: "signed-out" }
+  | ScenarioRunListResult;
+
 export function ScenarioRunListPageClient({
   projectId,
   scenarioId
@@ -36,60 +42,52 @@ export function ScenarioRunListPageClient({
   projectId: string;
   scenarioId: string;
 }) {
-  const [accessToken, setAccessToken] = useState("");
-  const [result, setResult] = useState<ScenarioRunListResult | null>(null);
+  const [result, setResult] = useState<ScenarioRunListPageState>({ state: "checking" });
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreScenarioRuns, setHasMoreScenarioRuns] = useState(false);
   const [listMessage, setListMessage] = useState<string | null>(null);
-  const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
-  const trimmedToken = accessToken.trim();
-  const scenarioRuns = result?.state === "success" ? result.scenarioRuns : [];
+  const scenarioRuns = result.state === "success" ? result.scenarioRuns : [];
   const summary = summarizeScenarioRuns(scenarioRuns);
 
-  const loadScenarioRuns = useCallback(
-    async (token: string) => {
-      const normalizedToken = token.trim();
+  const loadScenarioRuns = useCallback(async () => {
+    const accessToken = getStoredAccessToken();
 
-      if (!normalizedToken) {
-        setResult(null);
-        setHasMoreScenarioRuns(false);
-        setIsLoadingMore(false);
-        setListMessage(null);
-        setLastUpdatedAt(null);
-        return;
-      }
-
-      setIsLoading(true);
+    if (!accessToken) {
+      setResult({ state: "signed-out" });
+      setHasMoreScenarioRuns(false);
+      setIsLoadingMore(false);
       setListMessage(null);
-      const nextResult = await fetchScenarioRuns({
-        projectId,
-        scenarioId,
-        accessToken: normalizedToken,
-        limit: LIST_LIMIT
-      });
+      setLastUpdatedAt(null);
+      return;
+    }
 
-      if (nextResult.state === "unauthorized") {
-        clearStoredAccessTokenIfMatches(normalizedToken);
-      }
+    setIsLoading(true);
+    setListMessage(null);
+    const nextResult = await fetchScenarioRuns({
+      projectId,
+      scenarioId,
+      accessToken,
+      limit: LIST_LIMIT
+    });
 
-      setResult(nextResult);
-      setHasMoreScenarioRuns(
-        nextResult.state === "success" && nextResult.scenarioRuns.length === LIST_LIMIT
-      );
-      setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
-      setIsLoading(false);
-    },
-    [projectId, scenarioId]
-  );
+    if (nextResult.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(accessToken);
+    }
 
-  const refresh = useCallback(async () => {
-    await loadScenarioRuns(trimmedToken);
-  }, [loadScenarioRuns, trimmedToken]);
+    setResult(nextResult);
+    setHasMoreScenarioRuns(
+      nextResult.state === "success" && nextResult.scenarioRuns.length === LIST_LIMIT
+    );
+    setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
+    setIsLoading(false);
+  }, [projectId, scenarioId]);
 
   async function handleLoadMoreScenarioRuns() {
-    if (!trimmedToken || result?.state !== "success" || isLoadingMore) {
+    const accessToken = getStoredAccessToken();
+
+    if (!accessToken || result.state !== "success" || isLoadingMore) {
       return;
     }
 
@@ -99,13 +97,13 @@ export function ScenarioRunListPageClient({
     const nextResult = await fetchScenarioRuns({
       projectId,
       scenarioId,
-      accessToken: trimmedToken,
+      accessToken,
       limit: LIST_LIMIT,
       offset: result.scenarioRuns.length
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(trimmedToken);
+      clearStoredAccessTokenIfMatches(accessToken);
     }
 
     if (nextResult.state !== "success") {
@@ -115,7 +113,7 @@ export function ScenarioRunListPageClient({
     }
 
     setResult((current) =>
-      current?.state === "success"
+      current.state === "success"
         ? {
             state: "success",
             scenarioRuns: [...current.scenarioRuns, ...nextResult.scenarioRuns]
@@ -132,17 +130,8 @@ export function ScenarioRunListPageClient({
   }
 
   useEffect(() => {
-    const storedAccessToken = getStoredAccessToken();
-
     queueMicrotask(() => {
-      setHasCheckedStoredToken(true);
-
-      if (!storedAccessToken) {
-        return;
-      }
-
-      setAccessToken(storedAccessToken);
-      void loadScenarioRuns(storedAccessToken);
+      void loadScenarioRuns();
     });
   }, [loadScenarioRuns]);
 
@@ -155,7 +144,7 @@ export function ScenarioRunListPageClient({
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
+    <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
         <header className="rounded-3xl border border-slate-200 bg-white p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -173,18 +162,8 @@ export function ScenarioRunListPageClient({
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link
-                className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
-                href={`/projects/${projectId}/scenarios`}
-              >
-                Scenario 목록
-              </Link>
-              <Link
-                className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
-                href="/"
-              >
-                Dashboard
-              </Link>
+              <LinkButton href={`/projects/${projectId}/scenarios`} label="Scenario 목록" />
+              <RefreshButton isLoading={isLoading} onClick={() => void loadScenarioRuns()} />
             </div>
           </div>
 
@@ -192,35 +171,9 @@ export function ScenarioRunListPageClient({
             <Identifier label="Project ID" value={projectId} />
             <Identifier label="Scenario ID" value={scenarioId} />
           </div>
-
-          <form
-            className="mt-5 grid gap-3 md:grid-cols-[1fr_auto]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void refresh();
-            }}
-          >
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">Bearer token</span>
-              <input
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-cyan-400/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
-                onChange={(event) => setAccessToken(event.target.value)}
-                placeholder="로그인 API에서 받은 access_token을 입력하세요"
-                type="password"
-                value={accessToken}
-              />
-            </label>
-            <button
-              className="self-end rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!trimmedToken || isLoading}
-              type="submit"
-            >
-              {isLoading ? "조회 중" : "ScenarioRun 조회"}
-            </button>
-          </form>
         </header>
 
-        {!hasCheckedStoredToken && (
+        {result.state === "checking" && (
           <Notice
             description="저장된 로그인 세션이 있으면 자동으로 ScenarioRun 목록을 조회합니다."
             title="로그인 세션 확인 중"
@@ -228,23 +181,11 @@ export function ScenarioRunListPageClient({
           />
         )}
 
-        {hasCheckedStoredToken && !trimmedToken && (
-          <Notice
-            description="로그인 페이지에서 먼저 로그인하거나 access token을 직접 입력하세요."
-            title="인증 토큰이 필요합니다"
-            tone="info"
-          />
-        )}
+        {result.state === "signed-out" && <LoginRequiredNotice />}
 
-        {result?.state === "unauthorized" && (
-          <Notice
-            description="토큰이 없거나 만료되었거나, 이 프로젝트에 접근할 권한이 없습니다."
-            title="인증 실패"
-            tone="danger"
-          />
-        )}
+        {result.state === "unauthorized" && <LoginRequiredNotice expired />}
 
-        {result?.state === "not-found" && (
+        {result.state === "not-found" && (
           <Notice
             description="Project ID, Scenario ID 또는 현재 사용자 권한을 확인하세요."
             title="ScenarioRun 목록을 찾을 수 없습니다"
@@ -252,7 +193,7 @@ export function ScenarioRunListPageClient({
           />
         )}
 
-        {result?.state === "unavailable" && (
+        {result.state === "unavailable" && (
           <Notice
             description="API 서버 실행 상태와 NEXT_PUBLIC_API_URL 설정을 확인하세요."
             title="API 요청 실패"
@@ -260,7 +201,7 @@ export function ScenarioRunListPageClient({
           />
         )}
 
-        {result?.state === "success" && (
+        {result.state === "success" && (
           <>
             <SummaryCard lastUpdatedAt={lastUpdatedAt} summary={summary} />
             <ScenarioRunList
@@ -403,7 +344,7 @@ function ScenarioRunCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap gap-2">
-            <StatusBadge status={scenarioRun.status} />
+            <ScenarioRunStatusBadge status={scenarioRun.status} />
             <Badge label={scenarioRun.trigger_source} />
             {scenarioRun.check_run_id && <Badge label="linked check run" />}
           </div>
@@ -411,19 +352,16 @@ function ScenarioRunCard({
         </div>
         <div className="flex flex-wrap gap-2">
           {scenarioRun.check_run_id && (
-            <Link
-              className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
+            <LinkButton
               href={`/projects/${projectId}/check-runs/${scenarioRun.check_run_id}`}
-            >
-              CheckRun 보기
-            </Link>
+              label="CheckRun 보기"
+            />
           )}
-          <Link
-            className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500"
+          <LinkButton
             href={`/projects/${projectId}/scenarios/${scenarioId}/runs/${scenarioRun.id}`}
-          >
-            결과 보기
-          </Link>
+            label="결과 보기"
+            variant="dark"
+          />
         </div>
       </div>
 
@@ -441,76 +379,6 @@ function ScenarioRunCard({
       )}
     </li>
   );
-}
-
-function Identifier({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-        {label}
-      </p>
-      <p className="break-all font-mono text-xs text-slate-700">{value}</p>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
-      <dd className="mt-1 break-words text-slate-700">{value}</dd>
-    </div>
-  );
-}
-
-function Notice({
-  description,
-  title,
-  tone
-}: {
-  description: string;
-  title: string;
-  tone: "info" | "danger";
-}) {
-  const className =
-    tone === "info"
-      ? "border-cyan-200 bg-cyan-50 text-cyan-700"
-      : "border-rose-200 bg-rose-50 text-rose-800";
-
-  return (
-    <article className={`rounded-3xl border p-6 ${className}`}>
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="mt-2 text-sm leading-6 opacity-80">{description}</p>
-    </article>
-  );
-}
-
-function Badge({ label }: { label: string }) {
-  return (
-    <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-700 ring-1 ring-slate-200">
-      {label}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: ScenarioRunStatus }) {
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${getStatusBadgeClassName(status)}`}>
-      {statusLabels[status]}
-    </span>
-  );
-}
-
-function getStatusBadgeClassName(status: ScenarioRunStatus) {
-  if (status === "COMPLETED") {
-    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
-  }
-
-  if (status === "FAILED" || status === "CANCELLED") {
-    return "bg-rose-50 text-rose-700 ring-rose-200";
-  }
-
-  return "bg-cyan-50 text-cyan-700 ring-cyan-200";
 }
 
 function summarizeScenarioRuns(scenarioRuns: ScenarioRun[]): ScenarioRunSummary {
@@ -544,21 +412,6 @@ function summarizeScenarioRuns(scenarioRuns: ScenarioRun[]): ScenarioRunSummary 
       cancelled: 0
     }
   );
-}
-
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short"
-  }).format(new Date(value));
-}
-
-function formatNullableDateTime(value: string | null): string {
-  return value ? formatDateTime(value) : "아직 없음";
-}
-
-function formatMilliseconds(value: number | null): string {
-  return value === null ? "알 수 없음" : `${value}ms`;
 }
 
 const scenarioRunListMessageByState: Record<

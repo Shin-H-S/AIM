@@ -1,7 +1,9 @@
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -190,6 +192,7 @@ class LighthouseResult(Base):
     largest_contentful_paint_ms: Mapped[int | None] = mapped_column(Integer)
     cumulative_layout_shift: Mapped[float | None] = mapped_column(Float)
     total_blocking_time_ms: Mapped[int | None] = mapped_column(Integer)
+    top_audits: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
     raw_json_artifact_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("artifacts.id", ondelete="SET NULL"),

@@ -22,6 +22,7 @@ import {
   type CheckRunDetailResult,
   type CheckRunStatus,
   type LighthouseResult,
+  type LighthouseTopAudit,
   type Project,
   type ProjectDetailResult,
   type RunComparison,
@@ -32,6 +33,7 @@ import {
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
 import {
+  Badge,
   CheckRunStatusBadge,
   Identifier,
   LinkButton,
@@ -1226,8 +1228,58 @@ function LighthouseCard({ result }: { result: LighthouseResult | null }) {
         <Metric label="Raw JSON artifact" value={result.raw_json_artifact_id ?? "없음"} />
         <Metric label="Failure" value={result.failure_reason ?? "없음"} />
       </dl>
+      <LighthouseTopAuditList audits={result.top_audits} isSuccessful={result.is_successful} />
       <p className="mt-5 break-all text-xs text-slate-500">Service URL: {result.service_url}</p>
     </article>
+  );
+}
+
+function LighthouseTopAuditList({
+  audits,
+  isSuccessful
+}: {
+  audits: LighthouseTopAudit[] | null;
+  isSuccessful: boolean;
+}) {
+  if (audits === null) {
+    return null;
+  }
+
+  if (audits.length === 0) {
+    if (!isSuccessful) {
+      return null;
+    }
+
+    return (
+      <p className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+        Lighthouse가 발견한 주요 개선 기회가 없습니다.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-5 border-t border-slate-200 pt-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+        개선 기회 Top {audits.length}
+      </p>
+      <ol className="mt-3 grid gap-2">
+        {audits.map((audit, index) => {
+          const impact = formatAuditImpact(audit);
+
+          return (
+            <li className="rounded-2xl border border-slate-200 bg-slate-50 p-3" key={audit.id}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p className="text-sm font-semibold leading-5 text-slate-900">
+                  {index + 1}. {audit.title}
+                </p>
+                <Badge label={formatAuditCategory(audit.category)} />
+              </div>
+              {impact && <p className="mt-1 text-xs text-slate-500">{impact}</p>}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
@@ -1326,6 +1378,33 @@ function getRiskBadgeClassName(risk: ScoreResult["deployment_risk"]) {
 
 function formatNullable(value: number | null) {
   return value === null ? "없음" : String(value);
+}
+
+const auditCategoryLabels: Record<string, string> = {
+  performance: "성능",
+  accessibility: "접근성",
+  seo: "SEO",
+  "best-practices": "권장사항"
+};
+
+function formatAuditCategory(category: string) {
+  return auditCategoryLabels[category] ?? category;
+}
+
+function formatAuditImpact(audit: LighthouseTopAudit) {
+  if (audit.display_value) {
+    return audit.display_value;
+  }
+
+  const savings: string[] = [];
+  if (audit.savings_ms !== null && audit.savings_ms > 0) {
+    savings.push(`약 ${formatMilliseconds(audit.savings_ms)} 단축 가능`);
+  }
+  if (audit.savings_bytes !== null && audit.savings_bytes > 0) {
+    savings.push(`약 ${Math.round(audit.savings_bytes / 1024)}KB 절감 가능`);
+  }
+
+  return savings.length > 0 ? savings.join(" · ") : null;
 }
 
 function formatScore(value: number | null) {

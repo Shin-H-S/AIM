@@ -18,6 +18,11 @@ CommandRunner = Callable[[Sequence[str], int], subprocess.CompletedProcess[str]]
 
 STDERR_LOG_MAX_LENGTH = 2000
 
+TOP_AUDITS_LIMIT = 5
+TOP_AUDIT_SCORE_THRESHOLD = 0.9
+TOP_AUDIT_TEXT_MAX_LENGTH = 300
+SKIPPED_AUDIT_SCORE_DISPLAY_MODES = frozenset({"manual", "notApplicable", "informative", "error"})
+
 
 @dataclass(frozen=True)
 class LighthouseScanResult:
@@ -32,6 +37,7 @@ class LighthouseScanResult:
     total_blocking_time_ms: int | None
     raw_json: dict[str, Any] | None
     failure_reason: str | None
+    top_audits: list[dict[str, Any]] | None = None
 
 
 def run_lighthouse_scan(
@@ -106,6 +112,7 @@ def run_lighthouse_scan(
         total_blocking_time_ms=read_audit_numeric_value(raw_json, "total-blocking-time"),
         raw_json=raw_json,
         failure_reason=None,
+        top_audits=extract_top_audits(raw_json),
     )
 
 
@@ -125,6 +132,9 @@ def build_lighthouse_command(
         "--only-categories=performance,accessibility,best-practices,seo",
         "--form-factor=mobile",
         "--screenEmulation.mobile=true",
+        # Korean audit titles/display values so stored improvement guidance
+        # matches the Korean UI without a translation step.
+        "--locale=ko",
         # --no-sandbox / --disable-dev-shm-usage: Chromium cannot create its
         # sandbox under Docker's default seccomp profile (no unprivileged user
         # namespaces) and the default 64MB /dev/shm is too small for rendering;
@@ -192,6 +202,94 @@ def read_audit_value(raw_json: dict[str, Any], audit_id: str) -> float | None:
 
     value = audit.get("numericValue")
     if not isinstance(value, int | float):
+        return None
+
+    return float(value)
+
+
+def extract_top_audits(
+    raw_json: dict[str, Any],
+    *,
+    limit: int = TOP_AUDITS_LIMIT,
+) -> list[dict[str, Any]]:
+    """Pick the failed audits most worth fixing from a Lighthouse report.
+
+    Audits scoring below the pass threshold are ranked by estimated savings
+    first and worst score second, so performance opportunities with concrete
+    time savings come before generic failed checks.
+    """
+    audits = raw_json.get("audits")
+    categories = raw_json.get("categories")
+    if not isinstance(audits, dict) or not isinstance(categories, dict):
+        return []
+
+    candidates: list[tuple[float, float, int, dict[str, Any]]] = []
+    seen_audit_ids: set[str] = set()
+
+    for category_id, category in categories.items():
+        if not isinstance(category, dict):
+            continue
+
+        audit_refs = category.get("auditRefs")
+        if not isinstance(audit_refs, list):
+            continue
+
+        for audit_ref in audit_refs:
+            if not isinstance(audit_ref, dict):
+                continue
+
+            audit_id = audit_ref.get("id")
+            if not isinstance(audit_id, str) or audit_id in seen_audit_ids:
+                continue
+
+            audit = audits.get(audit_id)
+            if not isinstance(audit, dict):
+                continue
+
+            score = audit.get("score")
+            if not isinstance(score, int | float) or float(score) >= TOP_AUDIT_SCORE_THRESHOLD:
+                continue
+
+            if audit.get("scoreDisplayMode") in SKIPPED_AUDIT_SCORE_DISPLAY_MODES:
+                continue
+
+            title = audit.get("title")
+            if not isinstance(title, str) or not title.strip():
+                continue
+
+            seen_audit_ids.add(audit_id)
+            savings_ms = read_audit_savings(audit, "overallSavingsMs")
+            savings_bytes = read_audit_savings(audit, "overallSavingsBytes")
+            top_audit: dict[str, Any] = {
+                "id": audit_id,
+                "category": str(category_id),
+                "title": title.strip()[:TOP_AUDIT_TEXT_MAX_LENGTH],
+                "display_value": read_audit_display_value(audit),
+                "score": round(float(score), 2),
+                "savings_ms": round(savings_ms) if savings_ms is not None else None,
+                "savings_bytes": round(savings_bytes) if savings_bytes is not None else None,
+            }
+            candidates.append((-(savings_ms or 0.0), float(score), len(candidates), top_audit))
+
+    candidates.sort(key=lambda candidate: candidate[:3])
+    return [audit for *_, audit in candidates[:limit]]
+
+
+def read_audit_display_value(audit: dict[str, Any]) -> str | None:
+    display_value = audit.get("displayValue")
+    if not isinstance(display_value, str) or not display_value.strip():
+        return None
+
+    return display_value.strip()[:TOP_AUDIT_TEXT_MAX_LENGTH]
+
+
+def read_audit_savings(audit: dict[str, Any], key: str) -> float | None:
+    details = audit.get("details")
+    if not isinstance(details, dict):
+        return None
+
+    value = details.get(key)
+    if not isinstance(value, int | float) or value <= 0:
         return None
 
     return float(value)

@@ -156,6 +156,16 @@ export type SslResult = {
   updated_at: string;
 };
 
+export type LighthouseTopAudit = {
+  id: string;
+  category: string;
+  title: string;
+  display_value: string | null;
+  score: number | null;
+  savings_ms: number | null;
+  savings_bytes: number | null;
+};
+
 export type LighthouseResult = {
   service_url: string;
   is_successful: boolean;
@@ -166,6 +176,7 @@ export type LighthouseResult = {
   largest_contentful_paint_ms: number | null;
   cumulative_layout_shift: number | null;
   total_blocking_time_ms: number | null;
+  top_audits: LighthouseTopAudit[] | null;
   raw_json_artifact_id: string | null;
   failure_reason: string | null;
   created_at: string;

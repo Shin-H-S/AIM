@@ -526,6 +526,7 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
         "largest_contentful_paint_ms": 1200,
         "cumulative_layout_shift": 0.02,
         "total_blocking_time_ms": 30,
+        "top_audits": None,
         "raw_json_artifact_id": str(artifact.id),
         "failure_reason": None,
         "created_at": body["lighthouse_result"]["created_at"],

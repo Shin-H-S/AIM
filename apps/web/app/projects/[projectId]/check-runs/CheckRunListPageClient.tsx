@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   fetchCheckRuns,
-  getApiBaseUrl,
   type CheckRunListResult,
   type CheckRunSummary
 } from "@/lib/api";
@@ -12,7 +11,6 @@ import { formatDateTime, formatNullableDateTime } from "@/lib/format";
 import {
   Badge,
   CheckRunStatusBadge,
-  Identifier,
   LinkButton,
   LoginRequiredNotice,
   Metric,
@@ -127,14 +125,6 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
     });
   }, [loadCheckRuns]);
 
-  const apiBaseUrlLabel = useMemo(() => {
-    try {
-      return getApiBaseUrl();
-    } catch {
-      return "잘못된 NEXT_PUBLIC_API_URL";
-    }
-  }, []);
-
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
@@ -148,20 +138,14 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
                 CheckRun 이력
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600">
-                이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>에서 이
-                Project의 전체 CheckRun 이력을 조회합니다. 결과 페이지에서 점수, baseline
-                비교, AI 진단을 확인할 수 있습니다.
+                이 프로젝트의 전체 검사 이력입니다. 결과 페이지에서 점수, baseline 비교,
+                AI 진단을 확인할 수 있습니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <LinkButton href={`/projects/${projectId}/settings`} label="Project 설정" />
               <RefreshButton isLoading={isLoading} onClick={() => void loadCheckRuns()} />
             </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
-            <Identifier label="Project ID" value={projectId} />
-            <Identifier label="Page size" value={`${LIST_LIMIT}개`} />
           </div>
         </header>
 
@@ -187,8 +171,8 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
 
         {result.state === "unavailable" && (
           <Notice
-            description="API 서버 실행 상태와 NEXT_PUBLIC_API_URL 설정을 확인하세요."
-            title="API 요청 실패"
+            description="서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
+            title="요청 실패"
             tone="danger"
           />
         )}
@@ -324,12 +308,9 @@ function CheckRunCard({
   return (
     <li className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap gap-2">
-            <CheckRunStatusBadge status={checkRun.status} />
-            <Badge label={checkRun.trigger_source} />
-          </div>
-          <p className="mt-4 break-all font-mono text-xs text-slate-500">{checkRun.id}</p>
+        <div className="flex flex-wrap gap-2">
+          <CheckRunStatusBadge status={checkRun.status} />
+          <Badge label={checkRun.trigger_source} />
         </div>
         <LinkButton
           href={`/projects/${projectId}/check-runs/${checkRun.id}`}
@@ -394,5 +375,5 @@ const checkRunListMessageByState: Record<Exclude<CheckRunListResult["state"], "s
   {
     unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
     "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
-    unavailable: "CheckRun 이력을 더 불러오지 못했습니다. API 서버 상태를 확인하세요."
+    unavailable: "CheckRun 이력을 더 불러오지 못했습니다. 잠시 후 다시 시도하세요."
   };

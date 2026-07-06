@@ -9,7 +9,6 @@ import {
   fetchCheckRunDetail,
   fetchCheckRuns,
   fetchProjects,
-  getApiBaseUrl,
   type CheckRunDetailResult,
   type CheckRunListResult,
   type CheckRunStatus,
@@ -248,10 +247,10 @@ export default function Home() {
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-12">
         <div className="max-w-4xl">
           <p className="mb-4 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
-            AIM MVP Dashboard
+            AIM Dashboard
           </p>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-            프로젝트별 최신 CheckRun을 한눈에 확인합니다
+          <h1 className="text-4xl font-bold tracking-tight text-cyan-600 sm:text-6xl">
+            AI가 검사하고, 진단하고, 처방합니다
           </h1>
           <p className="mt-6 text-lg leading-8 text-slate-600">
             AIM은 프로젝트, 서비스 URL, 최신 검사 상태를 모아 배포 후 서비스가 실제로
@@ -367,7 +366,7 @@ function DashboardContent({
   if (dashboard.state === "unavailable") {
     return (
       <Notice
-        description="API 서버 상태와 NEXT_PUBLIC_API_URL 설정을 확인한 뒤 다시 시도하세요."
+        description="서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
         title="Dashboard 요청 실패"
         tone="danger"
       />
@@ -640,9 +639,6 @@ function LatestScenarioRunAccess({
 
       {latestScenarioRun && (
         <>
-          <p className="mt-3 break-all font-mono text-xs text-slate-500">
-            {latestScenarioRun.id}
-          </p>
           {latestScenarioRun.failure_reason && (
             <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-100 p-3 text-sm text-rose-800">
               {latestScenarioRun.failure_reason}
@@ -670,7 +666,6 @@ function LatestScenarioRunAccess({
 
 function StatusCard({ health }: { health: HealthCheckResult }) {
   const isAvailable = health.state === "available";
-  const apiBaseUrlLabel = getApiBaseUrlLabel();
   const badgeClassName = isAvailable
     ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
     : health.state === "loading"
@@ -680,20 +675,16 @@ function StatusCard({ health }: { health: HealthCheckResult }) {
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
       <div className="mb-5 flex items-center justify-between gap-4">
-        <h2 className="text-lg font-semibold">API 상태</h2>
+        <h2 className="text-lg font-semibold">서비스 상태</h2>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${badgeClassName}`}>
           {healthStatusCopy[health.state]}
         </span>
       </div>
       <p className="text-sm leading-6 text-slate-600">
-        프론트엔드는 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의{" "}
-        <code className="text-cyan-700">/health</code> 응답을 확인합니다.
-      </p>
-      <p className="mt-4 text-sm text-slate-500">
-        {health.state === "available" && `서비스: ${health.service}`}
-        {health.state === "loading" && "FastAPI 서버 상태를 불러오는 중입니다."}
+        {health.state === "available" && "모든 기능을 정상적으로 사용할 수 있습니다."}
+        {health.state === "loading" && "서버 상태를 확인하는 중입니다."}
         {health.state === "unavailable" &&
-          "API 서버가 실행 중인지, NEXT_PUBLIC_API_URL 값이 맞는지 확인하세요."}
+          "서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."}
       </p>
     </article>
   );
@@ -721,14 +712,6 @@ function MetricCard({
       <p className="mt-3 text-sm leading-6 text-slate-500">{description}</p>
     </article>
   );
-}
-
-function getApiBaseUrlLabel() {
-  try {
-    return getApiBaseUrl();
-  } catch {
-    return "잘못된 NEXT_PUBLIC_API_URL";
-  }
 }
 
 type DashboardScenarioRunSummary = {
@@ -779,5 +762,5 @@ const checkRunStartStateMessage: Record<
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
   "not-found": "Project를 찾을 수 없습니다. Dashboard를 다시 갱신하세요.",
   conflict: "Project가 아직 domain verification을 통과하지 못했습니다.",
-  unavailable: "Scan queue 또는 API 서버 상태를 확인한 뒤 다시 시도하세요."
+  unavailable: "검사 요청에 실패했습니다. 잠시 후 다시 시도하세요."
 };

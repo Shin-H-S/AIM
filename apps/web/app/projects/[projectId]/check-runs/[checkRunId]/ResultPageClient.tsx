@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import { AIReportDetailPanel } from "./AIReportDetailPanel";
 import {
@@ -11,7 +11,6 @@ import {
   fetchCheckRunAIReport,
   fetchCheckRunDetail,
   fetchProject,
-  getApiBaseUrl,
   setProjectBaseline,
   type AIReportDetailResult,
   type AIReportSummary,
@@ -36,7 +35,6 @@ import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
 import {
   Badge,
   CheckRunStatusBadge,
-  Identifier,
   LinkButton,
   LoginRequiredNotice,
   Metric,
@@ -320,14 +318,6 @@ export function ResultPageClient({
     setIsCancelling(false);
   }, [checkRunId, isCancelling, loadCheckRun, projectId]);
 
-  const apiBaseUrlLabel = useMemo(() => {
-    try {
-      return getApiBaseUrl();
-    } catch {
-      return "잘못된 NEXT_PUBLIC_API_URL";
-    }
-  }, []);
-
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
@@ -341,19 +331,14 @@ export function ResultPageClient({
                 CheckRun 결과
               </h1>
               <p className="mt-4 text-sm leading-6 text-slate-600">
-                이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의 CheckRun 단건
-                API를 polling해서 상태와 저장된 scanner result를 보여줍니다.
+                검사 상태와 수집된 결과를 보여줍니다. 검사가 진행 중이면 자동으로
+                새로고침됩니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <LinkButton href={`/projects/${projectId}/check-runs`} label="CheckRun 이력" />
               <RefreshButton isLoading={isLoading} onClick={() => void refresh()} />
             </div>
-          </div>
-
-          <div className="grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
-            <Identifier label="Project ID" value={projectId} />
-            <Identifier label="CheckRun ID" value={checkRunId} />
           </div>
         </header>
 
@@ -380,8 +365,8 @@ export function ResultPageClient({
         {result.state === "unavailable" && (
           <Notice
             tone="danger"
-            title="API 요청 실패"
-            description="API 서버 실행 상태와 NEXT_PUBLIC_API_URL 설정을 확인하세요."
+            title="요청 실패"
+            description="서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
           />
         )}
 
@@ -525,7 +510,7 @@ function ScoreCard({ result }: { result: ScoreResult | null }) {
             </p>
           </div>
           <p className="mt-3 text-sm text-slate-500">
-            현재 구현된 scanner 기준 {result.evaluated_weight}% 가중치만 평가했습니다.
+            전체 평가 항목 중 {result.evaluated_weight}%가 이번 점수에 반영되었습니다.
           </p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${riskClassName}`}>
@@ -556,7 +541,6 @@ function ScoreCard({ result }: { result: ScoreResult | null }) {
           label="Regression stability"
           value={formatScore(result.regression_stability_score)}
         />
-        <Metric label="Scoring version" value={result.scoring_version} />
         <Metric label="Updated" value={formatDetailDateTime(result.updated_at)} />
       </dl>
     </article>
@@ -699,7 +683,6 @@ function ComparisonCard({ result }: { result: RunComparison | null }) {
         </span>
       </div>
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-        <Metric label="Baseline run" value={result.baseline_check_run_id} />
         <Metric label="Overall score" value={formatDelta(result.overall_score_delta)} />
         <Metric label="Availability" value={formatDelta(result.availability_score_delta)} />
         <Metric label="Performance score" value={formatDelta(result.performance_score_delta)} />
@@ -912,7 +895,6 @@ function BaselineComparisonBody({
     <div>
       <p className="text-sm leading-6 text-slate-600">{comparison.summary}</p>
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-        <Metric label="Baseline run" value={comparison.baseline_check_run_id} />
         <Metric label="Overall score" value={formatDelta(comparison.overall_score_delta)} />
         <Metric label="Availability" value={formatDelta(comparison.availability_score_delta)} />
         <Metric
@@ -1013,12 +995,7 @@ function LinkedScenarioRunsCard({
               key={scenarioRun.id}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-slate-900">ScenarioRun</p>
-                  <p className="mt-2 break-all font-mono text-xs text-slate-500">
-                    {scenarioRun.id}
-                  </p>
-                </div>
+                <p className="font-semibold text-slate-900">ScenarioRun</p>
                 <ScenarioRunStatusBadge status={scenarioRun.status} />
               </div>
               {isFailed && (
@@ -1027,7 +1004,6 @@ function LinkedScenarioRunsCard({
                 </p>
               )}
               <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Metric label="Scenario ID" value={scenarioRun.scenario_id} />
                 <Metric label="Trigger" value={scenarioRun.trigger_source} />
                 <Metric label="Duration" value={formatMilliseconds(scenarioRun.duration_ms)} />
                 <Metric label="Queued" value={formatDetailDateTime(scenarioRun.queued_at)} />
@@ -1338,14 +1314,9 @@ function ArtifactCard({
             key={artifact.id}
           >
             <p className="font-semibold text-slate-900">{artifact.artifact_type}</p>
-            <p className="mt-2 break-all font-mono text-xs text-slate-500">
-              {artifact.storage_backend}:{artifact.storage_path}
-            </p>
             <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-              <Metric label="Content type" value={artifact.content_type} />
               <Metric label="Size" value={formatBytes(artifact.size_bytes)} />
               <Metric label="Created" value={formatDetailDateTime(artifact.created_at)} />
-              <Metric label="SHA-256" value={artifact.checksum_sha256} />
             </dl>
             <div className="mt-4">
               <ArtifactDownloadButton artifactId={artifact.id} accessToken={accessToken} />

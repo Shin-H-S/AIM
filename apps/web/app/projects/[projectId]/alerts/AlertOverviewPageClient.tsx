@@ -1,11 +1,10 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   fetchProject,
   fetchProjectAlerts,
   fetchProjectIncidents,
-  getApiBaseUrl,
   retryAlert,
   updateProject,
   type Alert,
@@ -21,7 +20,6 @@ import { formatDateTime, formatNullableDateTime } from "@/lib/format";
 import {
   Badge,
   EmptyState,
-  Identifier,
   LinkButton,
   LoginRequiredNotice,
   Metric,
@@ -142,14 +140,6 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
       void loadOverview();
     });
   }, [loadOverview]);
-
-  const apiBaseUrlLabel = useMemo(() => {
-    try {
-      return getApiBaseUrl();
-    } catch {
-      return "잘못된 NEXT_PUBLIC_API_URL";
-    }
-  }, []);
 
   const project = projectResult?.state === "success" ? projectResult.project : null;
   const incidents = incidentResult?.state === "success" ? incidentResult.incidents : [];
@@ -320,9 +310,8 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
                 Incident & Alert overview
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600">
-                이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>에서
-                프로젝트의 incident와 email alert 이력을 읽어옵니다. email alert 사용 여부와
-                수신자 email도 이 화면에서 저장할 수 있습니다.
+                프로젝트의 incident와 email alert 이력을 확인하고, alert 사용 여부와
+                수신자를 설정합니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -332,10 +321,6 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
                 onClick={() => void loadOverview()}
               />
             </div>
-          </div>
-
-          <div className="mt-5">
-            <Identifier label="Project ID" value={projectId} />
           </div>
         </header>
 
@@ -553,15 +538,10 @@ function IncidentCard({ incident, projectId }: { incident: Incident; projectId: 
         />
       </div>
 
-      <dl className="mt-5 grid gap-3 md:grid-cols-3">
+      <dl className="mt-5 grid gap-3 md:grid-cols-2">
         <Metric label="Started" value={formatDateTime(incident.started_at)} />
         <Metric label="Resolved" value={formatNullableDateTime(incident.resolved_at)} />
-        <Metric label="Incident ID" value={incident.id} />
       </dl>
-
-      <pre className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4 text-xs leading-5 text-slate-600">
-        {JSON.stringify(incident.evidence_json, null, 2)}
-      </pre>
     </li>
   );
 }
@@ -824,7 +804,7 @@ function ResultNotice({
 
   return (
     <Notice
-      description="API 서버 실행 상태와 NEXT_PUBLIC_API_URL 설정을 확인하세요."
+      description="서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
       title="Alert overview 요청 실패"
       tone="danger"
     />
@@ -950,7 +930,7 @@ const alertSettingsSubmitMessage: Record<
   invalid: "입력값을 확인하세요. Recipient email은 비워두거나 올바른 이메일 형식이어야 합니다.",
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
   "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
-  unavailable: "Alert 설정 저장 요청에 실패했습니다. API 서버 상태를 확인하세요."
+  unavailable: "Alert 설정 저장에 실패했습니다. 잠시 후 다시 시도하세요."
 };
 
 const retryAlertFeedbackMessage: Record<
@@ -960,7 +940,7 @@ const retryAlertFeedbackMessage: Record<
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
   "not-found": "Project 또는 Alert를 찾을 수 없습니다. 목록을 다시 조회하세요.",
   conflict: "FAILED 상태의 email alert만 재시도할 수 있습니다.",
-  unavailable: "Alert 재시도 요청에 실패했습니다. API 서버 또는 worker queue 상태를 확인하세요."
+  unavailable: "Alert 재시도 요청에 실패했습니다. 잠시 후 다시 시도하세요."
 };
 
 const alertListMessageByState: Record<
@@ -969,5 +949,5 @@ const alertListMessageByState: Record<
 > = {
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
   "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
-  unavailable: "Alert 목록을 더 불러오지 못했습니다. API 서버 상태를 확인하세요."
+  unavailable: "Alert 목록을 더 불러오지 못했습니다. 잠시 후 다시 시도하세요."
 };

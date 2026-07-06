@@ -15,7 +15,8 @@ import {
   type ProjectVerification
 } from "@/lib/api";
 import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
-import { Identifier, LoginRequiredNotice, Metric, Notice } from "@/components/ui";
+import { formatNullableDateTime } from "@/lib/format";
+import { LoginRequiredNotice, Metric, Notice } from "@/components/ui";
 
 type ProjectFormMode = "create" | "edit";
 
@@ -415,8 +416,8 @@ function ProjectForm({
           {mode === "create" ? "새 Project 정보" : "Project 정보"}
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          URL은 서버에서 SSRF-safe validation을 다시 수행합니다. localhost, private IP,
-          cloud metadata endpoint 같은 내부 주소는 등록할 수 없습니다.
+          외부에서 접근 가능한 서비스 주소를 입력하세요. localhost나 사설 IP 같은 내부
+          주소는 등록할 수 없습니다.
         </p>
       </div>
 
@@ -630,7 +631,7 @@ function VerificationContent({
   if (verificationState === "unavailable" || !verification) {
     return (
       <Notice
-        description="Verification 정보를 불러오지 못했습니다. API 서버 상태를 확인하세요."
+        description="Verification 정보를 불러오지 못했습니다. 잠시 후 다시 시도하세요."
         title="Verification 요청 실패"
         tone="danger"
       />
@@ -654,10 +655,8 @@ function VerificationContent({
         </pre>
       </div>
 
-      <Identifier label="Verification token" value={verification.verification_token} />
-
       <dl className="grid gap-3 text-sm">
-        <Metric label="Verified at" value={verification.verified_at ?? "아직 없음"} />
+        <Metric label="Verified at" value={formatNullableDateTime(verification.verified_at)} />
       </dl>
     </div>
   );
@@ -702,7 +701,7 @@ function LoadStateNotice({ loadState }: { loadState: LoadState }) {
 
   return (
     <Notice
-      description="API 서버 상태와 NEXT_PUBLIC_API_URL 설정을 확인한 뒤 다시 시도하세요."
+      description="서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
       title="Project 요청 실패"
       tone="danger"
     />
@@ -883,7 +882,7 @@ const projectMutationMessage: Record<Exclude<SubmitState, "idle" | "submitting" 
     "Project 정보를 저장하지 못했습니다. URL이 허용되지 않았거나 입력값이 범위를 벗어났습니다.",
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인하세요.",
   "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
-  unavailable: "API 서버 상태와 NEXT_PUBLIC_API_URL 설정을 확인하세요."
+  unavailable: "저장에 실패했습니다. 잠시 후 다시 시도하세요."
 };
 
 const verificationActionMessage: Record<
@@ -892,5 +891,5 @@ const verificationActionMessage: Record<
 > = {
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인하세요.",
   "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
-  unavailable: "Verification 요청에 실패했습니다. API 서버 상태를 확인하세요."
+  unavailable: "Verification 요청에 실패했습니다. 잠시 후 다시 시도하세요."
 };

@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import { ArtifactImagePreview } from "@/components/ArtifactImagePreview";
 import {
   fetchScenarioRunDetail,
-  getApiBaseUrl,
   type ConsoleError,
   type NetworkFailure,
   type ScenarioRunDetail,
@@ -18,7 +17,6 @@ import {
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
 import {
-  Identifier,
   LinkButton,
   LoginRequiredNotice,
   Metric,
@@ -113,14 +111,6 @@ export function ScenarioRunResultPageClient({
     return () => window.clearInterval(intervalId);
   }, [loadScenarioRun, shouldPoll]);
 
-  const apiBaseUrlLabel = useMemo(() => {
-    try {
-      return getApiBaseUrl();
-    } catch {
-      return "잘못된 NEXT_PUBLIC_API_URL";
-    }
-  }, []);
-
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
@@ -134,8 +124,8 @@ export function ScenarioRunResultPageClient({
                 ScenarioRun 결과
               </h1>
               <p className="mt-4 text-sm leading-6 text-slate-600">
-                이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의
-                ScenarioRun 단건 API를 polling해서 step 결과와 실패 근거를 보여줍니다.
+                시나리오 실행의 step별 결과와 실패 근거를 보여줍니다. 실행 중에는
+                자동으로 새로고침됩니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -145,12 +135,6 @@ export function ScenarioRunResultPageClient({
               />
               <RefreshButton isLoading={isLoading} onClick={() => void loadScenarioRun()} />
             </div>
-          </div>
-
-          <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-3">
-            <Identifier label="Project ID" value={projectId} />
-            <Identifier label="Scenario ID" value={scenarioId} />
-            <Identifier label="ScenarioRun ID" value={scenarioRunId} />
           </div>
         </header>
 
@@ -177,8 +161,8 @@ export function ScenarioRunResultPageClient({
         {result.state === "unavailable" && (
           <Notice
             tone="danger"
-            title="API 요청 실패"
-            description="API 서버 실행 상태와 NEXT_PUBLIC_API_URL 설정을 확인하세요."
+            title="요청 실패"
+            description="서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
           />
         )}
 
@@ -228,11 +212,10 @@ function StatusSummary({
       </div>
       <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric label="Trigger" value={scenarioRun.trigger_source} />
-        <Metric label="Linked CheckRun" value={scenarioRun.check_run_id ?? "없음"} />
-        <Metric label="Polling" value={shouldPoll ? "자동 새로고침 중" : "중지됨"} />
         <Metric label="Duration" value={formatMilliseconds(scenarioRun.duration_ms)} />
+        <Metric label="자동 새로고침" value={shouldPoll ? "실행 중" : "중지됨"} />
+        <Metric label="마지막 갱신" value={lastUpdatedAt ?? "아직 없음"} />
         <Metric label="Failure" value={scenarioRun.failure_reason ?? "없음"} />
-        <Metric label="Last refresh" value={lastUpdatedAt ?? "아직 없음"} />
       </dl>
     </article>
   );
@@ -299,14 +282,10 @@ function StepResultsCard({
                 {stepStatusLabels[stepResult.status]}
               </span>
             </div>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Metric label="Duration" value={formatMilliseconds(stepResult.duration_ms)} />
               <Metric label="Started" value={formatDetailDateTime(stepResult.started_at)} />
               <Metric label="Finished" value={formatDetailDateTime(stepResult.finished_at)} />
-              <Metric
-                label="Screenshot artifact"
-                value={stepResult.failure_screenshot_artifact_id ?? "없음"}
-              />
             </dl>
             {stepResult.error_message && (
               <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">

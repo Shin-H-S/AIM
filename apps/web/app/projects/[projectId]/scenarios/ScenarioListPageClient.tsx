@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   createScenario,
   createScenarioRun,
   deleteScenario,
   fetchScenarios,
-  getApiBaseUrl,
   updateScenario,
   type CreateScenarioRunResult,
   type DeleteScenarioResult,
@@ -21,7 +20,6 @@ import {
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import {
-  Identifier,
   LinkButton,
   LoginRequiredNotice,
   Metric,
@@ -359,14 +357,6 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
     });
   }, [loadScenarios]);
 
-  const apiBaseUrlLabel = useMemo(() => {
-    try {
-      return getApiBaseUrl();
-    } catch {
-      return "잘못된 NEXT_PUBLIC_API_URL";
-    }
-  }, []);
-
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
@@ -380,8 +370,8 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
                 Scenario 목록
               </h1>
               <p className="mt-4 text-sm leading-6 text-slate-600">
-                이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의 Scenario
-                API를 사용해서 핵심 사용자 흐름 목록을 조회하고, 수동 ScenarioRun을 생성합니다.
+                로그인·검색 같은 핵심 사용자 흐름을 scenario로 등록하고, 수동 실행으로
+                실제 브라우저에서 동작을 검증합니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -389,8 +379,6 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
               <RefreshButton isLoading={isLoading} onClick={() => void loadScenarios()} />
             </div>
           </div>
-
-          <Identifier label="Project ID" value={projectId} />
         </header>
 
         {result.state === "checking" && (
@@ -416,8 +404,8 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
         {result.state === "unavailable" && (
           <Notice
             tone="danger"
-            title="API 요청 실패"
-            description="API 서버 실행 상태와 NEXT_PUBLIC_API_URL 설정을 확인하세요."
+            title="요청 실패"
+            description="서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
           />
         )}
 
@@ -478,7 +466,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
           <Notice
             tone="danger"
             title="ScenarioRun 생성 요청 실패"
-            description="API 서버 또는 queue 상태를 확인하세요."
+            description="실행 요청에 실패했습니다. 잠시 후 다시 시도하세요."
           />
         )}
 
@@ -1012,7 +1000,6 @@ function ScenarioCard({
           <p className="mt-2 text-sm text-slate-500">
             {scenario.description ?? "설명이 없습니다."}
           </p>
-          <p className="mt-3 break-all font-mono text-xs text-slate-400">{scenario.id}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <LinkButton
@@ -1323,7 +1310,7 @@ const scenarioCreateStateMessage: Record<
   invalid: "입력값을 확인하세요. action별 필수 target, value, timeout을 채워야 합니다.",
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
   "not-found": "Project를 찾을 수 없습니다. Dashboard에서 Project 상태를 다시 확인하세요.",
-  unavailable: "Scenario 생성 요청에 실패했습니다. API 서버 상태를 확인하세요."
+  unavailable: "Scenario 생성에 실패했습니다. 잠시 후 다시 시도하세요."
 };
 
 const scenarioUpdateStateMessage: Record<
@@ -1333,7 +1320,7 @@ const scenarioUpdateStateMessage: Record<
   invalid: "입력값을 확인하세요. action별 필수 target, value, timeout을 채워야 합니다.",
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
   "not-found": "Project 또는 Scenario를 찾을 수 없습니다. 목록을 다시 조회하세요.",
-  unavailable: "Scenario 저장 요청에 실패했습니다. API 서버 상태를 확인하세요."
+  unavailable: "Scenario 저장에 실패했습니다. 잠시 후 다시 시도하세요."
 };
 
 const scenarioDeleteStateMessage: Record<
@@ -1342,5 +1329,5 @@ const scenarioDeleteStateMessage: Record<
 > = {
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
   "not-found": "Project 또는 Scenario를 찾을 수 없습니다. 목록을 다시 조회하세요.",
-  unavailable: "Scenario 삭제 요청에 실패했습니다. API 서버 상태를 확인하세요."
+  unavailable: "Scenario 삭제에 실패했습니다. 잠시 후 다시 시도하세요."
 };

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
-import { getApiBaseUrl, loginUser, signupUser } from "@/lib/api";
+import { FormEvent, useState } from "react";
+import { loginUser, signupUser } from "@/lib/api";
 import { storeAccessToken } from "@/lib/auth";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -24,14 +24,6 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [signupState, setSignupState] = useState<SignupState>("idle");
-
-  const apiBaseUrlLabel = useMemo(() => {
-    try {
-      return getApiBaseUrl();
-    } catch {
-      return "잘못된 NEXT_PUBLIC_API_URL";
-    }
-  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -95,7 +87,7 @@ export default function SignupPage() {
 
             <div className="mt-8 grid gap-3 text-sm text-slate-600">
               <OnboardingStep index={1} text="Email/password 계정을 생성합니다." />
-              <OnboardingStep index={2} text="JWT access token을 브라우저에 저장합니다." />
+              <OnboardingStep index={2} text="가입과 동시에 자동으로 로그인됩니다." />
               <OnboardingStep index={3} text="첫 Project 생성 화면으로 이동합니다." />
               <OnboardingStep
                 index={4}
@@ -126,8 +118,7 @@ export default function SignupPage() {
             <div>
               <h2 className="text-2xl font-bold text-slate-900">회원가입</h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                요청 대상 API는 <code className="text-cyan-700">{apiBaseUrlLabel}</code>입니다.
-                원문 비밀번호는 화면에 저장하지 않고 Auth API로만 전송합니다.
+                비밀번호는 저장되지 않고 인증에만 사용됩니다.
               </p>
             </div>
 
@@ -234,5 +225,5 @@ const signupStateMessage: Record<Exclude<SignupState, "idle" | "submitting">, st
   "email-already-registered": "이미 등록된 이메일입니다. 로그인 화면에서 로그인하세요.",
   "login-unavailable":
     "계정은 생성되었지만 자동 로그인에 실패했습니다. 로그인 화면에서 다시 로그인하세요.",
-  unavailable: "회원가입 요청에 실패했습니다. API 서버 상태와 NEXT_PUBLIC_API_URL 설정을 확인하세요."
+  unavailable: "회원가입 요청에 실패했습니다. 잠시 후 다시 시도하세요."
 };

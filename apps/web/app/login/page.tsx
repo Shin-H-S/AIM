@@ -50,9 +50,8 @@ export default function LoginPage() {
               로그인하고 프로젝트 상태를 바로 확인하세요
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
-              AIM Web은 FastAPI Auth에서 발급한 JWT access token을 브라우저에 저장하고,
-              Project dashboard와 결과 화면 조회에 사용합니다. 아직 계정이 없다면 회원가입 후
-              첫 Project 생성 화면으로 바로 이동할 수 있습니다.
+              로그인하면 등록한 프로젝트의 검사 상태와 AI 진단 결과를 바로 확인할 수
+              있습니다. 아직 계정이 없다면 회원가입 후 첫 Project 등록으로 이어집니다.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -77,8 +76,7 @@ export default function LoginPage() {
             <div>
               <h2 className="text-2xl font-bold text-slate-900">로그인</h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                이메일과 비밀번호는 API로만 전송되며 화면에 저장하지 않습니다. 저장되는 값은
-                access token입니다.
+                비밀번호는 저장되지 않고 인증에만 사용됩니다.
               </p>
             </div>
 
@@ -158,7 +156,7 @@ function LoginNotice({ loginState }: { loginState: LoginState }) {
 
   return (
     <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
-      로그인 요청에 실패했습니다. API 서버 상태와 NEXT_PUBLIC_API_URL 설정을 확인하세요.
+      로그인 요청에 실패했습니다. 잠시 후 다시 시도하세요.
     </p>
   );
 }

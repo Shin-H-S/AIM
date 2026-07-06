@@ -247,7 +247,7 @@ export default function Home() {
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-12">
         <div className="max-w-4xl">
           <p className="mb-4 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
-            AIM Dashboard
+            AI Manager
           </p>
           <h1 className="text-4xl font-bold tracking-tight text-cyan-600 sm:text-6xl">
             AI가 검사하고, 진단하고, 처방합니다

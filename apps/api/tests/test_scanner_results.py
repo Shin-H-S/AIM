@@ -151,7 +151,20 @@ def test_record_lighthouse_result_updates_existing_result(session: Session) -> N
         total_blocking_time_ms=30,
         raw_json_artifact_id=artifact.id,
         failure_reason=None,
+        top_audits=[
+            {
+                "id": "render-blocking-resources",
+                "category": "performance",
+                "title": "렌더링 차단 리소스 제거하기",
+                "display_value": "잠재적 절감치: 1,860ms",
+                "score": 0.4,
+                "savings_ms": 1860,
+                "savings_bytes": None,
+            }
+        ],
     )
+    assert first_result.top_audits is not None
+    assert first_result.top_audits[0]["id"] == "render-blocking-resources"
     second_result = scanner_results.record_lighthouse_result(
         session,
         check_run_id=check_run.id,
@@ -173,5 +186,6 @@ def test_record_lighthouse_result_updates_existing_result(session: Session) -> N
     assert session.scalars(select(Artifact)).all() == [artifact]
     assert second_result.is_successful is False
     assert second_result.performance_score is None
+    assert second_result.top_audits is None
     assert second_result.raw_json_artifact_id is None
     assert second_result.failure_reason == "Lighthouse CLI failed."

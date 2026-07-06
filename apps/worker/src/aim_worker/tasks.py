@@ -595,6 +595,7 @@ def run_check_run(check_run_id: str) -> None:
                     total_blocking_time_ms=lighthouse_result.total_blocking_time_ms,
                     raw_json_artifact_id=raw_json_artifact_id,
                     failure_reason=lighthouse_result.failure_reason,
+                    top_audits=lighthouse_result.top_audits,
                 )
             except Exception:
                 check_run_service.mark_check_run_failed(

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -82,6 +83,7 @@ def record_lighthouse_result(
     total_blocking_time_ms: int | None,
     raw_json_artifact_id: UUID | None,
     failure_reason: str | None,
+    top_audits: list[dict[str, Any]] | None = None,
 ) -> LighthouseResult:
     result = get_lighthouse_result(session, check_run_id=check_run_id)
     if result is None:
@@ -97,6 +99,7 @@ def record_lighthouse_result(
     result.largest_contentful_paint_ms = largest_contentful_paint_ms
     result.cumulative_layout_shift = cumulative_layout_shift
     result.total_blocking_time_ms = total_blocking_time_ms
+    result.top_audits = top_audits
     result.raw_json_artifact_id = raw_json_artifact_id
     result.failure_reason = failure_reason
     session.commit()

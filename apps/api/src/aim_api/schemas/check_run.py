@@ -40,6 +40,18 @@ class SslResultRead(BaseModel):
     updated_at: datetime
 
 
+class LighthouseAuditRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    category: str
+    title: str
+    display_value: str | None = None
+    score: float | None = None
+    savings_ms: int | None = None
+    savings_bytes: int | None = None
+
+
 class LighthouseResultRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -52,6 +64,7 @@ class LighthouseResultRead(BaseModel):
     largest_contentful_paint_ms: int | None
     cumulative_layout_shift: float | None
     total_blocking_time_ms: int | None
+    top_audits: list[LighthouseAuditRead] | None = None
     raw_json_artifact_id: UUID | None
     failure_reason: str | None
     created_at: datetime

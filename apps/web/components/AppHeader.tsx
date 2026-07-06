@@ -77,10 +77,10 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-3">
-        <div className="flex items-center gap-4">
+      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-5">
+        <div className="flex items-center gap-6">
           <Link
-            className="text-lg font-black tracking-tight text-slate-900"
+            className="text-3xl font-black tracking-tight text-slate-900"
             href={session.state === "signed-in" ? "/dashboard" : "/"}
           >
             AIM<span className="text-cyan-600">.</span>
@@ -104,22 +104,6 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          {session.state === "signed-out" && (
-            <>
-              <Link
-                className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700"
-                href="/"
-              >
-                로그인
-              </Link>
-              <Link
-                className="rounded-xl bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-cyan-500"
-                href="/signup"
-              >
-                회원가입
-              </Link>
-            </>
-          )}
           {session.state === "signed-in" && (
             <>
               <span className="hidden rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200 sm:inline">

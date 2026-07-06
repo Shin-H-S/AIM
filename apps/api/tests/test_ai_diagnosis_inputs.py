@@ -16,6 +16,7 @@ from aim_api.models.scenario import (
 from aim_api.models.user import User
 from aim_api.schemas.ai_diagnosis import (
     AIDiagnosisEvidenceKind,
+    AIDiagnosisSeverity,
     AIDiagnosisStatementType,
 )
 from aim_api.services import (
@@ -319,3 +320,118 @@ def test_build_ai_diagnosis_input_raises_when_check_run_is_missing(session: Sess
             session,
             check_run_id=uuid4(),
         )
+
+
+def test_build_ai_diagnosis_input_collects_lighthouse_top_audits(session: Session) -> None:
+    _, check_run = create_project_and_check_run(
+        session,
+        status=CheckRunStatus.COMPLETED,
+        failure_reason=None,
+    )
+    scanner_results.record_lighthouse_result(
+        session,
+        check_run_id=check_run.id,
+        service_url="https://example.com",
+        is_successful=True,
+        performance_score=45,
+        accessibility_score=90,
+        seo_score=88,
+        best_practices_score=92,
+        largest_contentful_paint_ms=4200,
+        cumulative_layout_shift=0.2,
+        total_blocking_time_ms=600,
+        raw_json_artifact_id=None,
+        failure_reason=None,
+        top_audits=[
+            {
+                "id": "render-blocking-resources",
+                "category": "performance",
+                "title": "렌더링 차단 리소스 제거하기",
+                "display_value": "잠재적 절감치: 1,860ms",
+                "score": 0.4,
+                "savings_ms": 1860,
+                "savings_bytes": None,
+            },
+            {
+                "id": "uses-optimized-images",
+                "category": "performance",
+                "title": "이미지를 효율적으로 인코딩하기",
+                "display_value": None,
+                "score": 0.5,
+                "savings_ms": 900,
+                "savings_bytes": 250_000,
+            },
+        ],
+    )
+
+    diagnosis_input = ai_diagnosis_inputs.build_ai_diagnosis_input(
+        session,
+        check_run_id=check_run.id,
+    )
+
+    evidence_by_id = {item.id: item for item in diagnosis_input.evidence_items}
+    first_audit = evidence_by_id["lighthouse-audit-render-blocking-resources"]
+    assert first_audit.kind == AIDiagnosisEvidenceKind.LIGHTHOUSE_RESULT
+    assert first_audit.summary == (
+        "Lighthouse improvement opportunity: 렌더링 차단 리소스 제거하기 (잠재적 절감치: 1,860ms)"
+    )
+    assert first_audit.details["savings_ms"] == 1860
+    assert "lighthouse-audit-uses-optimized-images" in evidence_by_id
+
+    statement_by_id = {statement.id: statement for statement in diagnosis_input.statements}
+    opportunity = statement_by_id["lighthouse-improvement-opportunities"]
+    assert opportunity.severity == AIDiagnosisSeverity.WARNING
+    assert opportunity.category == "web_quality"
+    assert "렌더링 차단 리소스 제거하기" in opportunity.summary
+    assert opportunity.evidence_ids == [
+        "lighthouse-result",
+        "lighthouse-audit-render-blocking-resources",
+        "lighthouse-audit-uses-optimized-images",
+    ]
+
+
+def test_lighthouse_opportunity_statement_skipped_when_scores_meet_threshold(
+    session: Session,
+) -> None:
+    _, check_run = create_project_and_check_run(
+        session,
+        status=CheckRunStatus.COMPLETED,
+        failure_reason=None,
+    )
+    scanner_results.record_lighthouse_result(
+        session,
+        check_run_id=check_run.id,
+        service_url="https://example.com",
+        is_successful=True,
+        performance_score=95,
+        accessibility_score=96,
+        seo_score=97,
+        best_practices_score=98,
+        largest_contentful_paint_ms=1200,
+        cumulative_layout_shift=0.01,
+        total_blocking_time_ms=50,
+        raw_json_artifact_id=None,
+        failure_reason=None,
+        top_audits=[
+            {
+                "id": "unused-css-rules",
+                "category": "performance",
+                "title": "사용하지 않는 CSS 줄이기",
+                "display_value": None,
+                "score": 0.85,
+                "savings_ms": 40,
+                "savings_bytes": None,
+            }
+        ],
+    )
+
+    diagnosis_input = ai_diagnosis_inputs.build_ai_diagnosis_input(
+        session,
+        check_run_id=check_run.id,
+    )
+
+    statement_ids = [statement.id for statement in diagnosis_input.statements]
+    assert "lighthouse-improvement-opportunities" not in statement_ids
+    assert "lighthouse-audit-unused-css-rules" in [
+        item.id for item in diagnosis_input.evidence_items
+    ]

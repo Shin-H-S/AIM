@@ -131,7 +131,7 @@ export function LoginRequiredNotice({ expired = false }: { expired?: boolean }) 
       action={
         <Link
           className="inline-flex rounded-xl bg-cyan-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-cyan-500"
-          href="/login"
+          href="/"
         >
           로그인 페이지로 이동
         </Link>

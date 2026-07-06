@@ -260,7 +260,7 @@ export function ProjectFormPageClient({
     });
 
     if (result.state === "success") {
-      router.replace("/");
+      router.replace("/dashboard");
       return;
     }
 

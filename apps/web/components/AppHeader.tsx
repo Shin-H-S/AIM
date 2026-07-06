@@ -79,25 +79,28 @@ export function AppHeader() {
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-3">
         <div className="flex items-center gap-4">
-          <Link className="text-lg font-black tracking-tight text-slate-900" href="/">
+          <Link
+            className="text-lg font-black tracking-tight text-slate-900"
+            href={session.state === "signed-in" ? "/dashboard" : "/"}
+          >
             AIM<span className="text-cyan-600">.</span>
           </Link>
-          <nav className="flex items-center gap-1 text-sm font-semibold text-slate-600">
-            <Link
-              className="rounded-xl px-3 py-1.5 transition hover:bg-slate-100 hover:text-cyan-700"
-              href="/"
-            >
-              Dashboard
-            </Link>
-            {session.state === "signed-in" && (
+          {session.state === "signed-in" && (
+            <nav className="flex items-center gap-1 text-sm font-semibold text-slate-600">
+              <Link
+                className="rounded-xl px-3 py-1.5 transition hover:bg-slate-100 hover:text-cyan-700"
+                href="/dashboard"
+              >
+                Dashboard
+              </Link>
               <Link
                 className="rounded-xl px-3 py-1.5 transition hover:bg-slate-100 hover:text-cyan-700"
                 href="/projects/new"
               >
                 새 Project
               </Link>
-            )}
-          </nav>
+            </nav>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -105,7 +108,7 @@ export function AppHeader() {
             <>
               <Link
                 className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700"
-                href="/login"
+                href="/"
               >
                 로그인
               </Link>

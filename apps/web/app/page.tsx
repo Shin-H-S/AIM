@@ -60,14 +60,6 @@ export default function Home() {
               방법까지 알려줍니다. 로그인하면 프로젝트의 검사 상태와 AI 진단 결과를 바로
               확인할 수 있습니다.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                className="inline-flex rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500"
-                href="/signup"
-              >
-                새 계정 만들기
-              </Link>
-            </div>
           </div>
 
           <form

@@ -30,6 +30,7 @@ import {
   type ScenarioRun,
   type SslResult
 } from "@/lib/api";
+import { buildAvailabilityAdvice, buildSslAdvice } from "@/lib/advice";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
 import {
@@ -421,7 +422,10 @@ export function ResultPageClient({
             />
 
             <section className="grid gap-4 lg:grid-cols-2">
-              <AvailabilityCard result={checkRun.availability_result} />
+              <AvailabilityCard
+                responseTimeThresholdMs={project?.response_time_threshold_ms ?? null}
+                result={checkRun.availability_result}
+              />
               <SslCard result={checkRun.ssl_result} />
               <LighthouseCard result={checkRun.lighthouse_result} />
               <ArtifactCard accessToken={sessionToken} artifacts={checkRun.artifacts} />
@@ -1140,7 +1144,13 @@ function getScenarioSummaryClassName(summary: ScenarioRunSummary) {
   return "border-emerald-200 bg-emerald-50 text-emerald-800";
 }
 
-function AvailabilityCard({ result }: { result: AvailabilityResult | null }) {
+function AvailabilityCard({
+  responseTimeThresholdMs,
+  result
+}: {
+  responseTimeThresholdMs: number | null;
+  result: AvailabilityResult | null;
+}) {
   if (!result) {
     return <EmptyResultCard title="Availability" description="아직 availability 결과가 없습니다." />;
   }
@@ -1161,6 +1171,7 @@ function AvailabilityCard({ result }: { result: AvailabilityResult | null }) {
         <Metric label="Timed out" value={result.timed_out ? "예" : "아니오"} />
         <Metric label="Failure" value={result.failure_reason ?? "없음"} />
       </dl>
+      <AdviceList items={buildAvailabilityAdvice(result, responseTimeThresholdMs)} />
       <p className="mt-5 break-all text-xs text-slate-500">
         Final URL: {result.final_url ?? "없음"}
       </p>
@@ -1197,8 +1208,26 @@ function SslCard({ result }: { result: SslResult | null }) {
         />
         <Metric label="Failure" value={result.failure_reason ?? "없음"} />
       </dl>
+      <AdviceList items={buildSslAdvice(result)} />
       <p className="mt-5 break-all text-xs text-slate-500">Service URL: {result.service_url}</p>
     </article>
+  );
+}
+
+function AdviceList({ items }: { items: string[] }) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">권장 조치</p>
+      <ul className="mt-2 grid gap-2 text-sm leading-6 text-amber-900">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

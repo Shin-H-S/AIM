@@ -249,7 +249,7 @@ export default function DashboardPage() {
           <p className="mb-4 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
             AI Manager
           </p>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+          <h1 className="break-keep text-balance text-4xl font-bold tracking-tight sm:text-5xl">
             프로젝트 현황을 한눈에 확인하세요
           </h1>
         </div>

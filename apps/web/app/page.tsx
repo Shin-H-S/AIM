@@ -258,30 +258,32 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
-          <StatusCard health={health} />
-          <MetricCard
-            label="Projects"
-            value={dashboardSummary?.projectCount ?? "-"}
-            description="현재 세션으로 조회한 프로젝트 수"
-          />
-          <MetricCard
-            label="Latest failures"
-            value={dashboardSummary?.failedCount ?? "-"}
-            description="최신 CheckRun이 실패한 프로젝트"
-            tone={dashboardSummary && dashboardSummary.failedCount > 0 ? "danger" : "default"}
-          />
-          <MetricCard
-            label="Scenario failures"
-            value={dashboardSummary?.scenarioFailureCount ?? "-"}
-            description="최신 CheckRun에 연결된 실패 ScenarioRun"
-            tone={
-              dashboardSummary && dashboardSummary.scenarioFailureCount > 0
-                ? "danger"
-                : "default"
-            }
-          />
-        </div>
+        {dashboard.state !== "signed-out" && dashboard.state !== "unauthorized" && (
+          <div className="grid gap-4 md:grid-cols-4">
+            <StatusCard health={health} />
+            <MetricCard
+              label="Projects"
+              value={dashboardSummary?.projectCount ?? "-"}
+              description="현재 세션으로 조회한 프로젝트 수"
+            />
+            <MetricCard
+              label="Latest failures"
+              value={dashboardSummary?.failedCount ?? "-"}
+              description="최신 CheckRun이 실패한 프로젝트"
+              tone={dashboardSummary && dashboardSummary.failedCount > 0 ? "danger" : "default"}
+            />
+            <MetricCard
+              label="Scenario failures"
+              value={dashboardSummary?.scenarioFailureCount ?? "-"}
+              description="최신 CheckRun에 연결된 실패 ScenarioRun"
+              tone={
+                dashboardSummary && dashboardSummary.scenarioFailureCount > 0
+                  ? "danger"
+                  : "default"
+              }
+            />
+          </div>
+        )}
 
         <DashboardPanel
           checkRunStartStates={checkRunStartStates}

@@ -1,4 +1,5 @@
 import json
+import logging
 import shlex
 import subprocess
 from collections.abc import Callable, Sequence
@@ -11,7 +12,11 @@ from typing import Any
 from aim_api.config import get_settings
 from aim_api.url_validation import AddressResolver, UrlValidationError, validate_service_url
 
+logger = logging.getLogger(__name__)
+
 CommandRunner = Callable[[Sequence[str], int], subprocess.CompletedProcess[str]]
+
+STDERR_LOG_MAX_LENGTH = 2000
 
 
 @dataclass(frozen=True)
@@ -66,9 +71,22 @@ def run_lighthouse_scan(
         try:
             raw_json = parse_lighthouse_output(output_path)
         except (JSONDecodeError, OSError):
+            stderr_tail = (completed_process.stderr or "")[-STDERR_LOG_MAX_LENGTH:]
+
             if completed_process.returncode != 0:
+                logger.error(
+                    "Lighthouse CLI failed for %s (exit code %d): %s",
+                    service_url,
+                    completed_process.returncode,
+                    stderr_tail,
+                )
                 return failed_lighthouse_result(service_url, "Lighthouse CLI failed.")
 
+            logger.error(
+                "Lighthouse output could not be parsed for %s: %s",
+                service_url,
+                stderr_tail,
+            )
             return failed_lighthouse_result(service_url, "Lighthouse output could not be parsed.")
     finally:
         output_path.unlink(missing_ok=True)
@@ -107,7 +125,11 @@ def build_lighthouse_command(
         "--only-categories=performance,accessibility,best-practices,seo",
         "--form-factor=mobile",
         "--screenEmulation.mobile=true",
-        "--chrome-flags=--headless=new --disable-gpu",
+        # --no-sandbox / --disable-dev-shm-usage: Chromium cannot create its
+        # sandbox under Docker's default seccomp profile (no unprivileged user
+        # namespaces) and the default 64MB /dev/shm is too small for rendering;
+        # the worker container itself is the isolation boundary.
+        "--chrome-flags=--headless=new --disable-gpu --no-sandbox --disable-dev-shm-usage",
     ]
 
 

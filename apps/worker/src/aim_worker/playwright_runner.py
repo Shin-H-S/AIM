@@ -365,7 +365,12 @@ def execute_steps_on_page(
 
 def run_playwright_scenario(steps: Sequence[TestStep]) -> ScenarioExecutionResult:
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        # Same container constraint as the Lighthouse chrome-flags: Chromium's
+        # sandbox cannot start under Docker's default seccomp profile.
+        browser = playwright.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
         try:
             context = browser.new_context()
             context.route("**/*", handle_browser_request)

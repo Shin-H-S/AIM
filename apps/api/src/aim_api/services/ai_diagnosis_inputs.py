@@ -29,6 +29,7 @@ from aim_api.schemas.check_run import (
     ArtifactRead,
     AvailabilityResultRead,
     CheckRunRead,
+    LighthouseAuditRead,
     LighthouseResultRead,
     RunComparisonRead,
     ScoreResultRead,
@@ -263,6 +264,9 @@ def build_evidence_items(
             )
         )
 
+        for audit in lighthouse_result.top_audits or []:
+            evidence_items.append(build_lighthouse_audit_evidence(audit))
+
     if score_result is not None:
         evidence_items.append(
             AIDiagnosisEvidenceItem(
@@ -485,6 +489,17 @@ def build_statements(
         )
 
     if (
+        lighthouse_result is not None
+        and lighthouse_result.is_successful
+        and lighthouse_result.top_audits
+        and has_lighthouse_score_below_threshold(
+            lighthouse_result,
+            threshold=project.quality_score_threshold,
+        )
+    ):
+        statements.append(build_lighthouse_opportunity_statement(lighthouse_result))
+
+    if (
         comparison_result is not None
         and comparison_result.overall_score_delta is not None
         and comparison_result.overall_score_delta < 0
@@ -583,6 +598,65 @@ def build_statements(
         )
 
     return statements
+
+
+def build_lighthouse_audit_evidence(audit: LighthouseAuditRead) -> AIDiagnosisEvidenceItem:
+    summary = f"Lighthouse improvement opportunity: {audit.title}"
+    if audit.display_value:
+        summary = f"{summary} ({audit.display_value})"
+
+    return AIDiagnosisEvidenceItem(
+        id=f"lighthouse-audit-{audit.id}"[:120],
+        kind=AIDiagnosisEvidenceKind.LIGHTHOUSE_RESULT,
+        summary=summary[:2000],
+        details={
+            "audit_id": audit.id,
+            "category": audit.category,
+            "title": audit.title,
+            "display_value": audit.display_value,
+            "score": audit.score,
+            "savings_ms": audit.savings_ms,
+            "savings_bytes": audit.savings_bytes,
+        },
+    )
+
+
+def has_lighthouse_score_below_threshold(
+    lighthouse_result: LighthouseResult,
+    *,
+    threshold: int,
+) -> bool:
+    scores = (
+        lighthouse_result.performance_score,
+        lighthouse_result.accessibility_score,
+        lighthouse_result.seo_score,
+        lighthouse_result.best_practices_score,
+    )
+    return any(score is not None and score < threshold for score in scores)
+
+
+def build_lighthouse_opportunity_statement(
+    lighthouse_result: LighthouseResult,
+) -> AIDiagnosisStatement:
+    top_audits = [audit for audit in lighthouse_result.top_audits or [] if isinstance(audit, dict)]
+    titles = [str(audit["title"]) for audit in top_audits[:3] if audit.get("title")]
+    evidence_ids = ["lighthouse-result"]
+    evidence_ids.extend(
+        f"lighthouse-audit-{audit['id']}"[:120] for audit in top_audits if audit.get("id")
+    )
+
+    summary = "Lighthouse found concrete improvement opportunities on this page."
+    if titles:
+        summary = f"Lighthouse found improvement opportunities: {', '.join(titles)}."
+
+    return AIDiagnosisStatement(
+        id="lighthouse-improvement-opportunities",
+        statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
+        severity=AIDiagnosisSeverity.WARNING,
+        category="web_quality",
+        summary=summary[:2000],
+        evidence_ids=evidence_ids[:20],
+    )
 
 
 def deployment_risk_to_severity(deployment_risk: str) -> AIDiagnosisSeverity:

@@ -30,6 +30,12 @@ NARRATIVE_SYSTEM_PROMPT = (
     "with expected_user_impact (how the issue affects real users) and "
     "recommended_next_action (the most useful next step for the developer).\n"
     "\n"
+    "Make recommended_next_action as concrete as the evidence allows. When evidence "
+    'items with ids starting with "lighthouse-audit-" are present, use them for '
+    "web-quality issues: name each audit, its estimated savings (display_value, "
+    "savings_ms, or savings_bytes), and the concrete fix it implies, starting with "
+    "the largest savings.\n"
+    "\n"
     "Hard rules:\n"
     "- Base every statement only on the provided evidence. Never invent source-code "
     "locations, server internals, logs, metrics, or checks that are not in the payload.\n"
@@ -37,7 +43,9 @@ NARRATIVE_SYSTEM_PROMPT = (
     'evidence_based_inference as likely ("likely", "appears"), and unknown_cause as '
     "unknown while noting what evidence is missing.\n"
     "- Use the issue ids exactly as given. Do not add or remove issues.\n"
-    "- Keep every text field under 1500 characters. Write in clear English."
+    "- Keep every text field under 1500 characters.\n"
+    "- Write in clear, natural Korean (한국어) — the reports are read by Korean-speaking "
+    "developers. Keep technical identifiers (audit ids, metric names, URLs) as-is."
 )
 
 logger = logging.getLogger(__name__)

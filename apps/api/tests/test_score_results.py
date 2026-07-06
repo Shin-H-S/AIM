@@ -183,6 +183,90 @@ def test_record_score_result_calculates_stable_partial_score(session: Session) -
     assert result.gate_reason is None
     assert result.functional_stability_score is None
     assert result.regression_stability_score is None
+    assert result.score_breakdown is not None
+    assert result.score_breakdown["gate"] is None
+    breakdown_by_key = {
+        category["key"]: category for category in result.score_breakdown["categories"]
+    }
+    assert breakdown_by_key["availability"]["reasons"] == [{"code": "all_checks_passed"}]
+    assert breakdown_by_key["functional_stability"]["reasons"] == [{"code": "no_scenario_runs"}]
+
+
+def test_record_score_result_stores_score_breakdown_with_deductions_and_gate(
+    session: Session,
+) -> None:
+    project, check_run = create_check_run(session)
+    availability_result = scanner_results.record_availability_result(
+        session,
+        check_run_id=check_run.id,
+        service_url="http://example.com",
+        final_url="http://example.com",
+        is_available=True,
+        status_code=200,
+        response_time_ms=1_500,
+        redirect_count=5,
+        uses_https=False,
+        timed_out=False,
+        failure_reason=None,
+    )
+    lighthouse_result = scanner_results.record_lighthouse_result(
+        session,
+        check_run_id=check_run.id,
+        service_url="http://example.com",
+        is_successful=False,
+        performance_score=None,
+        accessibility_score=None,
+        seo_score=None,
+        best_practices_score=None,
+        largest_contentful_paint_ms=None,
+        cumulative_layout_shift=None,
+        total_blocking_time_ms=None,
+        raw_json_artifact_id=None,
+        failure_reason="Lighthouse CLI failed.",
+    )
+
+    result = score_results.record_score_result(
+        session,
+        check_run_id=check_run.id,
+        project=project,
+        availability_result=availability_result,
+        ssl_result=None,
+        lighthouse_result=lighthouse_result,
+    )
+
+    breakdown = result.score_breakdown
+    assert breakdown is not None
+    assert breakdown["version"] == 1
+
+    breakdown_by_key = {category["key"]: category for category in breakdown["categories"]}
+    availability = breakdown_by_key["availability"]
+    assert availability["score"] == 65
+    assert availability["weight"] == 25
+    assert availability["reasons"] == [
+        {"code": "no_https", "points": -10},
+        {"code": "redirect_chain", "points": -5, "value": 5},
+        {
+            "code": "response_time_over_threshold",
+            "points": -20,
+            "value": 1_500,
+            "threshold": 1_000,
+        },
+    ]
+    assert breakdown_by_key["web_performance"]["reasons"] == [{"code": "lighthouse_failed"}]
+    assert breakdown_by_key["web_performance"]["score"] == 0
+    assert breakdown_by_key["regression_stability"]["reasons"] == [{"code": "not_implemented"}]
+
+    assert breakdown["gate"] == {
+        "code": "lighthouse_failed",
+        "deployment_risk": "RISK",
+        "grade_cap": "D",
+        "detail": "Lighthouse CLI failed.",
+    }
+    assert breakdown["overall"] == {
+        "score": result.overall_score,
+        "evaluated_weight": 60,
+        "grade_before_gate": "F",
+    }
 
 
 def test_record_score_result_includes_successful_scenario_score(session: Session) -> None:

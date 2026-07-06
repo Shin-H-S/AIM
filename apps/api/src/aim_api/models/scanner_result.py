@@ -284,6 +284,7 @@ class ScoreResult(Base):
     grade: Mapped[str] = mapped_column(String(1), nullable=False)
     deployment_risk: Mapped[str] = mapped_column(String(16), nullable=False)
     gate_reason: Mapped[str | None] = mapped_column(Text)
+    score_breakdown: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     scoring_version: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

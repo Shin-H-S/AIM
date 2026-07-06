@@ -1,4 +1,10 @@
-import { type AIReportChange, type AIReportDetail, type AIReportIssue } from "@/lib/api";
+import { Fragment } from "react";
+import {
+  type AIReportChange,
+  type AIReportDetail,
+  type AIReportIssue,
+  type LighthouseTopAudit
+} from "@/lib/api";
 import { Metric } from "@/components/ui";
 
 const statementTypeLabels: Record<AIReportIssue["statement_type"], string> = {
@@ -13,12 +19,18 @@ const severityLabels: Record<AIReportIssue["severity"], string> = {
   risk: "위험"
 };
 
-export function AIReportDetailPanel({ report }: { report: AIReportDetail }) {
+export function AIReportDetailPanel({
+  report,
+  topAudits
+}: {
+  report: AIReportDetail;
+  topAudits?: LighthouseTopAudit[] | null;
+}) {
   const payload = report.report_json;
 
   return (
     <section className="mt-6 grid gap-5">
-      <AIReportIssuesList issues={payload.top_issues} />
+      <AIReportIssuesList issues={payload.top_issues} topAudits={topAudits ?? null} />
 
       <section className="grid gap-4 lg:grid-cols-2">
         <AIReportChangesCard
@@ -38,7 +50,13 @@ export function AIReportDetailPanel({ report }: { report: AIReportDetail }) {
   );
 }
 
-function AIReportIssuesList({ issues }: { issues: AIReportIssue[] }) {
+function AIReportIssuesList({
+  issues,
+  topAudits
+}: {
+  issues: AIReportIssue[];
+  topAudits: LighthouseTopAudit[] | null;
+}) {
   if (issues.length === 0) {
     return (
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
@@ -104,6 +122,8 @@ function AIReportIssuesList({ issues }: { issues: AIReportIssue[] }) {
                 원인 미확인 이유: {issue.unknown_reason}
               </p>
             )}
+
+            <IssueEvidenceLinks evidenceIds={issue.evidence_ids} topAudits={topAudits} />
           </li>
         ))}
       </ul>
@@ -171,6 +191,99 @@ function AIReportWarningsCard({ warnings }: { warnings: string[] }) {
       </ul>
     </div>
   );
+}
+
+function IssueEvidenceLinks({
+  evidenceIds,
+  topAudits
+}: {
+  evidenceIds: string[];
+  topAudits: LighthouseTopAudit[] | null;
+}) {
+  const links = resolveEvidenceLinks(evidenceIds, topAudits);
+  if (links.length === 0) {
+    return null;
+  }
+
+  return (
+    <p className="mt-4 break-keep text-xs leading-5 text-slate-500">
+      근거:{" "}
+      {links.map((link, index) => (
+        <Fragment key={`${link.href}-${link.label}`}>
+          {index > 0 && " · "}
+          <a className="font-semibold text-cyan-700 underline" href={link.href}>
+            {link.label}
+          </a>
+        </Fragment>
+      ))}
+    </p>
+  );
+}
+
+type EvidenceLink = { label: string; href: string };
+
+function resolveEvidenceLinks(
+  evidenceIds: string[],
+  topAudits: LighthouseTopAudit[] | null
+): EvidenceLink[] {
+  const links: EvidenceLink[] = [];
+  for (const evidenceId of evidenceIds) {
+    const link = resolveEvidenceLink(evidenceId, topAudits);
+    if (link && !links.some((existing) => existing.label === link.label)) {
+      links.push(link);
+    }
+  }
+
+  return links;
+}
+
+function resolveEvidenceLink(
+  evidenceId: string,
+  topAudits: LighthouseTopAudit[] | null
+): EvidenceLink | null {
+  if (evidenceId === "availability-result") {
+    return { label: "가용성 검사", href: "#availability-card" };
+  }
+
+  if (evidenceId === "ssl-result") {
+    return { label: "SSL 검사", href: "#ssl-card" };
+  }
+
+  if (evidenceId === "lighthouse-result") {
+    return { label: "Lighthouse 결과", href: "#lighthouse-card" };
+  }
+
+  if (evidenceId.startsWith("lighthouse-audit-")) {
+    const auditId = evidenceId.slice("lighthouse-audit-".length);
+    const title = topAudits?.find((audit) => audit.id === auditId)?.title;
+    return {
+      label: title ? `개선 기회: ${title}` : "Lighthouse 개선 기회",
+      href: "#lighthouse-card"
+    };
+  }
+
+  if (evidenceId === "score-result") {
+    return { label: "종합 점수", href: "#score-card" };
+  }
+
+  if (evidenceId === "check-run-status") {
+    return { label: "검사 실행 상태", href: "#run-status-card" };
+  }
+
+  if (evidenceId === "run-comparison") {
+    return { label: "직전 run 비교", href: "#comparison-card" };
+  }
+
+  if (
+    evidenceId.startsWith("scenario-run-") ||
+    evidenceId.startsWith("step-result-") ||
+    evidenceId.startsWith("console-error-") ||
+    evidenceId.startsWith("network-failure-")
+  ) {
+    return { label: "연결된 ScenarioRun", href: "#scenario-runs-card" };
+  }
+
+  return null;
 }
 
 function getSeverityBadgeClassName(severity: AIReportIssue["severity"]) {

@@ -25,6 +25,7 @@ import {
   type Project,
   type ProjectDetailResult,
   type RunComparison,
+  type ScoreBreakdown,
   type ScoreResult,
   type ScenarioRun,
   type SslResult
@@ -32,6 +33,13 @@ import {
 import { buildAvailabilityAdvice, buildSslAdvice } from "@/lib/advice";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
+import {
+  buildBreakdownSummary,
+  buildFormulaText,
+  scoreCategoryLabel,
+  scoreGateLabel,
+  scoreReasonText
+} from "@/lib/scoreBreakdown";
 import {
   Badge,
   CheckRunStatusBadge,
@@ -390,6 +398,7 @@ export function ResultPageClient({
               isLoadingDetail={isAIReportDetailLoading}
               onLoadDetail={loadAIReportDetail}
               report={checkRun.ai_report}
+              topAudits={checkRun.lighthouse_result?.top_audits ?? null}
             />
             <ComparisonCard result={checkRun.comparison_result} />
             <BaselineComparisonCard
@@ -438,7 +447,10 @@ function StatusSummary({
   shouldPoll: boolean;
 }) {
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article
+      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      id="run-status-card"
+    >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">실행 상태</h2>
         <CheckRunStatusBadge status={checkRun.status} />
@@ -497,7 +509,10 @@ function ScoreCard({ result }: { result: ScoreResult | null }) {
   const riskClassName = getRiskBadgeClassName(result.deployment_risk);
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article
+      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      id="score-card"
+    >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
@@ -543,7 +558,68 @@ function ScoreCard({ result }: { result: ScoreResult | null }) {
         />
         <Metric label="Updated" value={formatDetailDateTime(result.updated_at)} />
       </dl>
+
+      {result.score_breakdown && <ScoreBreakdownSection breakdown={result.score_breakdown} />}
     </article>
+  );
+}
+
+function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
+  return (
+    <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+        점수는 이렇게 계산됐어요
+      </p>
+      <p className="mt-2 break-keep text-sm leading-6 text-slate-600">
+        {buildBreakdownSummary(breakdown)}
+      </p>
+
+      {breakdown.gate && (
+        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          등급 제한: {scoreGateLabel(breakdown.gate)} → 최대 {breakdown.gate.grade_cap}
+        </p>
+      )}
+
+      <ul className="mt-4 grid gap-3">
+        {breakdown.categories.map((category) => (
+          <li key={category.key}>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="font-semibold text-slate-700">
+                {scoreCategoryLabel(category.key)}
+                <span className="ml-2 text-xs font-semibold text-slate-400">
+                  {category.weight}%
+                </span>
+              </span>
+              <span
+                className={
+                  category.score === null
+                    ? "text-xs font-semibold text-slate-400"
+                    : "font-bold text-slate-900"
+                }
+              >
+                {category.score === null ? "평가 제외" : `${category.score}점`}
+              </span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-200">
+              {category.score !== null && category.score > 0 && (
+                <div
+                  className="h-full rounded-full bg-cyan-500"
+                  style={{ width: `${category.score}%` }}
+                />
+              )}
+            </div>
+            <p className="mt-1.5 break-keep text-xs leading-5 text-slate-500">
+              {category.reasons.map((reason) => scoreReasonText(reason)).join(" · ")}
+            </p>
+          </li>
+        ))}
+      </ul>
+
+      <details className="mt-4 text-sm">
+        <summary className="cursor-pointer font-semibold text-slate-600">계산식 보기</summary>
+        <p className="mt-2 font-mono text-xs text-slate-500">{buildFormulaText(breakdown)}</p>
+      </details>
+    </div>
   );
 }
 
@@ -551,12 +627,14 @@ function AIReportSummaryCard({
   detailResult,
   isLoadingDetail,
   onLoadDetail,
-  report
+  report,
+  topAudits
 }: {
   detailResult: AIReportDetailResult | null;
   isLoadingDetail: boolean;
   onLoadDetail: () => void;
   report: AIReportSummary | null;
+  topAudits: LighthouseTopAudit[] | null;
 }) {
   if (!report) {
     return (
@@ -652,7 +730,7 @@ function AIReportSummaryCard({
       )}
 
       {detailResult?.state === "success" && (
-        <AIReportDetailPanel report={detailResult.report} />
+        <AIReportDetailPanel report={detailResult.report} topAudits={topAudits} />
       )}
     </article>
   );
@@ -669,7 +747,10 @@ function ComparisonCard({ result }: { result: RunComparison | null }) {
   }
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article
+      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      id="comparison-card"
+    >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
@@ -939,7 +1020,10 @@ function LinkedScenarioRunsCard({
 
   if (scenarioRuns.length === 0) {
     return (
-      <article className="rounded-3xl border border-slate-200 bg-white p-6">
+      <article
+        className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+        id="scenario-runs-card"
+      >
         <h2 className="text-xl font-semibold text-slate-900">Linked ScenarioRuns</h2>
         <p className="mt-3 text-sm leading-6 text-slate-500">
           이 CheckRun에 연결된 ScenarioRun이 없습니다. Project의 Scenario 목록에서 수동 실행
@@ -956,7 +1040,10 @@ function LinkedScenarioRunsCard({
   }
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article
+      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      id="scenario-runs-card"
+    >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
@@ -1132,7 +1219,10 @@ function AvailabilityCard({
   }
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article
+      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      id="availability-card"
+    >
       <ResultHeader
         title="Availability"
         isHealthy={result.is_available}
@@ -1163,7 +1253,10 @@ function SslCard({ result }: { result: SslResult | null }) {
   const isHealthy = result.is_applicable ? result.is_valid === true : true;
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article
+      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      id="ssl-card"
+    >
       <ResultHeader
         title="SSL"
         isHealthy={isHealthy}
@@ -1215,7 +1308,10 @@ function LighthouseCard({ result }: { result: LighthouseResult | null }) {
   }
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article
+      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      id="lighthouse-card"
+    >
       <ResultHeader
         title="Lighthouse"
         isHealthy={result.is_successful}

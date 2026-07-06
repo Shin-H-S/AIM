@@ -532,6 +532,9 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
         "created_at": body["lighthouse_result"]["created_at"],
         "updated_at": body["lighthouse_result"]["updated_at"],
     }
+    score_breakdown = body["score_result"].pop("score_breakdown")
+    assert score_breakdown is not None
+    assert score_breakdown["overall"]["score"] == body["score_result"]["overall_score"]
     assert body["score_result"] == {
         "availability_score": 100,
         "functional_stability_score": None,

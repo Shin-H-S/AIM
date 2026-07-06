@@ -16,17 +16,19 @@ import {
   type TestStepAction
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
+import {
+  Identifier,
+  LinkButton,
+  LoginRequiredNotice,
+  Metric,
+  Notice,
+  RefreshButton,
+  ScenarioRunStatusBadge
+} from "@/components/ui";
 
 const POLLING_INTERVAL_MS = 3_000;
 const ACTIVE_STATUSES = new Set<ScenarioRunStatus>(["QUEUED", "RUNNING"]);
-
-const statusLabels: Record<ScenarioRunStatus, string> = {
-  QUEUED: "대기 중",
-  RUNNING: "실행 중",
-  COMPLETED: "완료",
-  FAILED: "실패",
-  CANCELLED: "취소됨"
-};
 
 const stepStatusLabels: Record<StepResultStatus, string> = {
   PASSED: "성공",
@@ -45,6 +47,11 @@ const actionLabels: Record<TestStepAction, string> = {
   take_screenshot: "스크린샷"
 };
 
+type ScenarioRunResultPageState =
+  | { state: "checking" }
+  | { state: "signed-out" }
+  | ScenarioRunDetailResult;
+
 export function ScenarioRunResultPageClient({
   projectId,
   scenarioId,
@@ -54,20 +61,19 @@ export function ScenarioRunResultPageClient({
   scenarioId: string;
   scenarioRunId: string;
 }) {
-  const [accessToken, setAccessToken] = useState("");
-  const [result, setResult] = useState<ScenarioRunDetailResult | null>(null);
+  const [result, setResult] = useState<ScenarioRunResultPageState>({ state: "checking" });
+  const [sessionToken, setSessionToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
-  const trimmedToken = accessToken.trim();
-  const scenarioRun = result?.state === "success" ? result.scenarioRun : null;
+  const scenarioRun = result.state === "success" ? result.scenarioRun : null;
   const shouldPoll = scenarioRun ? ACTIVE_STATUSES.has(scenarioRun.status) : false;
 
-  const loadScenarioRun = useCallback(async (token: string) => {
-    const normalizedToken = token.trim();
+  const loadScenarioRun = useCallback(async () => {
+    const accessToken = getStoredAccessToken();
 
-    if (!normalizedToken) {
-      setResult(null);
+    if (!accessToken) {
+      setResult({ state: "signed-out" });
+      setSessionToken("");
       return;
     }
 
@@ -76,48 +82,36 @@ export function ScenarioRunResultPageClient({
       projectId,
       scenarioId,
       scenarioRunId,
-      accessToken: normalizedToken
+      accessToken
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(normalizedToken);
+      clearStoredAccessTokenIfMatches(accessToken);
     }
 
     setResult(nextResult);
+    setSessionToken(accessToken);
     setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
     setIsLoading(false);
   }, [projectId, scenarioId, scenarioRunId]);
 
-  const refresh = useCallback(async () => {
-    await loadScenarioRun(trimmedToken);
-  }, [loadScenarioRun, trimmedToken]);
-
   useEffect(() => {
-    const storedAccessToken = getStoredAccessToken();
-
     queueMicrotask(() => {
-      setHasCheckedStoredToken(true);
-
-      if (!storedAccessToken) {
-        return;
-      }
-
-      setAccessToken(storedAccessToken);
-      void loadScenarioRun(storedAccessToken);
+      void loadScenarioRun();
     });
   }, [loadScenarioRun]);
 
   useEffect(() => {
-    if (!shouldPoll || !trimmedToken) {
+    if (!shouldPoll) {
       return;
     }
 
     const intervalId = window.setInterval(() => {
-      void refresh();
+      void loadScenarioRun();
     }, POLLING_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [refresh, shouldPoll, trimmedToken]);
+  }, [loadScenarioRun, shouldPoll]);
 
   const apiBaseUrlLabel = useMemo(() => {
     try {
@@ -128,20 +122,29 @@ export function ScenarioRunResultPageClient({
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
+    <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
         <header className="flex flex-col gap-6 rounded-3xl border border-slate-200 bg-white p-6">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
-              AIM Scenario Result
-            </p>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-              ScenarioRun 결과
-            </h1>
-            <p className="mt-4 text-sm leading-6 text-slate-600">
-              이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의
-              ScenarioRun 단건 API를 polling해서 step 결과와 실패 근거를 보여줍니다.
-            </p>
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
+                AIM Scenario Result
+              </p>
+              <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
+                ScenarioRun 결과
+              </h1>
+              <p className="mt-4 text-sm leading-6 text-slate-600">
+                이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의
+                ScenarioRun 단건 API를 polling해서 step 결과와 실패 근거를 보여줍니다.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <LinkButton
+                href={`/projects/${projectId}/scenarios/${scenarioId}/runs`}
+                label="ScenarioRun 목록"
+              />
+              <RefreshButton isLoading={isLoading} onClick={() => void loadScenarioRun()} />
+            </div>
           </div>
 
           <div className="grid gap-3 text-sm text-slate-600 md:grid-cols-3">
@@ -149,35 +152,9 @@ export function ScenarioRunResultPageClient({
             <Identifier label="Scenario ID" value={scenarioId} />
             <Identifier label="ScenarioRun ID" value={scenarioRunId} />
           </div>
-
-          <form
-            className="grid gap-3 md:grid-cols-[1fr_auto]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void refresh();
-            }}
-          >
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">Bearer token</span>
-              <input
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-cyan-400/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
-                type="password"
-                value={accessToken}
-                placeholder="로그인 API에서 받은 access_token을 입력하세요"
-                onChange={(event) => setAccessToken(event.target.value)}
-              />
-            </label>
-            <button
-              className="self-end rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
-              type="submit"
-              disabled={!trimmedToken || isLoading}
-            >
-              {isLoading ? "조회 중" : "결과 조회"}
-            </button>
-          </form>
         </header>
 
-        {!hasCheckedStoredToken && (
+        {result.state === "checking" && (
           <Notice
             tone="info"
             title="로그인 세션 확인 중"
@@ -185,23 +162,11 @@ export function ScenarioRunResultPageClient({
           />
         )}
 
-        {hasCheckedStoredToken && !trimmedToken && (
-          <Notice
-            tone="info"
-            title="인증 토큰이 필요합니다"
-            description="로그인 페이지에서 먼저 로그인하거나, access token을 직접 입력하세요."
-          />
-        )}
+        {result.state === "signed-out" && <LoginRequiredNotice />}
 
-        {result?.state === "unauthorized" && (
-          <Notice
-            tone="danger"
-            title="인증 실패"
-            description="토큰이 없거나 만료되었거나, 이 프로젝트에 접근할 권한이 없습니다."
-          />
-        )}
+        {result.state === "unauthorized" && <LoginRequiredNotice expired />}
 
-        {result?.state === "not-found" && (
+        {result.state === "not-found" && (
           <Notice
             tone="danger"
             title="ScenarioRun을 찾을 수 없습니다"
@@ -209,7 +174,7 @@ export function ScenarioRunResultPageClient({
           />
         )}
 
-        {result?.state === "unavailable" && (
+        {result.state === "unavailable" && (
           <Notice
             tone="danger"
             title="API 요청 실패"
@@ -228,7 +193,7 @@ export function ScenarioRunResultPageClient({
               <TimelineCard scenarioRun={scenarioRun} />
             </section>
 
-            <StepResultsCard accessToken={trimmedToken} stepResults={scenarioRun.step_results} />
+            <StepResultsCard accessToken={sessionToken} stepResults={scenarioRun.step_results} />
 
             <EvidenceSummaryCard
               consoleErrors={scenarioRun.console_errors}
@@ -246,17 +211,6 @@ export function ScenarioRunResultPageClient({
   );
 }
 
-function Identifier({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-        {label}
-      </p>
-      <p className="break-all font-mono text-xs text-slate-700">{value}</p>
-    </div>
-  );
-}
-
 function StatusSummary({
   scenarioRun,
   shouldPoll,
@@ -266,15 +220,11 @@ function StatusSummary({
   shouldPoll: boolean;
   lastUpdatedAt: string | null;
 }) {
-  const badgeClassName = getStatusBadgeClassName(scenarioRun.status);
-
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">실행 상태</h2>
-        <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${badgeClassName}`}>
-          {statusLabels[scenarioRun.status]}
-        </span>
+        <ScenarioRunStatusBadge status={scenarioRun.status} />
       </div>
       <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric label="Trigger" value={scenarioRun.trigger_source} />
@@ -293,10 +243,10 @@ function TimelineCard({ scenarioRun }: { scenarioRun: ScenarioRunDetail }) {
     <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <h2 className="mb-5 text-xl font-semibold">타임라인</h2>
       <dl className="grid gap-4 text-sm text-slate-600">
-        <Metric label="Queued" value={formatDateTime(scenarioRun.queued_at)} />
-        <Metric label="Started" value={formatDateTime(scenarioRun.started_at)} />
-        <Metric label="Finished" value={formatDateTime(scenarioRun.finished_at)} />
-        <Metric label="Updated" value={formatDateTime(scenarioRun.updated_at)} />
+        <Metric label="Queued" value={formatDetailDateTime(scenarioRun.queued_at)} />
+        <Metric label="Started" value={formatDetailDateTime(scenarioRun.started_at)} />
+        <Metric label="Finished" value={formatDetailDateTime(scenarioRun.finished_at)} />
+        <Metric label="Updated" value={formatDetailDateTime(scenarioRun.updated_at)} />
       </dl>
     </article>
   );
@@ -351,8 +301,8 @@ function StepResultsCard({
             </div>
             <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Metric label="Duration" value={formatMilliseconds(stepResult.duration_ms)} />
-              <Metric label="Started" value={formatDateTime(stepResult.started_at)} />
-              <Metric label="Finished" value={formatDateTime(stepResult.finished_at)} />
+              <Metric label="Started" value={formatDetailDateTime(stepResult.started_at)} />
+              <Metric label="Finished" value={formatDetailDateTime(stepResult.finished_at)} />
               <Metric
                 label="Screenshot artifact"
                 value={stepResult.failure_screenshot_artifact_id ?? "없음"}
@@ -466,7 +416,7 @@ function ConsoleErrorsCard({ consoleErrors }: { consoleErrors: ConsoleError[] })
           ["Level", consoleError.level],
           ["Line", formatNullable(consoleError.line_number)],
           ["Column", formatNullable(consoleError.column_number)],
-          ["Created", formatDateTime(consoleError.created_at)]
+          ["Created", formatDetailDateTime(consoleError.created_at)]
         ]
       }))}
     />
@@ -495,7 +445,7 @@ function NetworkFailuresCard({ networkFailures }: { networkFailures: NetworkFail
         details: [
           ["Method", networkFailure.method],
           ["Resource", networkFailure.resource_type ?? "알 수 없음"],
-          ["Created", formatDateTime(networkFailure.created_at)]
+          ["Created", formatDetailDateTime(networkFailure.created_at)]
         ]
       }))}
     />
@@ -561,49 +511,6 @@ function EmptyResultCard({ title, description }: { title: string; description: s
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
-      <dd className="mt-1 break-words text-slate-700">{value}</dd>
-    </div>
-  );
-}
-
-function Notice({
-  tone,
-  title,
-  description
-}: {
-  tone: "info" | "danger";
-  title: string;
-  description: string;
-}) {
-  const className =
-    tone === "info"
-      ? "border-cyan-200 bg-cyan-50 text-cyan-700"
-      : "border-rose-200 bg-rose-50 text-rose-800";
-
-  return (
-    <article className={`rounded-3xl border p-6 ${className}`}>
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="mt-2 text-sm opacity-80">{description}</p>
-    </article>
-  );
-}
-
-function getStatusBadgeClassName(status: ScenarioRunStatus) {
-  if (status === "COMPLETED") {
-    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
-  }
-
-  if (status === "FAILED" || status === "CANCELLED") {
-    return "bg-rose-50 text-rose-700 ring-rose-200";
-  }
-
-  return "bg-cyan-50 text-cyan-700 ring-cyan-200";
-}
-
 function getStepStatusBadgeClassName(status: StepResultStatus) {
   if (status === "PASSED") {
     return "bg-emerald-50 text-emerald-700 ring-emerald-200";
@@ -614,21 +521,6 @@ function getStepStatusBadgeClassName(status: StepResultStatus) {
   }
 
   return "bg-slate-200 text-slate-600 ring-slate-200";
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "없음";
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "medium"
-  }).format(new Date(value));
-}
-
-function formatMilliseconds(value: number | null) {
-  return value === null ? "알 수 없음" : `${value}ms`;
 }
 
 function formatNullable(value: number | null) {

@@ -27,36 +27,34 @@ import {
   type RunComparison,
   type ScoreResult,
   type ScenarioRun,
-  type ScenarioRunStatus,
   type SslResult
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
+import {
+  CheckRunStatusBadge,
+  Identifier,
+  LinkButton,
+  LoginRequiredNotice,
+  Metric,
+  Notice,
+  RefreshButton,
+  ScenarioRunStatusBadge
+} from "@/components/ui";
 
 const POLLING_INTERVAL_MS = 3_000;
 const ACTIVE_STATUSES = new Set<CheckRunStatus>(["QUEUED", "RUNNING", "ANALYZING"]);
-
-const statusLabels: Record<CheckRunStatus, string> = {
-  QUEUED: "대기 중",
-  RUNNING: "실행 중",
-  ANALYZING: "분석 중",
-  COMPLETED: "완료",
-  FAILED: "실패",
-  CANCELLED: "취소됨"
-};
-
-const scenarioRunStatusLabels: Record<ScenarioRunStatus, string> = {
-  QUEUED: "대기 중",
-  RUNNING: "실행 중",
-  COMPLETED: "완료",
-  FAILED: "실패",
-  CANCELLED: "취소됨"
-};
 
 const riskLabels: Record<ScoreResult["deployment_risk"], string> = {
   STABLE: "안정",
   WARNING: "주의",
   RISK: "위험"
 };
+
+type CheckRunResultPageState =
+  | { state: "checking" }
+  | { state: "signed-out" }
+  | CheckRunDetailResult;
 
 export function ResultPageClient({
   projectId,
@@ -65,10 +63,9 @@ export function ResultPageClient({
   projectId: string;
   checkRunId: string;
 }) {
-  const [accessToken, setAccessToken] = useState("");
-  const [result, setResult] = useState<CheckRunDetailResult | null>(null);
+  const [result, setResult] = useState<CheckRunResultPageState>({ state: "checking" });
+  const [sessionToken, setSessionToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [aiReportDetailResult, setAIReportDetailResult] =
     useState<AIReportDetailResult | null>(null);
   const [isAIReportDetailLoading, setIsAIReportDetailLoading] = useState(false);
@@ -80,8 +77,7 @@ export function ResultPageClient({
   const [baselineActionError, setBaselineActionError] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
-  const trimmedToken = accessToken.trim();
-  const checkRun = result?.state === "success" ? result.checkRun : null;
+  const checkRun = result.state === "success" ? result.checkRun : null;
   const shouldPoll = checkRun ? ACTIVE_STATUSES.has(checkRun.status) : false;
   const project = projectResult?.state === "success" ? projectResult.project : null;
   const baselineCheckRunId = project?.baseline_check_run_id ?? null;
@@ -93,11 +89,12 @@ export function ResultPageClient({
       ? null
       : aiReportDetailResult;
 
-  const loadCheckRun = useCallback(async (token: string) => {
-    const normalizedToken = token.trim();
+  const loadCheckRun = useCallback(async () => {
+    const accessToken = getStoredAccessToken();
 
-    if (!normalizedToken) {
-      setResult(null);
+    if (!accessToken) {
+      setResult({ state: "signed-out" });
+      setSessionToken("");
       return;
     }
 
@@ -105,14 +102,15 @@ export function ResultPageClient({
     const nextResult = await fetchCheckRunDetail({
       projectId,
       checkRunId,
-      accessToken: normalizedToken
+      accessToken
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(normalizedToken);
+      clearStoredAccessTokenIfMatches(accessToken);
     }
 
     setResult(nextResult);
+    setSessionToken(accessToken);
     if (nextResult.state !== "success" || nextResult.checkRun.ai_report === null) {
       setAIReportDetailResult(null);
     }
@@ -120,35 +118,34 @@ export function ResultPageClient({
     setIsLoading(false);
   }, [checkRunId, projectId]);
 
-  const loadProject = useCallback(
-    async (token: string) => {
-      const normalizedToken = token.trim();
+  const loadProject = useCallback(async () => {
+    const accessToken = getStoredAccessToken();
 
-      if (!normalizedToken) {
-        setProjectResult(null);
-        return;
-      }
+    if (!accessToken) {
+      setProjectResult(null);
+      return;
+    }
 
-      const nextResult = await fetchProject({
-        projectId,
-        accessToken: normalizedToken
-      });
+    const nextResult = await fetchProject({
+      projectId,
+      accessToken
+    });
 
-      if (nextResult.state === "unauthorized") {
-        clearStoredAccessTokenIfMatches(normalizedToken);
-      }
+    if (nextResult.state === "unauthorized") {
+      clearStoredAccessTokenIfMatches(accessToken);
+    }
 
-      setProjectResult(nextResult);
-    },
-    [projectId]
-  );
+    setProjectResult(nextResult);
+  }, [projectId]);
 
   const refresh = useCallback(async () => {
-    await Promise.all([loadCheckRun(trimmedToken), loadProject(trimmedToken)]);
-  }, [loadCheckRun, loadProject, trimmedToken]);
+    await Promise.all([loadCheckRun(), loadProject()]);
+  }, [loadCheckRun, loadProject]);
 
   const loadAIReportDetail = useCallback(async () => {
-    if (!trimmedToken) {
+    const accessToken = getStoredAccessToken();
+
+    if (!accessToken) {
       setAIReportDetailResult(null);
       return;
     }
@@ -157,38 +154,29 @@ export function ResultPageClient({
     const nextResult = await fetchCheckRunAIReport({
       projectId,
       checkRunId,
-      accessToken: trimmedToken
+      accessToken
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(trimmedToken);
+      clearStoredAccessTokenIfMatches(accessToken);
     }
 
     setAIReportDetailResult(nextResult);
     setIsAIReportDetailLoading(false);
-  }, [checkRunId, projectId, trimmedToken]);
+  }, [checkRunId, projectId]);
 
   useEffect(() => {
-    const storedAccessToken = getStoredAccessToken();
-
     queueMicrotask(() => {
-      setHasCheckedStoredToken(true);
-
-      if (!storedAccessToken) {
-        return;
-      }
-
-      setAccessToken(storedAccessToken);
-      void loadCheckRun(storedAccessToken);
-      void loadProject(storedAccessToken);
+      void refresh();
     });
-  }, [loadCheckRun, loadProject]);
+  }, [refresh]);
 
   useEffect(() => {
     let cancelled = false;
+    const accessToken = getStoredAccessToken();
 
     if (
-      !trimmedToken ||
+      !accessToken ||
       !baselineCheckRunId ||
       baselineCheckRunId === checkRunId ||
       !isCheckRunTerminal
@@ -208,7 +196,7 @@ export function ResultPageClient({
       const nextResult = await fetchBaselineComparison({
         projectId,
         checkRunId,
-        accessToken: trimmedToken
+        accessToken
       });
 
       if (cancelled) {
@@ -216,7 +204,7 @@ export function ResultPageClient({
       }
 
       if (nextResult.state === "unauthorized") {
-        clearStoredAccessTokenIfMatches(trimmedToken);
+        clearStoredAccessTokenIfMatches(accessToken);
       }
 
       setBaselineComparisonResult(nextResult);
@@ -225,10 +213,12 @@ export function ResultPageClient({
     return () => {
       cancelled = true;
     };
-  }, [baselineCheckRunId, checkRunId, isCheckRunTerminal, projectId, trimmedToken]);
+  }, [baselineCheckRunId, checkRunId, isCheckRunTerminal, projectId]);
 
   const handleSetBaseline = useCallback(async () => {
-    if (!trimmedToken || isBaselineMutating) {
+    const accessToken = getStoredAccessToken();
+
+    if (!accessToken || isBaselineMutating) {
       return;
     }
 
@@ -237,13 +227,13 @@ export function ResultPageClient({
     const mutationResult = await setProjectBaseline({
       projectId,
       checkRunId,
-      accessToken: trimmedToken
+      accessToken
     });
 
     if (mutationResult.state === "success") {
       setProjectResult({ state: "success", project: mutationResult.project });
     } else if (mutationResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(trimmedToken);
+      clearStoredAccessTokenIfMatches(accessToken);
       setBaselineActionError("인증이 만료되었습니다. 다시 로그인한 뒤 시도하세요.");
     } else if (mutationResult.state === "conflict") {
       setBaselineActionError(
@@ -256,10 +246,12 @@ export function ResultPageClient({
     }
 
     setIsBaselineMutating(false);
-  }, [checkRunId, isBaselineMutating, projectId, trimmedToken]);
+  }, [checkRunId, isBaselineMutating, projectId]);
 
   const handleClearBaseline = useCallback(async () => {
-    if (!trimmedToken || isBaselineMutating) {
+    const accessToken = getStoredAccessToken();
+
+    if (!accessToken || isBaselineMutating) {
       return;
     }
 
@@ -267,13 +259,13 @@ export function ResultPageClient({
     setBaselineActionError(null);
     const mutationResult = await clearProjectBaseline({
       projectId,
-      accessToken: trimmedToken
+      accessToken
     });
 
     if (mutationResult.state === "success") {
       setProjectResult({ state: "success", project: mutationResult.project });
     } else if (mutationResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(trimmedToken);
+      clearStoredAccessTokenIfMatches(accessToken);
       setBaselineActionError("인증이 만료되었습니다. 다시 로그인한 뒤 시도하세요.");
     } else if (mutationResult.state === "not-found") {
       setBaselineActionError("프로젝트를 찾을 수 없습니다.");
@@ -282,10 +274,10 @@ export function ResultPageClient({
     }
 
     setIsBaselineMutating(false);
-  }, [isBaselineMutating, projectId, trimmedToken]);
+  }, [isBaselineMutating, projectId]);
 
   useEffect(() => {
-    if (!shouldPoll || !trimmedToken) {
+    if (!shouldPoll) {
       return;
     }
 
@@ -294,10 +286,12 @@ export function ResultPageClient({
     }, POLLING_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [refresh, shouldPoll, trimmedToken]);
+  }, [refresh, shouldPoll]);
 
   const handleCancelCheckRun = useCallback(async () => {
-    if (!trimmedToken || isCancelling) {
+    const accessToken = getStoredAccessToken();
+
+    if (!accessToken || isCancelling) {
       return;
     }
 
@@ -306,13 +300,13 @@ export function ResultPageClient({
     const cancelResult = await cancelCheckRun({
       projectId,
       checkRunId,
-      accessToken: trimmedToken
+      accessToken
     });
 
     if (cancelResult.state === "success") {
-      await loadCheckRun(trimmedToken);
+      await loadCheckRun();
     } else if (cancelResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(trimmedToken);
+      clearStoredAccessTokenIfMatches(accessToken);
       setCancelError("인증이 만료되었습니다. 다시 로그인한 뒤 시도하세요.");
     } else if (cancelResult.state === "not-found") {
       setCancelError("CheckRun을 찾을 수 없습니다.");
@@ -321,7 +315,7 @@ export function ResultPageClient({
     }
 
     setIsCancelling(false);
-  }, [checkRunId, isCancelling, loadCheckRun, projectId, trimmedToken]);
+  }, [checkRunId, isCancelling, loadCheckRun, projectId]);
 
   const apiBaseUrlLabel = useMemo(() => {
     try {
@@ -332,60 +326,35 @@ export function ResultPageClient({
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
+    <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
         <header className="flex flex-col gap-6 rounded-3xl border border-slate-200 bg-white p-6">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
-              AIM Scan Result
-            </p>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-              CheckRun 결과
-            </h1>
-            <p className="mt-4 text-sm leading-6 text-slate-600">
-              이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의 CheckRun 단건
-              API를 polling해서 상태와 저장된 scanner result를 보여줍니다.
-            </p>
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
+                AIM Scan Result
+              </p>
+              <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
+                CheckRun 결과
+              </h1>
+              <p className="mt-4 text-sm leading-6 text-slate-600">
+                이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의 CheckRun 단건
+                API를 polling해서 상태와 저장된 scanner result를 보여줍니다.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <LinkButton href={`/projects/${projectId}/check-runs`} label="CheckRun 이력" />
+              <RefreshButton isLoading={isLoading} onClick={() => void refresh()} />
+            </div>
           </div>
 
           <div className="grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
             <Identifier label="Project ID" value={projectId} />
             <Identifier label="CheckRun ID" value={checkRunId} />
           </div>
-
-          <form
-            className="grid gap-3 md:grid-cols-[1fr_auto]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void refresh();
-            }}
-          >
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">Bearer token</span>
-              <input
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-cyan-400/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
-                type="password"
-                value={accessToken}
-                placeholder="로그인 API에서 받은 access_token을 입력하세요"
-                onChange={(event) => {
-                  setAccessToken(event.target.value);
-                  setAIReportDetailResult(null);
-                  setBaselineComparisonResult(null);
-                  setBaselineActionError(null);
-                }}
-              />
-            </label>
-            <button
-              className="self-end rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
-              type="submit"
-              disabled={!trimmedToken || isLoading}
-            >
-              {isLoading ? "조회 중" : "결과 조회"}
-            </button>
-          </form>
         </header>
 
-        {!hasCheckedStoredToken && (
+        {result.state === "checking" && (
           <Notice
             tone="info"
             title="로그인 세션 확인 중"
@@ -393,23 +362,11 @@ export function ResultPageClient({
           />
         )}
 
-        {hasCheckedStoredToken && !trimmedToken && (
-          <Notice
-            tone="info"
-            title="인증 토큰이 필요합니다"
-            description="로그인 페이지에서 먼저 로그인하거나, access token을 직접 입력하세요."
-          />
-        )}
+        {result.state === "signed-out" && <LoginRequiredNotice />}
 
-        {result?.state === "unauthorized" && (
-          <Notice
-            tone="danger"
-            title="인증 실패"
-            description="토큰이 없거나 만료되었거나, 이 프로젝트에 접근할 권한이 없습니다."
-          />
-        )}
+        {result.state === "unauthorized" && <LoginRequiredNotice expired />}
 
-        {result?.state === "not-found" && (
+        {result.state === "not-found" && (
           <Notice
             tone="danger"
             title="CheckRun을 찾을 수 없습니다"
@@ -417,7 +374,7 @@ export function ResultPageClient({
           />
         )}
 
-        {result?.state === "unavailable" && (
+        {result.state === "unavailable" && (
           <Notice
             tone="danger"
             title="API 요청 실패"
@@ -465,23 +422,12 @@ export function ResultPageClient({
               <AvailabilityCard result={checkRun.availability_result} />
               <SslCard result={checkRun.ssl_result} />
               <LighthouseCard result={checkRun.lighthouse_result} />
-              <ArtifactCard accessToken={trimmedToken} artifacts={checkRun.artifacts} />
+              <ArtifactCard accessToken={sessionToken} artifacts={checkRun.artifacts} />
             </section>
           </>
         )}
       </section>
     </main>
-  );
-}
-
-function Identifier({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-        {label}
-      </p>
-      <p className="break-all font-mono text-xs text-slate-700">{value}</p>
-    </div>
   );
 }
 
@@ -500,15 +446,11 @@ function StatusSummary({
   onCancel: () => void;
   shouldPoll: boolean;
 }) {
-  const badgeClassName = getStatusBadgeClassName(checkRun.status);
-
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">실행 상태</h2>
-        <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${badgeClassName}`}>
-          {statusLabels[checkRun.status]}
-        </span>
+        <CheckRunStatusBadge status={checkRun.status} />
       </div>
       <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric label="Trigger" value={checkRun.trigger_source} />
@@ -547,10 +489,10 @@ function TimelineCard({ checkRun }: { checkRun: CheckRunDetail }) {
     <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <h2 className="mb-5 text-xl font-semibold">타임라인</h2>
       <dl className="grid gap-4 text-sm text-slate-600">
-        <Metric label="Queued" value={formatDateTime(checkRun.queued_at)} />
-        <Metric label="Started" value={formatDateTime(checkRun.started_at)} />
-        <Metric label="Finished" value={formatDateTime(checkRun.finished_at)} />
-        <Metric label="Updated" value={formatDateTime(checkRun.updated_at)} />
+        <Metric label="Queued" value={formatDetailDateTime(checkRun.queued_at)} />
+        <Metric label="Started" value={formatDetailDateTime(checkRun.started_at)} />
+        <Metric label="Finished" value={formatDetailDateTime(checkRun.finished_at)} />
+        <Metric label="Updated" value={formatDetailDateTime(checkRun.updated_at)} />
       </dl>
     </article>
   );
@@ -609,7 +551,7 @@ function ScoreCard({ result }: { result: ScoreResult | null }) {
           value={formatScore(result.regression_stability_score)}
         />
         <Metric label="Scoring version" value={result.scoring_version} />
-        <Metric label="Updated" value={formatDateTime(result.updated_at)} />
+        <Metric label="Updated" value={formatDetailDateTime(result.updated_at)} />
       </dl>
     </article>
   );
@@ -665,8 +607,8 @@ function AIReportSummaryCard({
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
         <Metric label="Grade" value={report.grade} />
         <Metric label="Overall score" value={`${report.overall_score}/100`} />
-        <Metric label="Generated" value={formatDateTime(report.generated_at)} />
-        <Metric label="Updated" value={formatDateTime(report.updated_at)} />
+        <Metric label="Generated" value={formatDetailDateTime(report.generated_at)} />
+        <Metric label="Updated" value={formatDetailDateTime(report.updated_at)} />
       </dl>
 
       <p className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-500">
@@ -1071,13 +1013,7 @@ function LinkedScenarioRunsCard({
                     {scenarioRun.id}
                   </p>
                 </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${getStatusBadgeClassName(
-                    scenarioRun.status
-                  )}`}
-                >
-                  {scenarioRunStatusLabels[scenarioRun.status]}
-                </span>
+                <ScenarioRunStatusBadge status={scenarioRun.status} />
               </div>
               {isFailed && (
                 <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-100 p-3 text-sm text-rose-800">
@@ -1088,9 +1024,9 @@ function LinkedScenarioRunsCard({
                 <Metric label="Scenario ID" value={scenarioRun.scenario_id} />
                 <Metric label="Trigger" value={scenarioRun.trigger_source} />
                 <Metric label="Duration" value={formatMilliseconds(scenarioRun.duration_ms)} />
-                <Metric label="Queued" value={formatDateTime(scenarioRun.queued_at)} />
-                <Metric label="Started" value={formatDateTime(scenarioRun.started_at)} />
-                <Metric label="Finished" value={formatDateTime(scenarioRun.finished_at)} />
+                <Metric label="Queued" value={formatDetailDateTime(scenarioRun.queued_at)} />
+                <Metric label="Started" value={formatDetailDateTime(scenarioRun.started_at)} />
+                <Metric label="Finished" value={formatDetailDateTime(scenarioRun.finished_at)} />
                 <Metric label="Failure" value={scenarioRun.failure_reason ?? "없음"} />
               </dl>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -1248,7 +1184,7 @@ function SslCard({ result }: { result: SslResult | null }) {
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric label="Applicable" value={result.is_applicable ? "예" : "아니오"} />
         <Metric label="Valid" value={formatBoolean(result.is_valid)} />
-        <Metric label="Expires at" value={formatDateTime(result.expires_at)} />
+        <Metric label="Expires at" value={formatDetailDateTime(result.expires_at)} />
         <Metric
           label="Days left"
           value={
@@ -1327,7 +1263,7 @@ function ArtifactCard({
             <dl className="mt-3 grid gap-3 sm:grid-cols-2">
               <Metric label="Content type" value={artifact.content_type} />
               <Metric label="Size" value={formatBytes(artifact.size_bytes)} />
-              <Metric label="Created" value={formatDateTime(artifact.created_at)} />
+              <Metric label="Created" value={formatDetailDateTime(artifact.created_at)} />
               <Metric label="SHA-256" value={artifact.checksum_sha256} />
             </dl>
             <div className="mt-4">
@@ -1376,49 +1312,6 @@ function ResultHeader({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
-      <dd className="mt-1 break-words text-slate-700">{value}</dd>
-    </div>
-  );
-}
-
-function Notice({
-  tone,
-  title,
-  description
-}: {
-  tone: "info" | "danger";
-  title: string;
-  description: string;
-}) {
-  const className =
-    tone === "info"
-      ? "border-cyan-200 bg-cyan-50 text-cyan-700"
-      : "border-rose-200 bg-rose-50 text-rose-800";
-
-  return (
-    <article className={`rounded-3xl border p-6 ${className}`}>
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="mt-2 text-sm opacity-80">{description}</p>
-    </article>
-  );
-}
-
-function getStatusBadgeClassName(status: CheckRunStatus | ScenarioRunStatus) {
-  if (status === "COMPLETED") {
-    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
-  }
-
-  if (status === "FAILED" || status === "CANCELLED") {
-    return "bg-rose-50 text-rose-700 ring-rose-200";
-  }
-
-  return "bg-cyan-50 text-cyan-700 ring-cyan-200";
-}
-
 function getRiskBadgeClassName(risk: ScoreResult["deployment_risk"]) {
   if (risk === "STABLE") {
     return "bg-emerald-50 text-emerald-700 ring-emerald-200";
@@ -1429,21 +1322,6 @@ function getRiskBadgeClassName(risk: ScoreResult["deployment_risk"]) {
   }
 
   return "bg-amber-50 text-amber-700 ring-amber-200";
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "없음";
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "medium"
-  }).format(new Date(value));
-}
-
-function formatMilliseconds(value: number | null) {
-  return value === null ? "알 수 없음" : `${value}ms`;
 }
 
 function formatNullable(value: number | null) {

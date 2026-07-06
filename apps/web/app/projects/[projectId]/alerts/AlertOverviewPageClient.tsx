@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchProject,
@@ -18,9 +17,21 @@ import {
   type RetryAlertResult
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import { formatDateTime, formatNullableDateTime } from "@/lib/format";
+import {
+  Badge,
+  EmptyState,
+  Identifier,
+  LinkButton,
+  LoginRequiredNotice,
+  Metric,
+  Notice,
+  RefreshButton
+} from "@/components/ui";
 
 const LIST_LIMIT = 20;
 
+type SessionState = "checking" | "signed-out" | "ready";
 type LoadState = "idle" | "loading";
 type AlertStatusFilter = "ALL" | "PENDING" | "SENT" | "FAILED";
 type AlertSettingsSubmitState =
@@ -46,7 +57,7 @@ type RetryAlertFeedback = {
 type AlertStatusCounts = Record<AlertStatusFilter, number>;
 
 export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
-  const [accessToken, setAccessToken] = useState("");
+  const [sessionState, setSessionState] = useState<SessionState>("checking");
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [projectResult, setProjectResult] = useState<ProjectDetailResult | null>(null);
   const [incidentResult, setIncidentResult] = useState<IncidentListResult | null>(null);
@@ -64,87 +75,71 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const [hasMoreAlerts, setHasMoreAlerts] = useState(false);
   const [isLoadingMoreAlerts, setIsLoadingMoreAlerts] = useState(false);
   const [alertListMessage, setAlertListMessage] = useState<string | null>(null);
-  const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
-  const trimmedToken = accessToken.trim();
 
-  const loadOverview = useCallback(
-    async (token: string) => {
-      const normalizedToken = token.trim();
+  const loadOverview = useCallback(async () => {
+    const accessToken = getStoredAccessToken();
 
-      if (!normalizedToken) {
-        setProjectResult(null);
-        setIncidentResult(null);
-        setAlertResult(null);
-        setRetryFeedback(null);
-        setRetryingAlertId(null);
-        setHasMoreAlerts(false);
-        setIsLoadingMoreAlerts(false);
-        setAlertListMessage(null);
-        setLastUpdatedAt(null);
-        return;
-      }
-
-      setLoadState("loading");
+    if (!accessToken) {
+      setSessionState("signed-out");
+      setProjectResult(null);
+      setIncidentResult(null);
+      setAlertResult(null);
+      setRetryFeedback(null);
+      setRetryingAlertId(null);
+      setHasMoreAlerts(false);
+      setIsLoadingMoreAlerts(false);
       setAlertListMessage(null);
-      const [nextProjectResult, nextIncidentResult, nextAlertResult] = await Promise.all([
-        fetchProject({
-          projectId,
-          accessToken: normalizedToken
-        }),
-        fetchProjectIncidents({
-          projectId,
-          accessToken: normalizedToken,
-          limit: LIST_LIMIT
-        }),
-        fetchProjectAlerts({
-          projectId,
-          accessToken: normalizedToken,
-          limit: LIST_LIMIT
-        })
-      ]);
+      setLastUpdatedAt(null);
+      return;
+    }
 
-      if (
-        nextProjectResult.state === "unauthorized" ||
-        nextIncidentResult.state === "unauthorized" ||
-        nextAlertResult.state === "unauthorized"
-      ) {
-        clearStoredAccessTokenIfMatches(normalizedToken);
-      }
+    setSessionState("ready");
+    setLoadState("loading");
+    setAlertListMessage(null);
+    const [nextProjectResult, nextIncidentResult, nextAlertResult] = await Promise.all([
+      fetchProject({
+        projectId,
+        accessToken
+      }),
+      fetchProjectIncidents({
+        projectId,
+        accessToken,
+        limit: LIST_LIMIT
+      }),
+      fetchProjectAlerts({
+        projectId,
+        accessToken,
+        limit: LIST_LIMIT
+      })
+    ]);
 
-      setProjectResult(nextProjectResult);
-      setIncidentResult(nextIncidentResult);
-      setAlertResult(nextAlertResult);
-      setHasMoreAlerts(
-        nextAlertResult.state === "success" && nextAlertResult.alerts.length === LIST_LIMIT
-      );
-      if (nextProjectResult.state === "success") {
-        setSettingsForm(formFromProjectAlertSettings(nextProjectResult.project));
-        setSettingsSubmitState("idle");
-        setSettingsSubmitMessage(null);
-      }
-      setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
-      setLoadState("idle");
-    },
-    [projectId]
-  );
+    if (
+      nextProjectResult.state === "unauthorized" ||
+      nextIncidentResult.state === "unauthorized" ||
+      nextAlertResult.state === "unauthorized"
+    ) {
+      clearStoredAccessTokenIfMatches(accessToken);
+    }
 
-  const refresh = useCallback(async () => {
-    await loadOverview(trimmedToken);
-  }, [loadOverview, trimmedToken]);
+    setProjectResult(nextProjectResult);
+    setIncidentResult(nextIncidentResult);
+    setAlertResult(nextAlertResult);
+    setHasMoreAlerts(
+      nextAlertResult.state === "success" && nextAlertResult.alerts.length === LIST_LIMIT
+    );
+    if (nextProjectResult.state === "success") {
+      setSettingsForm(formFromProjectAlertSettings(nextProjectResult.project));
+      setSettingsSubmitState("idle");
+      setSettingsSubmitMessage(null);
+    }
+    setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
+    setLoadState("idle");
+  }, [projectId]);
 
   useEffect(() => {
-    const storedAccessToken = getStoredAccessToken();
-
     queueMicrotask(() => {
-      setHasCheckedStoredToken(true);
-
-      if (!storedAccessToken) {
-        return;
-      }
-
-      setAccessToken(storedAccessToken);
-      void loadOverview(storedAccessToken);
+      void loadOverview();
     });
   }, [loadOverview]);
 
@@ -163,7 +158,9 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const alertStatusCounts = summarizeAlertStatuses(alerts);
 
   async function handleLoadMoreAlerts() {
-    if (!trimmedToken || alertResult?.state !== "success") {
+    const accessToken = getStoredAccessToken();
+
+    if (!accessToken || alertResult?.state !== "success") {
       return;
     }
 
@@ -172,13 +169,13 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
 
     const nextResult = await fetchProjectAlerts({
       projectId,
-      accessToken: trimmedToken,
+      accessToken,
       limit: LIST_LIMIT,
       offset: alertResult.alerts.length
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(trimmedToken);
+      clearStoredAccessTokenIfMatches(accessToken);
     }
 
     if (nextResult.state !== "success") {
@@ -206,7 +203,9 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     event.preventDefault();
     setSettingsSubmitMessage(null);
 
-    if (!project || !trimmedToken) {
+    const accessToken = getStoredAccessToken();
+
+    if (!project || !accessToken) {
       setSettingsSubmitState("unauthorized");
       setSettingsSubmitMessage("로그인 세션 또는 Project 정보를 먼저 확인하세요.");
       return;
@@ -222,7 +221,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     setSettingsSubmitState("submitting");
     const result = await updateProject({
       projectId: project.id,
-      accessToken: trimmedToken,
+      accessToken,
       payload: {
         name: project.name,
         service_url: project.service_url,
@@ -238,7 +237,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
 
     if (result.state !== "success") {
       if (result.state === "unauthorized") {
-        clearStoredAccessTokenIfMatches(trimmedToken);
+        clearStoredAccessTokenIfMatches(accessToken);
       }
 
       setSettingsSubmitState(result.state);
@@ -256,7 +255,9 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   }
 
   async function handleRetryAlert(alert: Alert) {
-    if (!trimmedToken) {
+    const accessToken = getStoredAccessToken();
+
+    if (!accessToken) {
       setRetryFeedback({
         alertId: alert.id,
         state: "unauthorized",
@@ -271,7 +272,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     const result = await retryAlert({
       projectId,
       alertId: alert.id,
-      accessToken: trimmedToken
+      accessToken
     });
 
     if (result.state === "success") {
@@ -295,7 +296,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     }
 
     if (result.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(trimmedToken);
+      clearStoredAccessTokenIfMatches(accessToken);
     }
 
     setRetryFeedback({
@@ -307,7 +308,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
+    <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
         <header className="rounded-3xl border border-slate-200 bg-white p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -324,44 +325,21 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
                 수신자 email도 이 화면에서 저장할 수 있습니다.
               </p>
             </div>
-            <Link
-              className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
-              href="/"
-            >
-              Dashboard
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <LinkButton href={`/projects/${projectId}/settings`} label="Project 설정" />
+              <RefreshButton
+                isLoading={loadState === "loading"}
+                onClick={() => void loadOverview()}
+              />
+            </div>
           </div>
 
-          <Identifier label="Project ID" value={projectId} />
-
-          <form
-            className="mt-5 grid gap-3 md:grid-cols-[1fr_auto]"
-            onSubmit={(event: FormEvent<HTMLFormElement>) => {
-              event.preventDefault();
-              void refresh();
-            }}
-          >
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">Bearer token</span>
-              <input
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-cyan-400/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
-                onChange={(event) => setAccessToken(event.target.value)}
-                placeholder="로그인 API에서 받은 access_token을 입력하세요"
-                type="password"
-                value={accessToken}
-              />
-            </label>
-            <button
-              className="self-end rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!trimmedToken || loadState === "loading"}
-              type="submit"
-            >
-              {loadState === "loading" ? "조회 중" : "Alerts 조회"}
-            </button>
-          </form>
+          <div className="mt-5">
+            <Identifier label="Project ID" value={projectId} />
+          </div>
         </header>
 
-        {!hasCheckedStoredToken && (
+        {sessionState === "checking" && (
           <Notice
             description="저장된 로그인 세션이 있으면 자동으로 alert overview를 조회합니다."
             title="로그인 세션 확인 중"
@@ -369,13 +347,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
           />
         )}
 
-        {hasCheckedStoredToken && !trimmedToken && (
-          <Notice
-            description="로그인 페이지에서 먼저 로그인하거나 access token을 직접 입력하세요."
-            title="인증 토큰이 필요합니다"
-            tone="info"
-          />
-        )}
+        {sessionState === "signed-out" && <LoginRequiredNotice />}
 
         <ResultNotice alertResult={alertResult} incidentResult={incidentResult} projectResult={projectResult} />
 
@@ -567,19 +539,18 @@ function IncidentCard({ incident, projectId }: { incident: Incident; projectId: 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap gap-2">
-            <StatusBadge status={incident.status} />
+            <IncidentStatusBadge status={incident.status} />
             <SeverityBadge severity={incident.severity} />
             <Badge label={formatTriggerType(incident.trigger_type)} />
           </div>
           <h3 className="mt-4 text-lg font-bold text-slate-900">{incident.title}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">{incident.summary}</p>
         </div>
-        <Link
-          className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500"
+        <LinkButton
           href={`/projects/${projectId}/check-runs/${incident.opened_check_run_id}`}
-        >
-          시작 run 보기
-        </Link>
+          label="시작 run 보기"
+          variant="dark"
+        />
       </div>
 
       <dl className="mt-5 grid gap-3 md:grid-cols-3">
@@ -784,12 +755,11 @@ function AlertCard({
             </button>
           )}
           {alert.check_run_id && (
-            <Link
-              className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500"
+            <LinkButton
               href={`/projects/${projectId}/check-runs/${alert.check_run_id}`}
-            >
-              관련 run 보기
-            </Link>
+              label="관련 run 보기"
+              variant="dark"
+            />
           )}
         </div>
       </div>
@@ -839,13 +809,7 @@ function ResultNotice({
   }
 
   if (firstProblem.state === "unauthorized") {
-    return (
-      <Notice
-        description="토큰이 없거나 만료되었거나, 이 프로젝트에 접근할 권한이 없습니다."
-        title="인증 실패"
-        tone="danger"
-      />
-    );
+    return <LoginRequiredNotice expired />;
   }
 
   if (firstProblem.state === "not-found") {
@@ -878,65 +842,7 @@ function SectionHeader({ count, title }: { count: number; title: string }) {
   );
 }
 
-function Identifier({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-        {label}
-      </p>
-      <p className="break-all font-mono text-xs text-slate-700">{value}</p>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
-      <dd className="mt-1 break-words text-slate-700">{value}</dd>
-    </div>
-  );
-}
-
-function Notice({
-  description,
-  title,
-  tone
-}: {
-  description: string;
-  title: string;
-  tone: "info" | "danger";
-}) {
-  const className =
-    tone === "info"
-      ? "border-cyan-200 bg-cyan-50 text-cyan-700"
-      : "border-rose-200 bg-rose-50 text-rose-800";
-
-  return (
-    <article className={`rounded-3xl border p-6 ${className}`}>
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="mt-2 text-sm leading-6 opacity-80">{description}</p>
-    </article>
-  );
-}
-
-function EmptyState({ description }: { description: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-5 text-sm text-slate-500">
-      {description}
-    </div>
-  );
-}
-
-function Badge({ label }: { label: string }) {
-  return (
-    <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-700 ring-1 ring-slate-200">
-      {label}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
+function IncidentStatusBadge({ status }: { status: string }) {
   const className =
     status === "OPEN"
       ? "bg-rose-50 text-rose-700 ring-rose-200"
@@ -983,17 +889,6 @@ function formatTriggerType(value: string): string {
 
 function formatAlertType(value: string): string {
   return value.toLowerCase().replaceAll("_", " ");
-}
-
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short"
-  }).format(new Date(value));
-}
-
-function formatNullableDateTime(value: string | null): string {
-  return value ? formatDateTime(value) : "아직 없음";
 }
 
 function formFromProjectAlertSettings(project: Project): AlertSettingsFormState {

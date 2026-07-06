@@ -20,6 +20,14 @@ import {
   type UpdateScenarioResult
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import {
+  Identifier,
+  LinkButton,
+  LoginRequiredNotice,
+  Metric,
+  Notice,
+  RefreshButton
+} from "@/components/ui";
 
 const actionLabels: Record<TestStepAction, string> = {
   navigate: "페이지 이동",
@@ -90,9 +98,13 @@ type ScenarioFormState = {
   steps: ScenarioStepFormState[];
 };
 
+type ScenarioListPageState =
+  | { state: "checking" }
+  | { state: "signed-out" }
+  | ScenarioListResult;
+
 export function ScenarioListPageClient({ projectId }: { projectId: string }) {
-  const [accessToken, setAccessToken] = useState("");
-  const [result, setResult] = useState<ScenarioListResult | null>(null);
+  const [result, setResult] = useState<ScenarioListPageState>({ state: "checking" });
   const [createdRunResult, setCreatedRunResult] = useState<CreateScenarioRunResult | null>(null);
   const [scenarioForm, setScenarioForm] = useState<ScenarioFormState>(() =>
     createInitialScenarioForm()
@@ -101,28 +113,26 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
   const [createState, setCreateState] = useState<ScenarioCreateState>("idle");
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasCheckedStoredToken, setHasCheckedStoredToken] = useState(false);
   const [creatingScenarioId, setCreatingScenarioId] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
-  const trimmedToken = accessToken.trim();
-  const scenarios = result?.state === "success" ? result.scenarios : [];
+  const scenarios = result.state === "success" ? result.scenarios : [];
 
-  const loadScenarios = useCallback(async (token: string) => {
-    const normalizedToken = token.trim();
+  const loadScenarios = useCallback(async () => {
+    const accessToken = getStoredAccessToken();
 
-    if (!normalizedToken) {
-      setResult(null);
+    if (!accessToken) {
+      setResult({ state: "signed-out" });
       return;
     }
 
     setIsLoading(true);
     const nextResult = await fetchScenarios({
       projectId,
-      accessToken: normalizedToken
+      accessToken
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(normalizedToken);
+      clearStoredAccessTokenIfMatches(accessToken);
     }
 
     setResult(nextResult);
@@ -130,13 +140,11 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
     setIsLoading(false);
   }, [projectId]);
 
-  const refresh = useCallback(async () => {
-    await loadScenarios(trimmedToken);
-  }, [loadScenarios, trimmedToken]);
-
   const requestScenarioRun = useCallback(
     async (scenarioId: string) => {
-      if (!trimmedToken) {
+      const accessToken = getStoredAccessToken();
+
+      if (!accessToken) {
         return;
       }
 
@@ -144,17 +152,17 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       const nextResult = await createScenarioRun({
         projectId,
         scenarioId,
-        accessToken: trimmedToken
+        accessToken
       });
 
       if (nextResult.state === "unauthorized") {
-        clearStoredAccessTokenIfMatches(trimmedToken);
+        clearStoredAccessTokenIfMatches(accessToken);
       }
 
       setCreatedRunResult(nextResult);
       setCreatingScenarioId(null);
     },
-    [projectId, trimmedToken]
+    [projectId]
   );
 
   const createScenarioFromForm = useCallback(
@@ -162,7 +170,9 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       event.preventDefault();
       setCreateMessage(null);
 
-      if (!trimmedToken) {
+      const accessToken = getStoredAccessToken();
+
+      if (!accessToken) {
         setCreateState("unauthorized");
         setCreateMessage("로그인 세션이 없습니다. 로그인 후 다시 시도하세요.");
         return;
@@ -178,13 +188,13 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       setCreateState("creating");
       const nextResult = await createScenario({
         projectId,
-        accessToken: trimmedToken,
+        accessToken,
         payload: payloadResult.payload
       });
 
       if (nextResult.state !== "success") {
         if (nextResult.state === "unauthorized") {
-          clearStoredAccessTokenIfMatches(trimmedToken);
+          clearStoredAccessTokenIfMatches(accessToken);
         }
 
         setCreateState(nextResult.state);
@@ -193,7 +203,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       }
 
       setResult((currentResult) =>
-        currentResult?.state === "success"
+        currentResult.state === "success"
           ? {
               state: "success",
               scenarios: [nextResult.scenario, ...currentResult.scenarios]
@@ -206,7 +216,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       setCreateMessage("Scenario를 생성했습니다. 목록에서 바로 실행할 수 있습니다.");
       setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
     },
-    [projectId, scenarioForm, trimmedToken]
+    [projectId, scenarioForm]
   );
 
   const updateScenarioFromPayload = useCallback(
@@ -214,7 +224,9 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       scenarioId: string,
       payload: TestScenarioPayload
     ): Promise<ScenarioMutationActionResult> => {
-      if (!trimmedToken) {
+      const accessToken = getStoredAccessToken();
+
+      if (!accessToken) {
         return {
           state: "unauthorized",
           message: "로그인 세션이 없습니다. 로그인 후 다시 시도하세요."
@@ -224,13 +236,13 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       const nextResult = await updateScenario({
         projectId,
         scenarioId,
-        accessToken: trimmedToken,
+        accessToken,
         payload
       });
 
       if (nextResult.state !== "success") {
         if (nextResult.state === "unauthorized") {
-          clearStoredAccessTokenIfMatches(trimmedToken);
+          clearStoredAccessTokenIfMatches(accessToken);
         }
 
         return {
@@ -240,7 +252,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       }
 
       setResult((currentResult) =>
-        currentResult?.state === "success"
+        currentResult.state === "success"
           ? {
               state: "success",
               scenarios: currentResult.scenarios.map((scenario) =>
@@ -257,12 +269,14 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
         scenario: nextResult.scenario
       };
     },
-    [projectId, trimmedToken]
+    [projectId]
   );
 
   const deleteScenarioById = useCallback(
     async (scenarioId: string): Promise<ScenarioMutationActionResult> => {
-      if (!trimmedToken) {
+      const accessToken = getStoredAccessToken();
+
+      if (!accessToken) {
         return {
           state: "unauthorized",
           message: "로그인 세션이 없습니다. 로그인 후 다시 시도하세요."
@@ -272,12 +286,12 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       const nextResult = await deleteScenario({
         projectId,
         scenarioId,
-        accessToken: trimmedToken
+        accessToken
       });
 
       if (nextResult.state !== "success") {
         if (nextResult.state === "unauthorized") {
-          clearStoredAccessTokenIfMatches(trimmedToken);
+          clearStoredAccessTokenIfMatches(accessToken);
         }
 
         return {
@@ -287,7 +301,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       }
 
       setResult((currentResult) =>
-        currentResult?.state === "success"
+        currentResult.state === "success"
           ? {
               state: "success",
               scenarios: currentResult.scenarios.filter((scenario) => scenario.id !== scenarioId)
@@ -301,7 +315,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
         message: "Scenario를 삭제했습니다."
       };
     },
-    [projectId, trimmedToken]
+    [projectId]
   );
 
   function updateScenarioStep(stepId: string, nextStep: Partial<ScenarioStepFormState>) {
@@ -340,17 +354,8 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
   }
 
   useEffect(() => {
-    const storedAccessToken = getStoredAccessToken();
-
     queueMicrotask(() => {
-      setHasCheckedStoredToken(true);
-
-      if (!storedAccessToken) {
-        return;
-      }
-
-      setAccessToken(storedAccessToken);
-      void loadScenarios(storedAccessToken);
+      void loadScenarios();
     });
   }, [loadScenarios]);
 
@@ -363,52 +368,32 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
+    <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
         <header className="flex flex-col gap-6 rounded-3xl border border-slate-200 bg-white p-6">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
-              AIM Scenarios
-            </p>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-              Scenario 목록
-            </h1>
-            <p className="mt-4 text-sm leading-6 text-slate-600">
-              이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의 Scenario
-              API를 사용해서 핵심 사용자 흐름 목록을 조회하고, 수동 ScenarioRun을 생성합니다.
-            </p>
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
+                AIM Scenarios
+              </p>
+              <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
+                Scenario 목록
+              </h1>
+              <p className="mt-4 text-sm leading-6 text-slate-600">
+                이 화면은 <code className="text-cyan-700">{apiBaseUrlLabel}</code>의 Scenario
+                API를 사용해서 핵심 사용자 흐름 목록을 조회하고, 수동 ScenarioRun을 생성합니다.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <LinkButton href={`/projects/${projectId}/settings`} label="Project 설정" />
+              <RefreshButton isLoading={isLoading} onClick={() => void loadScenarios()} />
+            </div>
           </div>
 
           <Identifier label="Project ID" value={projectId} />
-
-          <form
-            className="grid gap-3 md:grid-cols-[1fr_auto]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void refresh();
-            }}
-          >
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="font-medium text-slate-700">Bearer token</span>
-              <input
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-cyan-400/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
-                type="password"
-                value={accessToken}
-                placeholder="로그인 API에서 받은 access_token을 입력하세요"
-                onChange={(event) => setAccessToken(event.target.value)}
-              />
-            </label>
-            <button
-              className="self-end rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
-              type="submit"
-              disabled={!trimmedToken || isLoading}
-            >
-              {isLoading ? "조회 중" : "Scenario 조회"}
-            </button>
-          </form>
         </header>
 
-        {!hasCheckedStoredToken && (
+        {result.state === "checking" && (
           <Notice
             tone="info"
             title="로그인 세션 확인 중"
@@ -416,23 +401,11 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
           />
         )}
 
-        {hasCheckedStoredToken && !trimmedToken && (
-          <Notice
-            tone="info"
-            title="인증 토큰이 필요합니다"
-            description="로그인 페이지에서 먼저 로그인하거나, access token을 직접 입력하세요."
-          />
-        )}
+        {result.state === "signed-out" && <LoginRequiredNotice />}
 
-        {result?.state === "unauthorized" && (
-          <Notice
-            tone="danger"
-            title="인증 실패"
-            description="토큰이 없거나 만료되었거나, 이 프로젝트에 접근할 권한이 없습니다."
-          />
-        )}
+        {result.state === "unauthorized" && <LoginRequiredNotice expired />}
 
-        {result?.state === "not-found" && (
+        {result.state === "not-found" && (
           <Notice
             tone="danger"
             title="프로젝트를 찾을 수 없습니다"
@@ -440,7 +413,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
           />
         )}
 
-        {result?.state === "unavailable" && (
+        {result.state === "unavailable" && (
           <Notice
             tone="danger"
             title="API 요청 실패"
@@ -448,7 +421,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
           />
         )}
 
-        {trimmedToken && (
+        {result.state === "success" && (
           <ScenarioCreateForm
             createMessage={createMessage}
             createState={createState}
@@ -466,8 +439,14 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
             tone="info"
             title="ScenarioRun 생성 완료"
             description={`새 ScenarioRun이 ${createdRunResult.scenarioRun.status} 상태로 생성되었습니다.`}
-            href={`/projects/${projectId}/scenarios/${createdRunResult.scenarioRun.scenario_id}/runs/${createdRunResult.scenarioRun.id}`}
-            hrefLabel="결과 페이지 열기"
+            action={
+              <Link
+                className="inline-flex text-sm font-bold underline"
+                href={`/projects/${projectId}/scenarios/${createdRunResult.scenarioRun.scenario_id}/runs/${createdRunResult.scenarioRun.id}`}
+              >
+                결과 페이지 열기
+              </Link>
+            }
           />
         )}
 
@@ -503,7 +482,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
           />
         )}
 
-        {result?.state === "success" && (
+        {result.state === "success" && (
           <section className="rounded-3xl border border-slate-200 bg-white p-6">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1036,12 +1015,10 @@ function ScenarioCard({
           <p className="mt-3 break-all font-mono text-xs text-slate-400">{scenario.id}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700"
+          <LinkButton
             href={`/projects/${projectId}/scenarios/${scenario.id}/runs`}
-          >
-            실행 이력 보기
-          </Link>
+            label="실행 이력 보기"
+          />
           <button
             className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700"
             onClick={startEditing}
@@ -1144,57 +1121,6 @@ function StepRow({ step }: { step: TestStep }) {
         <Metric label="Timeout" value={step.timeout_ms === null ? "기본값" : `${step.timeout_ms}ms`} />
       </dl>
     </li>
-  );
-}
-
-function Identifier({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-        {label}
-      </p>
-      <p className="break-all font-mono text-xs text-slate-700">{value}</p>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
-      <dd className="mt-1 break-words text-slate-700">{value}</dd>
-    </div>
-  );
-}
-
-function Notice({
-  tone,
-  title,
-  description,
-  href,
-  hrefLabel
-}: {
-  tone: "info" | "danger";
-  title: string;
-  description: string;
-  href?: string;
-  hrefLabel?: string;
-}) {
-  const className =
-    tone === "info"
-      ? "border-cyan-200 bg-cyan-50 text-cyan-700"
-      : "border-rose-200 bg-rose-50 text-rose-800";
-
-  return (
-    <article className={`rounded-3xl border p-6 ${className}`}>
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="mt-2 text-sm opacity-80">{description}</p>
-      {href && hrefLabel && (
-        <a className="mt-4 inline-flex text-sm font-bold underline" href={href}>
-          {hrefLabel}
-        </a>
-      )}
-    </article>
   );
 }
 

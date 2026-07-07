@@ -177,6 +177,7 @@ def create_check_run(
         service_url=service_url,
         verified_at=datetime.now(UTC),
         environment="production",
+        alert_email_enabled=True,
     )
     session.add(project)
     session.flush()

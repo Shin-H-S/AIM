@@ -78,7 +78,7 @@ Invoke-RestMethod http://localhost:8000/health/database
 - 정기 스캔 사용 여부 (기본 비활성, verified 프로젝트만 정기 스캔 대상)
 - 응답 시간 임계값
 - 품질 점수 임계값
-- email alert 사용 여부
+- email alert 사용 여부 (기본 비활성, 프로젝트별 opt-in)
 - email alert 수신자 주소
 
 서비스 URL은 HTTP/HTTPS 형식만 허용하며, 저장 전에 SSRF-safe 검증을 수행합니다.

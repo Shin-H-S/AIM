@@ -6,4 +6,4 @@
 
 ## 기록
 
-- [0001. 이메일 알림 제거, Slack/Discord webhook 알림 채택](0001-webhook-alerts-over-email.md) (2026-07-08)
+- [0001. 알림 채널: 이메일 유지 + Slack/Discord webhook 추가](0001-alert-channels-email-and-webhook.md) (2026-07-08)

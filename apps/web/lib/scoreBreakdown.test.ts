@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { ScoreBreakdown } from "./api";
 import {
   buildBreakdownSummary,
-  buildFormulaText,
   scoreCategoryLabel,
   scoreGateLabel,
   scoreReasonText
@@ -82,14 +81,6 @@ describe("buildBreakdownSummary", () => {
     const summary = buildBreakdownSummary(breakdownFixture({ gate: null }));
 
     expect(summary).not.toContain("등급이 최대");
-  });
-});
-
-describe("buildFormulaText", () => {
-  it("renders the weighted average formula from evaluated categories", () => {
-    expect(buildFormulaText(breakdownFixture())).toBe(
-      "(100×25 + 0×20 + 0×10 + 0×5) ÷ 60 = 42점"
-    );
   });
 });
 

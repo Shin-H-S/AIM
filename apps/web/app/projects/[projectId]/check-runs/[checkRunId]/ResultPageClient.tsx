@@ -35,7 +35,6 @@ import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/aut
 import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
 import {
   buildBreakdownSummary,
-  buildFormulaText,
   scoreCategoryLabel,
   scoreGateLabel,
   scoreReasonText
@@ -614,11 +613,6 @@ function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
           </li>
         ))}
       </ul>
-
-      <details className="mt-4 text-sm">
-        <summary className="cursor-pointer font-semibold text-slate-600">계산식 보기</summary>
-        <p className="mt-2 font-mono text-xs text-slate-500">{buildFormulaText(breakdown)}</p>
-      </details>
     </div>
   );
 }

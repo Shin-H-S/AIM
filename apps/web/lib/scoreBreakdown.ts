@@ -129,15 +129,3 @@ export function buildBreakdownSummary(breakdown: ScoreBreakdown): string {
 
   return sentences.join(" ");
 }
-
-export function buildFormulaText(breakdown: ScoreBreakdown): string {
-  const evaluated = evaluatedCategories(breakdown);
-  if (evaluated.length === 0) {
-    return `평가된 항목이 없어 종합 ${breakdown.overall.score}점으로 처리되었습니다.`;
-  }
-
-  const terms = evaluated
-    .map((category) => `${category.score}×${category.weight}`)
-    .join(" + ");
-  return `(${terms}) ÷ ${breakdown.overall.evaluated_weight} = ${breakdown.overall.score}점`;
-}

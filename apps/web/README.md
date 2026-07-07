@@ -42,7 +42,7 @@ Dashboard는 Project 생성 화면, Project 설정/domain verification 화면, C
 /projects/new
 ```
 
-페이지는 service URL, environment, description, scan interval, response time threshold, quality score threshold를 입력받습니다. URL은 클라이언트에서 기본 형식을 확인하고, API에서 SSRF-safe validation을 다시 수행합니다. 생성 성공 후 Project 설정 화면으로 이동합니다.
+페이지는 service URL, environment, description, scan interval, response time threshold, quality score threshold와 정기 스캔 활성화 여부를 입력받습니다. 정기 스캔은 기본 비활성이며, 체크하면 verified 프로젝트에 한해 scan interval 주기로 자동 CheckRun이 실행됩니다. URL은 클라이언트에서 기본 형식을 확인하고, API에서 SSRF-safe validation을 다시 수행합니다. 생성 성공 후 Project 설정 화면으로 이동합니다.
 
 ## Project 설정과 domain verification 페이지
 

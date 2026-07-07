@@ -75,6 +75,7 @@ Invoke-RestMethod http://localhost:8000/health/database
 - 설명
 - 환경: `development`, `staging`, `production`
 - 스캔 주기
+- 정기 스캔 사용 여부 (기본 비활성, verified 프로젝트만 정기 스캔 대상)
 - 응답 시간 임계값
 - 품질 점수 임계값
 - email alert 사용 여부

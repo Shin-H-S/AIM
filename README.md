@@ -42,6 +42,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 
 - CheckRun 생성, 조회, 취소 API
 - Redis/Celery 기반 비동기 scan queue
+- Celery Beat 기반 정기 CheckRun 스케줄링 (프로젝트별 opt-in, 기본 비활성, scan interval 주기, verified 프로젝트 대상)
 - HTTP availability scan
 - SSL certificate inspection
 - Lighthouse mobile scan
@@ -284,6 +285,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 - service URL, environment, description 입력
 - scan interval, response time threshold, quality score threshold 입력
+- 정기 스캔 활성화 체크박스 (기본은 수동 실행)
 - 클라이언트 기본 URL 형식 검증
 - 생성 성공 후 Project 설정 화면 이동
 

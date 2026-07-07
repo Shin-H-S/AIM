@@ -232,7 +232,7 @@ Initial alert triggers:
 * Response time above threshold
 * Recovery from an incident
 
-Start with email alerts. Slack can be added later.
+Deliver alerts through Slack and Discord incoming webhooks registered per project. Email alerts were removed from the plan; do not add SMTP-based delivery. See [docs/decisions/0001-webhook-alerts-over-email.md](docs/decisions/0001-webhook-alerts-over-email.md).
 
 ---
 
@@ -682,7 +682,7 @@ Because AIM is currently a one-person project, prioritize implementation in this
 2. Structured AI report input
 3. Structured AI report output
 4. Evidence display
-5. Email alerts
+5. Webhook alerts (Slack/Discord)
 6. Recovery detection
 
 Do not skip directly to advanced AI features before the deterministic scan and comparison pipeline works.

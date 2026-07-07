@@ -1533,7 +1533,7 @@ function LighthouseTopAuditList({
   return (
     <div className="mt-5 border-t border-slate-200 pt-4">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
-        개선 기회 Top {audits.length}
+        개선 Top {audits.length}
       </p>
       <ol className="mt-3 grid gap-2">
         {audits.map((audit, index) => {

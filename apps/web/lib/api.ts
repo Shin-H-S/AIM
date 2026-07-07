@@ -194,6 +194,43 @@ export type Artifact = {
   created_at: string;
 };
 
+export type ScoreBreakdownReason = {
+  code: string;
+  points?: number;
+  value?: number;
+  threshold?: number;
+  failed?: number;
+  with_failed_steps?: number;
+  clean?: number;
+  seo?: number | null;
+  best_practices?: number | null;
+};
+
+export type ScoreBreakdownCategory = {
+  key: string;
+  weight: number;
+  score: number | null;
+  reasons: ScoreBreakdownReason[];
+};
+
+export type ScoreBreakdownGate = {
+  code: string;
+  deployment_risk: string;
+  grade_cap: string;
+  detail: string | null;
+};
+
+export type ScoreBreakdown = {
+  version: number;
+  categories: ScoreBreakdownCategory[];
+  gate: ScoreBreakdownGate | null;
+  overall: {
+    score: number;
+    evaluated_weight: number;
+    grade_before_gate: string;
+  };
+};
+
 export type ScoreResult = {
   availability_score: number | null;
   functional_stability_score: number | null;
@@ -206,6 +243,7 @@ export type ScoreResult = {
   grade: "A" | "B" | "C" | "D" | "F";
   deployment_risk: "STABLE" | "WARNING" | "RISK";
   gate_reason: string | null;
+  score_breakdown: ScoreBreakdown | null;
   scoring_version: string;
   created_at: string;
   updated_at: string;

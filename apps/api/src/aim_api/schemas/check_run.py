@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -98,6 +99,7 @@ class ScoreResultRead(BaseModel):
     grade: str
     deployment_risk: str
     gate_reason: str | None
+    score_breakdown: dict[str, Any] | None = None
     scoring_version: str
     created_at: datetime
     updated_at: datetime

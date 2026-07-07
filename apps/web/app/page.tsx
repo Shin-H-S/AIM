@@ -53,16 +53,11 @@ export default function Home() {
               AI Manager
             </p>
             <h1 className="break-keep text-balance text-3xl font-bold tracking-tight text-cyan-600 sm:text-5xl">
-              <span className="text-4xl font-black tracking-tight text-slate-900 sm:text-6xl">
+              <span className="block text-5xl font-black tracking-tight text-slate-900 sm:text-7xl">
                 AIM<span className="text-cyan-600">.</span>
               </span>
-              이 검사하고, 진단하고, 처방합니다.
+              <span className="mt-4 block">검사하고, 진단하고, 처방합니다.</span>
             </h1>
-            <p className="mt-6 max-w-3xl break-keep text-lg leading-8 text-slate-600">
-              AIM은 배포 후 서비스가 실제로 안정적인지 검사하고, 문제의 원인과 개선
-              방법까지 알려줍니다. 로그인하면 프로젝트의 검사 상태와 AI 진단 결과를 바로
-              확인할 수 있습니다.
-            </p>
           </div>
 
           <form

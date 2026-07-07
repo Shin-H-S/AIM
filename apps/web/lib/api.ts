@@ -381,6 +381,12 @@ export type CheckRunScoreSummary = {
   overall_score: number;
   grade: string;
   deployment_risk: "STABLE" | "WARNING" | "RISK";
+  // 카테고리 점수는 확장된 API가 배포된 뒤부터 내려온다.
+  availability_score?: number | null;
+  functional_stability_score?: number | null;
+  web_performance_score?: number | null;
+  accessibility_score?: number | null;
+  seo_basic_quality_score?: number | null;
 };
 
 export type CheckRunSummary = {
@@ -397,6 +403,7 @@ export type CheckRunSummary = {
   updated_at: string;
   // API가 점수 요약을 아직 배포하지 않은 경우를 대비해 optional로 둔다.
   score?: CheckRunScoreSummary | null;
+  linked_scenario_runs?: ScenarioRun[];
 };
 
 export type StepResult = {

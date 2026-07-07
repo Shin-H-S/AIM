@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { InfoHint } from "./ui";
 
 export type ScoreBand = "good" | "mid" | "bad" | "none";
@@ -167,6 +170,49 @@ function trendX(index: number, count: number): number {
 function trendY(score: number): number {
   const clamped = Math.min(Math.max(score, 0), 100);
   return TREND_VIEW.top + ((100 - clamped) / 100) * (TREND_VIEW.bottom - TREND_VIEW.top);
+}
+
+export type ScoreTrendSeries = {
+  key: string;
+  label: string;
+  points: ScoreTrendPoint[];
+};
+
+// 시리즈(종합·카테고리) 중 하나를 골라 보는 추이 패널. 점이 2개 미만인 시리즈는 숨긴다.
+export function ScoreTrendPanel({ series }: { series: ScoreTrendSeries[] }) {
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const drawableSeries = series.filter((entry) => entry.points.length >= 2);
+
+  if (drawableSeries.length === 0) {
+    return null;
+  }
+
+  const activeSeries =
+    drawableSeries.find((entry) => entry.key === activeKey) ?? drawableSeries[0];
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {drawableSeries.map((entry) => (
+          <button
+            className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+              entry.key === activeSeries.key
+                ? "bg-cyan-600 text-white"
+                : "border border-slate-200 text-slate-600 hover:border-cyan-400 hover:text-cyan-700"
+            }`}
+            key={entry.key}
+            onClick={() => setActiveKey(entry.key)}
+            type="button"
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+      <div className="mt-4">
+        <ScoreTrendChart points={activeSeries.points} />
+      </div>
+    </div>
+  );
 }
 
 // 최근 검사들의 종합 점수 추이. points는 오래된 것부터 순서대로 넘긴다.

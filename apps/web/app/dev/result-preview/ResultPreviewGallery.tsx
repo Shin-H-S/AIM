@@ -16,7 +16,7 @@ import type {
   LighthouseTopAudit,
   ScoreResult
 } from "@/lib/api";
-import { MiniDonut, ScoreTrendChart, type ScoreTrendPoint } from "@/components/charts";
+import { MiniDonut, ScoreTrendPanel, type ScoreTrendSeries } from "@/components/charts";
 
 const DEMO_TIMESTAMP = "2026-07-07T10:00:00Z";
 
@@ -228,15 +228,55 @@ const aiReportDetailResult: AIReportDetailResult = {
   report: aiReportDetail
 };
 
-const trendPoints: ScoreTrendPoint[] = [
-  { label: "6/30 09:00", score: 46 },
-  { label: "7/1 09:00", score: 52 },
-  { label: "7/2 09:00", score: 61 },
-  { label: "7/3 09:00", score: 58 },
-  { label: "7/4 09:00", score: 72 },
-  { label: "7/5 09:00", score: 84 },
-  { label: "7/6 09:00", score: 91 },
-  { label: "7/7 09:00", score: 94 }
+const trendSeries: ScoreTrendSeries[] = [
+  {
+    key: "overall",
+    label: "종합",
+    points: [
+      { label: "6/30 09:00", score: 46 },
+      { label: "7/1 09:00", score: 52 },
+      { label: "7/2 09:00", score: 61 },
+      { label: "7/3 09:00", score: 58 },
+      { label: "7/4 09:00", score: 72 },
+      { label: "7/5 09:00", score: 84 },
+      { label: "7/6 09:00", score: 91 },
+      { label: "7/7 09:00", score: 94 }
+    ]
+  },
+  {
+    key: "availability",
+    label: "가용성",
+    points: [
+      { label: "6/30 09:00", score: 80 },
+      { label: "7/1 09:00", score: 100 },
+      { label: "7/2 09:00", score: 100 },
+      { label: "7/3 09:00", score: 90 },
+      { label: "7/4 09:00", score: 100 },
+      { label: "7/5 09:00", score: 100 },
+      { label: "7/6 09:00", score: 100 },
+      { label: "7/7 09:00", score: 100 }
+    ]
+  },
+  {
+    key: "web_performance",
+    label: "웹 성능",
+    points: [
+      { label: "6/30 09:00", score: 12 },
+      { label: "7/1 09:00", score: 25 },
+      { label: "7/2 09:00", score: 34 },
+      { label: "7/3 09:00", score: 30 },
+      { label: "7/4 09:00", score: 55 },
+      { label: "7/5 09:00", score: 68 },
+      { label: "7/6 09:00", score: 82 },
+      { label: "7/7 09:00", score: 88 }
+    ]
+  },
+  {
+    key: "functional_stability",
+    label: "기능 안정성",
+    // 점이 2개 미만인 시리즈는 토글에서 숨겨지는 동작 확인용.
+    points: [{ label: "7/7 09:00", score: 100 }]
+  }
 ];
 
 // 배포 전 UI 검수용 갤러리: 결과 페이지의 실제 컴포넌트를 예시 데이터로 렌더링한다.
@@ -266,10 +306,10 @@ export function ResultPreviewGallery() {
             점수 추이
           </p>
           <h2 className="mt-3 text-2xl font-bold text-slate-900">
-            최근 {trendPoints.length}회 종합 점수
+            최근 8회 검사 추이
           </h2>
           <div className="mt-5">
-            <ScoreTrendChart points={trendPoints} />
+            <ScoreTrendPanel series={trendSeries} />
           </div>
           <div className="mt-6 flex flex-wrap items-center gap-4 border-t border-slate-200 pt-5">
             <MiniDonut grade="A" risk="STABLE" score={94} />

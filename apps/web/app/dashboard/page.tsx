@@ -6,17 +6,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createCheckRun,
   fetchApiHealth,
-  fetchCheckRunDetail,
   fetchCheckRuns,
   fetchProjects,
-  type CheckRunDetailResult,
   type CheckRunListResult,
   type CheckRunStatus,
   type CheckRunSummary,
   type HealthCheckResult,
   type Project,
-  type ScenarioRun,
-  type ScoreResult
+  type ScenarioRun
 } from "@/lib/api";
 import { MiniDonut } from "@/components/charts";
 import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
@@ -46,9 +43,6 @@ type DashboardProject = {
   project: Project;
   latestCheckRun: CheckRunSummary | null;
   latestCheckRunState: CheckRunListResult["state"];
-  latestScoreResult: ScoreResult | null;
-  latestLinkedScenarioRuns: ScenarioRun[];
-  latestLinkedScenarioRunsState: CheckRunDetailResult["state"] | "not-requested";
 };
 
 type CheckRunStartState =
@@ -116,6 +110,7 @@ export default function DashboardPage() {
 
     const projects = await Promise.all(
       projectsResult.projects.map(async (project) => {
+        // 목록 응답에 점수 요약과 linked ScenarioRun이 포함되므로 상세 조회 없이 구성한다.
         const checkRunsResult = await fetchCheckRuns({
           projectId: project.id,
           accessToken,
@@ -124,36 +119,10 @@ export default function DashboardPage() {
         const latestCheckRun =
           checkRunsResult.state === "success" ? (checkRunsResult.checkRuns[0] ?? null) : null;
 
-        if (!latestCheckRun) {
-          return {
-            project,
-            latestCheckRun,
-            latestCheckRunState: checkRunsResult.state,
-            latestScoreResult: null,
-            latestLinkedScenarioRuns: [],
-            latestLinkedScenarioRunsState: "not-requested" as const
-          };
-        }
-
-        const checkRunDetailResult = await fetchCheckRunDetail({
-          projectId: project.id,
-          checkRunId: latestCheckRun.id,
-          accessToken
-        });
-
         return {
           project,
           latestCheckRun,
-          latestCheckRunState: checkRunsResult.state,
-          latestScoreResult:
-            checkRunDetailResult.state === "success"
-              ? checkRunDetailResult.checkRun.score_result
-              : null,
-          latestLinkedScenarioRuns:
-            checkRunDetailResult.state === "success"
-              ? checkRunDetailResult.checkRun.linked_scenario_runs
-              : [],
-          latestLinkedScenarioRunsState: checkRunDetailResult.state
+          latestCheckRunState: checkRunsResult.state
         };
       })
     );
@@ -195,7 +164,7 @@ export default function DashboardPage() {
     ).length;
     const failedCount = latestRuns.filter((checkRun) => checkRun.status === "FAILED").length;
     const linkedScenarioRuns = dashboard.projects.flatMap(
-      (project) => project.latestLinkedScenarioRuns
+      (project) => project.latestCheckRun?.linked_scenario_runs ?? []
     );
     const scenarioFailureCount = linkedScenarioRuns.filter(
       (scenarioRun) => scenarioRun.status === "FAILED"
@@ -465,9 +434,6 @@ function ProjectDashboardCard({
         <LatestCheckRunCard
           latestCheckRun={latestCheckRun}
           latestCheckRunState={latestCheckRunState}
-          latestLinkedScenarioRuns={dashboardProject.latestLinkedScenarioRuns}
-          latestLinkedScenarioRunsState={dashboardProject.latestLinkedScenarioRunsState}
-          latestScoreResult={dashboardProject.latestScoreResult}
           projectId={project.id}
         />
       </div>
@@ -511,16 +477,10 @@ function CheckRunStartNotice({
 function LatestCheckRunCard({
   latestCheckRun,
   latestCheckRunState,
-  latestLinkedScenarioRuns,
-  latestLinkedScenarioRunsState,
-  latestScoreResult,
   projectId
 }: {
   latestCheckRun: CheckRunSummary | null;
   latestCheckRunState: CheckRunListResult["state"];
-  latestLinkedScenarioRuns: ScenarioRun[];
-  latestLinkedScenarioRunsState: CheckRunDetailResult["state"] | "not-requested";
-  latestScoreResult: ScoreResult | null;
   projectId: string;
 }) {
   if (latestCheckRunState !== "success") {
@@ -558,11 +518,11 @@ function LatestCheckRunCard({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-4">
-          {latestScoreResult && (
+          {latestCheckRun.score && (
             <MiniDonut
-              grade={latestScoreResult.grade}
-              risk={latestScoreResult.deployment_risk}
-              score={latestScoreResult.overall_score}
+              grade={latestCheckRun.score.grade}
+              risk={latestCheckRun.score.deployment_risk}
+              score={latestCheckRun.score.overall_score}
             />
           )}
           <div>
@@ -574,9 +534,9 @@ function LatestCheckRunCard({
               <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
                 {latestCheckRun.trigger_source}
               </span>
-              {latestScoreResult && (
+              {latestCheckRun.score && (
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
-                  {latestScoreResult.overall_score}점
+                  {latestCheckRun.score.overall_score}점
                 </span>
               )}
             </div>
@@ -602,8 +562,7 @@ function LatestCheckRunCard({
 
       <LatestScenarioRunAccess
         projectId={projectId}
-        scenarioRuns={latestLinkedScenarioRuns}
-        state={latestLinkedScenarioRunsState}
+        scenarioRuns={latestCheckRun.linked_scenario_runs}
       />
     </div>
   );
@@ -611,27 +570,14 @@ function LatestCheckRunCard({
 
 function LatestScenarioRunAccess({
   projectId,
-  scenarioRuns,
-  state
+  scenarioRuns
 }: {
   projectId: string;
-  scenarioRuns: ScenarioRun[];
-  state: CheckRunDetailResult["state"] | "not-requested";
+  // 구버전 API 응답에는 필드가 없어 undefined일 수 있다.
+  scenarioRuns: ScenarioRun[] | undefined;
 }) {
-  if (state === "not-requested") {
+  if (scenarioRuns === undefined) {
     return null;
-  }
-
-  if (state !== "success") {
-    return (
-      <div className="mt-4">
-        <Notice
-          description="최신 CheckRun의 linked ScenarioRun 요약을 불러오지 못했습니다. CheckRun 결과 화면에서 다시 확인하세요."
-          title="ScenarioRun 요약 조회 실패"
-          tone="danger"
-        />
-      </div>
-    );
   }
 
   if (scenarioRuns.length === 0) {

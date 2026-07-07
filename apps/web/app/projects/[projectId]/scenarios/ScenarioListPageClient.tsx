@@ -56,7 +56,7 @@ const actionHelp: Record<TestStepAction, string> = {
   wait: "Timeout에 대기 시간을 ms 단위로 입력합니다.",
   assert_element_exists: "Target에 존재해야 하는 CSS selector를 입력합니다.",
   assert_text_exists: "Value에 화면에 보여야 하는 텍스트를 입력합니다.",
-  assert_url: "Value에 기대 URL 또는 URL 조각을 입력합니다.",
+  assert_url: "Value에 현재 URL에 포함되어야 하는 URL 또는 URL 조각을 입력합니다.",
   take_screenshot: "추가 입력 없이 현재 화면을 캡처합니다."
 };
 

@@ -194,9 +194,14 @@ def list_check_runs(
         limit=limit,
         offset=offset,
     )
+    check_run_ids = [check_run.id for check_run in check_runs]
     score_results = score_result_service.list_score_results_for_check_runs(
         session,
-        check_run_ids=[check_run.id for check_run in check_runs],
+        check_run_ids=check_run_ids,
+    )
+    scenario_runs_by_check_run = scenario_service.list_scenario_runs_for_check_runs(
+        session,
+        check_run_ids=check_run_ids,
     )
 
     items: list[CheckRunListItemRead] = []
@@ -205,6 +210,10 @@ def list_check_runs(
         score_result = score_results.get(check_run.id)
         if score_result is not None:
             item.score = CheckRunScoreSummaryRead.model_validate(score_result)
+        item.linked_scenario_runs = [
+            ScenarioRunRead.model_validate(scenario_run)
+            for scenario_run in scenario_runs_by_check_run.get(check_run.id, [])
+        ]
         items.append(item)
     return items
 

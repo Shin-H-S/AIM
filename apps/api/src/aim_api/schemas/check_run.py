@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from aim_api.models.check_run import CheckRunStatus
 from aim_api.schemas.scenario import ScenarioRunRead
@@ -179,10 +179,16 @@ class CheckRunScoreSummaryRead(BaseModel):
     overall_score: int
     grade: str
     deployment_risk: str
+    availability_score: int | None
+    functional_stability_score: int | None
+    web_performance_score: int | None
+    accessibility_score: int | None
+    seo_basic_quality_score: int | None
 
 
 class CheckRunListItemRead(CheckRunRead):
     score: CheckRunScoreSummaryRead | None = None
+    linked_scenario_runs: list[ScenarioRunRead] = Field(default_factory=list)
 
 
 class CheckRunDetailRead(CheckRunRead):

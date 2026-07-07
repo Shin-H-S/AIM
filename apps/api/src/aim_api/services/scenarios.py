@@ -225,6 +225,27 @@ def list_scenario_runs_for_check_run(
     return list(session.scalars(statement))
 
 
+def list_scenario_runs_for_check_runs(
+    session: Session,
+    *,
+    check_run_ids: list[UUID],
+) -> dict[UUID, list[ScenarioRun]]:
+    if not check_run_ids:
+        return {}
+
+    statement = (
+        select(ScenarioRun)
+        .where(ScenarioRun.check_run_id.in_(check_run_ids))
+        .order_by(ScenarioRun.created_at.asc(), ScenarioRun.id.asc())
+    )
+    runs_by_check_run: dict[UUID, list[ScenarioRun]] = {}
+    for scenario_run in session.scalars(statement):
+        if scenario_run.check_run_id is None:
+            continue
+        runs_by_check_run.setdefault(scenario_run.check_run_id, []).append(scenario_run)
+    return runs_by_check_run
+
+
 def list_scenario_runs(
     session: Session,
     *,

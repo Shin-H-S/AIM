@@ -356,6 +356,7 @@ def test_list_check_runs(client: TestClient) -> None:
     headers = authenticated_headers(client)
     project = create_verified_project(client, headers)
     first_run = create_check_run(client, project["id"], headers)
+    scenario = create_scenario(client, project_id=project["id"], headers=headers)
     second_run = create_check_run(client, project["id"], headers)
     record_score_result_for_check_run(first_run["id"])
 
@@ -369,7 +370,17 @@ def test_list_check_runs(client: TestClient) -> None:
         "overall_score": 94,
         "grade": "A",
         "deployment_risk": "STABLE",
+        "availability_score": 100,
+        "functional_stability_score": None,
+        "web_performance_score": 90,
+        "accessibility_score": 95,
+        "seo_basic_quality_score": 90,
     }
+    assert body[1]["linked_scenario_runs"] == []
+    linked_scenario_runs = body[0]["linked_scenario_runs"]
+    assert len(linked_scenario_runs) == 1
+    assert linked_scenario_runs[0]["scenario_id"] == scenario["id"]
+    assert linked_scenario_runs[0]["check_run_id"] == second_run["id"]
 
 
 def test_get_check_run(client: TestClient) -> None:

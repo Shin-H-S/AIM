@@ -174,6 +174,19 @@ def test_execute_supported_steps(monkeypatch: pytest.MonkeyPatch) -> None:
     assert page.screenshots == 1
 
 
+def test_assert_url_matches_url_fragment() -> None:
+    page = FakePage()
+    page.url = "https://example.com/login?utm_source=mail"
+
+    playwright_runner.execute_step(page, make_step(order=1, action="assert_url", value="/login"))
+
+    with pytest.raises(RuntimeError, match="did not contain"):
+        playwright_runner.execute_step(
+            page,
+            make_step(order=2, action="assert_url", value="https://example.com/home"),
+        )
+
+
 def test_critical_failure_skips_remaining_steps() -> None:
     page = FakePage()
     steps = [

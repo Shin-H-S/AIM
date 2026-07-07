@@ -239,8 +239,9 @@ def execute_step(page: PageProtocol, step: TestStep) -> None:
         case "assert_url":
             if step.value is None:
                 raise RuntimeError("assert_url step requires value.")
-            if page.url != step.value:
-                raise RuntimeError("Current URL did not match the expected URL.")
+            # 쿼리 파라미터나 trailing slash 차이로 깨지지 않도록 부분 일치로 검사한다.
+            if step.value not in page.url:
+                raise RuntimeError("Current URL did not contain the expected URL fragment.")
         case "take_screenshot":
             page.screenshot(full_page=True)
         case _:

@@ -12,7 +12,7 @@
 ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?logo=playwright&logoColor=white)
 ![Claude](https://img.shields.io/badge/Claude_API-D97757?logo=anthropic&logoColor=white)
 
-<!-- 데모: http://<VM_IP> (도메인 연결 후 URL 교체 예정) -->
+**🔗 라이브 데모**: [qaaimsync.com](https://qaaimsync.com)
 
 ## 개발 목적
 

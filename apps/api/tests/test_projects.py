@@ -102,7 +102,7 @@ def test_create_project(client: TestClient) -> None:
     assert body["scan_interval_minutes"] == 60
     assert body["response_time_threshold_ms"] == 2_000
     assert body["quality_score_threshold"] == 80
-    assert body["alert_email_enabled"] is True
+    assert body["alert_email_enabled"] is False
     assert body["alert_recipient_email"] is None
     assert body["is_verified"] is False
     assert body["created_at"]
@@ -150,7 +150,7 @@ def test_update_project(client: TestClient) -> None:
             "description": None,
             "environment": "staging",
             "quality_score_threshold": 90,
-            "alert_email_enabled": False,
+            "alert_email_enabled": True,
             "alert_recipient_email": " Alerts@Example.COM ",
         },
         headers=headers,
@@ -163,7 +163,7 @@ def test_update_project(client: TestClient) -> None:
     assert body["description"] is None
     assert body["environment"] == "staging"
     assert body["quality_score_threshold"] == 90
-    assert body["alert_email_enabled"] is False
+    assert body["alert_email_enabled"] is True
     assert body["alert_recipient_email"] == "alerts@example.com"
 
 

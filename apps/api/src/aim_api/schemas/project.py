@@ -29,7 +29,7 @@ class ProjectBase(BaseModel):
     scheduled_scans_enabled: bool = False
     response_time_threshold_ms: int = Field(default=2_000, ge=1, le=600_000)
     quality_score_threshold: int = Field(default=80, ge=0, le=100)
-    alert_email_enabled: bool = True
+    alert_email_enabled: bool = False
     alert_recipient_email: EmailStr | None = None
 
     @field_validator("name")

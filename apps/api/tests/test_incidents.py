@@ -52,6 +52,7 @@ def create_project(session: Session) -> tuple[User, Project]:
         environment="production",
         response_time_threshold_ms=1_000,
         quality_score_threshold=80,
+        alert_email_enabled=True,
     )
     session.add(project)
     session.commit()

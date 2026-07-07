@@ -15,8 +15,10 @@ import {
   type CheckRunSummary,
   type HealthCheckResult,
   type Project,
-  type ScenarioRun
+  type ScenarioRun,
+  type ScoreResult
 } from "@/lib/api";
+import { MiniDonut } from "@/components/charts";
 import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
 import { formatDateTime, formatNullableDateTime } from "@/lib/format";
 import {
@@ -44,6 +46,7 @@ type DashboardProject = {
   project: Project;
   latestCheckRun: CheckRunSummary | null;
   latestCheckRunState: CheckRunListResult["state"];
+  latestScoreResult: ScoreResult | null;
   latestLinkedScenarioRuns: ScenarioRun[];
   latestLinkedScenarioRunsState: CheckRunDetailResult["state"] | "not-requested";
 };
@@ -126,6 +129,7 @@ export default function DashboardPage() {
             project,
             latestCheckRun,
             latestCheckRunState: checkRunsResult.state,
+            latestScoreResult: null,
             latestLinkedScenarioRuns: [],
             latestLinkedScenarioRunsState: "not-requested" as const
           };
@@ -141,6 +145,10 @@ export default function DashboardPage() {
           project,
           latestCheckRun,
           latestCheckRunState: checkRunsResult.state,
+          latestScoreResult:
+            checkRunDetailResult.state === "success"
+              ? checkRunDetailResult.checkRun.score_result
+              : null,
           latestLinkedScenarioRuns:
             checkRunDetailResult.state === "success"
               ? checkRunDetailResult.checkRun.linked_scenario_runs
@@ -459,6 +467,7 @@ function ProjectDashboardCard({
           latestCheckRunState={latestCheckRunState}
           latestLinkedScenarioRuns={dashboardProject.latestLinkedScenarioRuns}
           latestLinkedScenarioRunsState={dashboardProject.latestLinkedScenarioRunsState}
+          latestScoreResult={dashboardProject.latestScoreResult}
           projectId={project.id}
         />
       </div>
@@ -504,12 +513,14 @@ function LatestCheckRunCard({
   latestCheckRunState,
   latestLinkedScenarioRuns,
   latestLinkedScenarioRunsState,
+  latestScoreResult,
   projectId
 }: {
   latestCheckRun: CheckRunSummary | null;
   latestCheckRunState: CheckRunListResult["state"];
   latestLinkedScenarioRuns: ScenarioRun[];
   latestLinkedScenarioRunsState: CheckRunDetailResult["state"] | "not-requested";
+  latestScoreResult: ScoreResult | null;
   projectId: string;
 }) {
   if (latestCheckRunState !== "success") {
@@ -546,15 +557,29 @@ function LatestCheckRunCard({
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-            Latest CheckRun
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <CheckRunStatusBadge status={latestCheckRun.status} />
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
-              {latestCheckRun.trigger_source}
-            </span>
+        <div className="flex items-start gap-4">
+          {latestScoreResult && (
+            <MiniDonut
+              grade={latestScoreResult.grade}
+              risk={latestScoreResult.deployment_risk}
+              score={latestScoreResult.overall_score}
+            />
+          )}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+              Latest CheckRun
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <CheckRunStatusBadge status={latestCheckRun.status} />
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
+                {latestCheckRun.trigger_source}
+              </span>
+              {latestScoreResult && (
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
+                  {latestScoreResult.overall_score}점
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <LinkButton

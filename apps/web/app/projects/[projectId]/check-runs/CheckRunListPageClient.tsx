@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import { formatDateTime, formatNullableDateTime } from "@/lib/format";
+import { ScoreTrendChart, type ScoreTrendPoint } from "@/components/charts";
 import {
   Badge,
   CheckRunStatusBadge,
@@ -180,6 +181,7 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
         {result.state === "success" && (
           <>
             <SummaryCard lastUpdatedAt={lastUpdatedAt} summary={summary} />
+            <ScoreTrendCard checkRuns={checkRuns} />
             <CheckRunList
               checkRuns={checkRuns}
               hasMoreCheckRuns={hasMoreCheckRuns}
@@ -228,6 +230,40 @@ function SummaryCard({
         <Metric label="Failed" value={`${summary.failed}개`} />
         <Metric label="Cancelled" value={`${summary.cancelled}개`} />
       </dl>
+    </section>
+  );
+}
+
+function formatTrendLabel(value: string): string {
+  const date = new Date(value);
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${date.getMonth() + 1}/${date.getDate()} ${hours}:${minutes}`;
+}
+
+function ScoreTrendCard({ checkRuns }: { checkRuns: CheckRunSummary[] }) {
+  const points: ScoreTrendPoint[] = checkRuns
+    .flatMap((checkRun) =>
+      checkRun.score
+        ? [{ label: formatTrendLabel(checkRun.queued_at), score: checkRun.score.overall_score }]
+        : []
+    )
+    .reverse();
+
+  if (points.length < 2) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white p-6">
+      <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">점수 추이</p>
+      <h2 className="mt-3 text-2xl font-bold text-slate-900">최근 {points.length}회 종합 점수</h2>
+      <p className="mt-2 break-keep text-sm text-slate-500">
+        점 색상은 점수 구간을 나타냅니다 — 90+ 좋음 · 50–89 보통 · 0–49 개선 필요.
+      </p>
+      <div className="mt-5">
+        <ScoreTrendChart points={points} />
+      </div>
     </section>
   );
 }

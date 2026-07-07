@@ -377,6 +377,12 @@ export type CheckRunDetail = {
   linked_scenario_runs: ScenarioRun[];
 };
 
+export type CheckRunScoreSummary = {
+  overall_score: number;
+  grade: string;
+  deployment_risk: "STABLE" | "WARNING" | "RISK";
+};
+
 export type CheckRunSummary = {
   id: string;
   project_id: string;
@@ -389,6 +395,8 @@ export type CheckRunSummary = {
   finished_at: string | null;
   created_at: string;
   updated_at: string;
+  // API가 점수 요약을 아직 배포하지 않은 경우를 대비해 optional로 둔다.
+  score?: CheckRunScoreSummary | null;
 };
 
 export type StepResult = {

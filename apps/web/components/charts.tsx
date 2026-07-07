@@ -96,6 +96,160 @@ export function ScoreDonut({
   );
 }
 
+export function MiniDonut({
+  grade,
+  risk,
+  score
+}: {
+  grade: string;
+  risk: "STABLE" | "WARNING" | "RISK";
+  score: number;
+}) {
+  const radius = 19;
+  const circumference = 2 * Math.PI * radius;
+  const filled = (Math.min(Math.max(score, 0), 100) / 100) * circumference;
+
+  return (
+    <div className="relative h-12 w-12" title={`종합 ${score}/100`}>
+      <svg className="h-full w-full -rotate-90" viewBox="0 0 48 48">
+        <circle
+          className="text-slate-200"
+          cx="24"
+          cy="24"
+          fill="none"
+          r={radius}
+          stroke="currentColor"
+          strokeWidth="5"
+        />
+        {score > 0 && (
+          <circle
+            className={riskDonutClassName[risk]}
+            cx="24"
+            cy="24"
+            fill="none"
+            r={radius}
+            stroke="currentColor"
+            strokeDasharray={`${filled} ${circumference}`}
+            strokeLinecap="round"
+            strokeWidth="5"
+          />
+        )}
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-900">
+        {grade}
+      </span>
+    </div>
+  );
+}
+
+export type ScoreTrendPoint = {
+  label: string;
+  score: number;
+};
+
+const TREND_VIEW = {
+  width: 600,
+  height: 190,
+  left: 34,
+  right: 588,
+  top: 14,
+  bottom: 156
+} as const;
+
+function trendX(index: number, count: number): number {
+  if (count <= 1) {
+    return (TREND_VIEW.left + TREND_VIEW.right) / 2;
+  }
+
+  return TREND_VIEW.left + (index / (count - 1)) * (TREND_VIEW.right - TREND_VIEW.left);
+}
+
+function trendY(score: number): number {
+  const clamped = Math.min(Math.max(score, 0), 100);
+  return TREND_VIEW.top + ((100 - clamped) / 100) * (TREND_VIEW.bottom - TREND_VIEW.top);
+}
+
+// 최근 검사들의 종합 점수 추이. points는 오래된 것부터 순서대로 넘긴다.
+export function ScoreTrendChart({ points }: { points: ScoreTrendPoint[] }) {
+  const gridScores = [100, 90, 50, 0];
+  const linePoints = points
+    .map((point, index) => `${trendX(index, points.length)},${trendY(point.score)}`)
+    .join(" ");
+
+  return (
+    <svg className="h-auto w-full" role="img" viewBox={`0 0 ${TREND_VIEW.width} ${TREND_VIEW.height}`}>
+      {gridScores.map((score) => (
+        <g key={score}>
+          <line
+            className="text-slate-200"
+            stroke="currentColor"
+            strokeDasharray={score === 0 || score === 100 ? undefined : "4 4"}
+            x1={TREND_VIEW.left}
+            x2={TREND_VIEW.right}
+            y1={trendY(score)}
+            y2={trendY(score)}
+          />
+          <text
+            className="fill-slate-400 text-[10px] font-semibold"
+            textAnchor="end"
+            x={TREND_VIEW.left - 6}
+            y={trendY(score) + 3}
+          >
+            {score}
+          </text>
+        </g>
+      ))}
+      {points.length > 1 && (
+        <polyline
+          className="text-cyan-600"
+          fill="none"
+          points={linePoints}
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2.5"
+        />
+      )}
+      {points.map((point, index) => (
+        <circle
+          className={bandTextClassName[scoreBand(point.score)]}
+          cx={trendX(index, points.length)}
+          cy={trendY(point.score)}
+          fill="currentColor"
+          key={`${point.label}-${index}`}
+          r="4.5"
+          stroke="white"
+          strokeWidth="1.5"
+        >
+          <title>{`${point.label} · ${point.score}점`}</title>
+        </circle>
+      ))}
+      {points.length > 0 && (
+        <>
+          <text
+            className="fill-slate-400 text-[10px] font-semibold"
+            textAnchor="start"
+            x={TREND_VIEW.left}
+            y={TREND_VIEW.height - 8}
+          >
+            {points[0].label}
+          </text>
+          {points.length > 1 && (
+            <text
+              className="fill-slate-400 text-[10px] font-semibold"
+              textAnchor="end"
+              x={TREND_VIEW.right}
+              y={TREND_VIEW.height - 8}
+            >
+              {points[points.length - 1].label}
+            </text>
+          )}
+        </>
+      )}
+    </svg>
+  );
+}
+
 export function RingGauge({
   hint,
   label,

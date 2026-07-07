@@ -544,12 +544,8 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
       hint: "Lighthouse SEO 점수와 웹 권장사항 점수의 평균입니다.",
       key: "seo_basic_quality",
       score: result.seo_basic_quality_score
-    },
-    {
-      hint: "이전 결과 대비 나빠지지 않았는지 보는 항목입니다. (준비 중)",
-      key: "regression_stability",
-      score: result.regression_stability_score
     }
+    // 회귀 안정성은 아직 준비 중인 항목이라 게이지에서 숨긴다(산출 근거에는 표시됨).
   ];
 
   return (

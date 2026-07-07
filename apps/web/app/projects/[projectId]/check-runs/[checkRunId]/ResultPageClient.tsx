@@ -31,6 +31,13 @@ import {
   type SslResult
 } from "@/lib/api";
 import { buildAvailabilityAdvice, buildSslAdvice } from "@/lib/advice";
+import {
+  RingGauge,
+  ScoreBandLegend,
+  ScoreDonut,
+  scoreBarClassName,
+  ThresholdBar
+} from "@/components/charts";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
 import {
@@ -511,6 +518,38 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
   }
 
   const riskClassName = getRiskBadgeClassName(result.deployment_risk);
+  const categoryGauges = [
+    {
+      hint: "HTTP 응답 성공 여부와 응답 속도로 계산한 접속 안정성 점수입니다.",
+      key: "availability",
+      score: result.availability_score
+    },
+    {
+      hint: "핵심 사용자 흐름(시나리오) 실행이 성공했는지에 대한 점수입니다.",
+      key: "functional_stability",
+      score: result.functional_stability_score
+    },
+    {
+      hint: "Lighthouse 성능 점수 — 페이지 로딩 속도 지표를 기반으로 합니다.",
+      key: "web_performance",
+      score: result.web_performance_score
+    },
+    {
+      hint: "Lighthouse 접근성 점수 — 색 대비, 스크린 리더 지원 같은 접근성 기준입니다.",
+      key: "accessibility",
+      score: result.accessibility_score
+    },
+    {
+      hint: "Lighthouse SEO 점수와 웹 권장사항 점수의 평균입니다.",
+      key: "seo_basic_quality",
+      score: result.seo_basic_quality_score
+    },
+    {
+      hint: "이전 결과 대비 나빠지지 않았는지 보는 항목입니다. (준비 중)",
+      key: "regression_stability",
+      score: result.regression_stability_score
+    }
+  ];
 
   return (
     <article
@@ -518,24 +557,37 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
       id="score-card"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-            Deterministic score
-            <InfoHint text="수집된 검사 데이터에 고정된 규칙을 적용해 자동 계산한 점수입니다." />
-          </p>
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-            <p className="text-5xl font-black tracking-tight">{result.grade}</p>
-            <p className="pb-1 text-xl font-semibold text-slate-700">
-              {result.overall_score}/100
-            </p>
-          </div>
-          <p className="mt-3 text-sm text-slate-500">
-            전체 평가 항목 중 {result.evaluated_weight}%가 이번 점수에 반영되었습니다.
-          </p>
-        </div>
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
+          Deterministic score
+          <InfoHint text="수집된 검사 데이터에 고정된 규칙을 적용해 자동 계산한 점수입니다." />
+        </p>
         <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${riskClassName}`}>
           {riskLabels[result.deployment_risk]}
         </span>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center gap-x-8 gap-y-5">
+        <ScoreDonut
+          grade={result.grade}
+          risk={result.deployment_risk}
+          score={result.overall_score}
+        />
+        <div className="min-w-56 max-w-md flex-1">
+          <p className="break-keep text-sm leading-6 text-slate-600">
+            전체 평가 항목 중{" "}
+            <span className="font-bold text-slate-900">{result.evaluated_weight}%</span>가 이번
+            점수에 반영되었습니다.
+          </p>
+          <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-slate-200">
+            <div
+              className="h-full rounded-full bg-cyan-500"
+              style={{ width: `${result.evaluated_weight}%` }}
+            />
+          </div>
+          <p className="mt-1.5 text-[11px] font-semibold text-slate-400">
+            반영 {result.evaluated_weight}% · 제외 {100 - result.evaluated_weight}%
+          </p>
+        </div>
       </div>
 
       {result.gate_reason && (
@@ -548,41 +600,23 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
         </div>
       )}
 
-      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-        <Metric
-          hint="HTTP 응답 성공 여부와 응답 속도로 계산한 접속 안정성 점수입니다."
-          label="Availability"
-          value={formatScore(result.availability_score)}
-        />
-        <Metric
-          hint="핵심 사용자 흐름(시나리오) 실행이 성공했는지에 대한 점수입니다."
-          label="Functional stability"
-          value={formatScore(result.functional_stability_score)}
-        />
-        <Metric
-          hint="Lighthouse 성능 점수 — 페이지 로딩 속도 지표를 기반으로 합니다."
-          label="Web performance"
-          value={formatScore(result.web_performance_score)}
-        />
-        <Metric
-          hint="Lighthouse 접근성 점수 — 색 대비, 스크린 리더 지원 같은 접근성 기준입니다."
-          label="Accessibility"
-          value={formatScore(result.accessibility_score)}
-        />
-        <Metric
-          hint="Lighthouse SEO 점수와 웹 권장사항 점수의 평균입니다."
-          label="SEO/basic quality"
-          value={formatScore(result.seo_basic_quality_score)}
-        />
-        <Metric
-          hint="이전 결과 대비 나빠지지 않았는지 보는 항목입니다. (준비 중)"
-          label="Regression stability"
-          value={formatScore(result.regression_stability_score)}
-        />
-        <Metric label="Updated" value={formatDetailDateTime(result.updated_at)} />
-      </dl>
+      <div className="mt-6 flex flex-wrap gap-x-5 gap-y-5">
+        {categoryGauges.map((category) => (
+          <RingGauge
+            hint={category.hint}
+            key={category.key}
+            label={scoreCategoryLabel(category.key)}
+            score={category.score}
+          />
+        ))}
+      </div>
+      <ScoreBandLegend showExcluded />
 
       {result.score_breakdown && <ScoreBreakdownSection breakdown={result.score_breakdown} />}
+
+      <p className="mt-5 text-xs text-slate-500">
+        Updated: {formatDetailDateTime(result.updated_at)}
+      </p>
     </article>
   );
 }
@@ -626,7 +660,7 @@ function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-200">
               {category.score !== null && category.score > 0 && (
                 <div
-                  className="h-full rounded-full bg-cyan-500"
+                  className={`h-full rounded-full ${scoreBarClassName(category.score)}`}
                   style={{ width: `${category.score}%` }}
                 />
               )}
@@ -1234,7 +1268,7 @@ function getScenarioSummaryClassName(summary: ScenarioRunSummary) {
   return "border-emerald-200 bg-emerald-50 text-emerald-800";
 }
 
-function AvailabilityCard({
+export function AvailabilityCard({
   responseTimeThresholdMs,
   result
 }: {
@@ -1244,6 +1278,13 @@ function AvailabilityCard({
   if (!result) {
     return <EmptyResultCard title="Availability" description="아직 availability 결과가 없습니다." />;
   }
+
+  const responseTimeMs = result.response_time_ms;
+  const thresholdMs =
+    responseTimeThresholdMs !== null && responseTimeThresholdMs > 0
+      ? responseTimeThresholdMs
+      : null;
+  const showResponseTimeBar = responseTimeMs !== null && thresholdMs !== null;
 
   return (
     <article
@@ -1262,11 +1303,13 @@ function AvailabilityCard({
           label="Status code"
           value={formatNullable(result.status_code)}
         />
-        <Metric
-          hint="요청 후 첫 응답을 받기까지 걸린 시간입니다."
-          label="Response time"
-          value={formatMilliseconds(result.response_time_ms)}
-        />
+        {!showResponseTimeBar && (
+          <Metric
+            hint="요청 후 첫 응답을 받기까지 걸린 시간입니다."
+            label="Response time"
+            value={formatMilliseconds(result.response_time_ms)}
+          />
+        )}
         <Metric
           hint="최종 페이지에 도달할 때까지 거친 리다이렉트 횟수입니다."
           label="Redirects"
@@ -1284,6 +1327,23 @@ function AvailabilityCard({
         />
         <Metric label="Failure" value={result.failure_reason ?? "없음"} />
       </dl>
+      {showResponseTimeBar && (
+        <div className="mt-5 border-t border-slate-200 pt-4">
+          <ThresholdBar
+            goodLabel={`임계값 ${formatMilliseconds(thresholdMs)}`}
+            goodTo={thresholdMs}
+            hint={`요청 후 첫 응답을 받기까지 걸린 시간입니다. 프로젝트 임계값(${formatMilliseconds(
+              thresholdMs
+            )}) 이내가 목표입니다.`}
+            label="Response time"
+            max={Math.max(thresholdMs * 2.5, responseTimeMs * 1.15)}
+            midLabel={formatMilliseconds(thresholdMs * 2)}
+            midTo={thresholdMs * 2}
+            value={responseTimeMs}
+            valueLabel={formatMilliseconds(responseTimeMs)}
+          />
+        </div>
+      )}
       <AdviceList items={buildAvailabilityAdvice(result, responseTimeThresholdMs)} />
       <p className="mt-5 break-all text-xs text-slate-500">
         Final URL: {result.final_url ?? "없음"}
@@ -1373,44 +1433,73 @@ export function LighthouseCard({ result }: { result: LighthouseResult | null }) 
         healthyLabel="실행 성공"
         unhealthyLabel="실행 실패"
       />
-      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
-        <Metric
+      <div className="mt-5 flex flex-wrap gap-x-6 gap-y-5">
+        <RingGauge
           hint="로딩 속도 지표를 종합한 Lighthouse 성능 점수입니다. (100점 만점)"
           label="Performance"
-          value={formatScore(result.performance_score)}
+          score={result.performance_score}
         />
-        <Metric
+        <RingGauge
           hint="색 대비, 스크린 리더 지원 같은 접근성 기준 점수입니다. (100점 만점)"
           label="Accessibility"
-          value={formatScore(result.accessibility_score)}
+          score={result.accessibility_score}
         />
-        <Metric
+        <RingGauge
           hint="검색 엔진이 페이지를 잘 이해할 수 있는지에 대한 점수입니다. (100점 만점)"
           label="SEO"
-          value={formatScore(result.seo_score)}
+          score={result.seo_score}
         />
-        <Metric
+        <RingGauge
           hint="웹 개발 권장사항을 얼마나 지키는지에 대한 점수입니다. (100점 만점)"
           label="Best practices"
-          value={formatScore(result.best_practices_score)}
+          score={result.best_practices_score}
         />
-        <Metric
-          hint="Largest Contentful Paint — 주요 콘텐츠가 화면에 그려지기까지 걸린 시간입니다. (2.5초 이내 권장)"
-          label="LCP"
-          value={formatMilliseconds(result.largest_contentful_paint_ms)}
-        />
-        <Metric
-          hint="Cumulative Layout Shift — 로딩 중 화면 요소가 밀리는 정도입니다. (0.1 이하 권장)"
-          label="CLS"
-          value={formatDecimal(result.cumulative_layout_shift)}
-        />
-        <Metric
-          hint="Total Blocking Time — 로딩 중 입력 반응이 막혀 있던 시간입니다. (200ms 이하 권장)"
-          label="TBT"
-          value={formatMilliseconds(result.total_blocking_time_ms)}
-        />
-        <Metric label="Failure" value={result.failure_reason ?? "없음"} />
-      </dl>
+      </div>
+      <ScoreBandLegend />
+      {(result.largest_contentful_paint_ms !== null ||
+        result.cumulative_layout_shift !== null ||
+        result.total_blocking_time_ms !== null) && (
+        <div className="mt-6 grid gap-5 border-t border-slate-200 pt-5">
+          <ThresholdBar
+            goodLabel="2.5초"
+            goodTo={2500}
+            hint="Largest Contentful Paint — 주요 콘텐츠가 화면에 그려지기까지 걸린 시간입니다. (2.5초 이내 권장)"
+            label="LCP"
+            max={Math.max(5000, (result.largest_contentful_paint_ms ?? 0) * 1.15)}
+            midLabel="4초"
+            midTo={4000}
+            value={result.largest_contentful_paint_ms}
+            valueLabel={formatMilliseconds(result.largest_contentful_paint_ms)}
+          />
+          <ThresholdBar
+            goodLabel="0.1"
+            goodTo={0.1}
+            hint="Cumulative Layout Shift — 로딩 중 화면 요소가 밀리는 정도입니다. (0.1 이하 권장)"
+            label="CLS"
+            max={Math.max(0.4, (result.cumulative_layout_shift ?? 0) * 1.15)}
+            midLabel="0.25"
+            midTo={0.25}
+            value={result.cumulative_layout_shift}
+            valueLabel={formatDecimal(result.cumulative_layout_shift)}
+          />
+          <ThresholdBar
+            goodLabel="200ms"
+            goodTo={200}
+            hint="Total Blocking Time — 로딩 중 입력 반응이 막혀 있던 시간입니다. (200ms 이하 권장)"
+            label="TBT"
+            max={Math.max(1000, (result.total_blocking_time_ms ?? 0) * 1.15)}
+            midLabel="600ms"
+            midTo={600}
+            value={result.total_blocking_time_ms}
+            valueLabel={formatMilliseconds(result.total_blocking_time_ms)}
+          />
+        </div>
+      )}
+      {result.failure_reason && (
+        <p className="mt-5 break-keep rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm leading-6 text-rose-800">
+          실패 사유: {result.failure_reason}
+        </p>
+      )}
       <LighthouseTopAuditList audits={result.top_audits} isSuccessful={result.is_successful} />
       <p className="mt-5 break-all text-xs text-slate-500">Service URL: {result.service_url}</p>
     </article>
@@ -1583,10 +1672,6 @@ function formatAuditImpact(audit: LighthouseTopAudit) {
   }
 
   return savings.length > 0 ? savings.join(" · ") : null;
-}
-
-function formatScore(value: number | null) {
-  return value === null ? "알 수 없음" : `${value}/100`;
 }
 
 function formatDecimal(value: number | null) {

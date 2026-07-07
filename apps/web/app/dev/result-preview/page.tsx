@@ -2,6 +2,7 @@
 
 import {
   AIReportSummaryCard,
+  AvailabilityCard,
   LighthouseCard,
   ScoreCard
 } from "@/app/projects/[projectId]/check-runs/[checkRunId]/ResultPageClient";
@@ -9,6 +10,7 @@ import type {
   AIReportDetail,
   AIReportDetailResult,
   AIReportSummary,
+  AvailabilityResult,
   LighthouseResult,
   LighthouseTopAudit,
   ScoreResult
@@ -98,6 +100,20 @@ const scoreResult: ScoreResult = {
     overall: { score: 42, evaluated_weight: 60, grade_before_gate: "F" }
   },
   scoring_version: "2026-06-28.scenario-v1",
+  created_at: DEMO_TIMESTAMP,
+  updated_at: DEMO_TIMESTAMP
+};
+
+const availabilityResult: AvailabilityResult = {
+  service_url: "https://example.com/",
+  final_url: "https://example.com/",
+  is_available: true,
+  status_code: 200,
+  response_time_ms: 1365,
+  redirect_count: 1,
+  uses_https: true,
+  timed_out: false,
+  failure_reason: null,
   created_at: DEMO_TIMESTAMP,
   updated_at: DEMO_TIMESTAMP
 };
@@ -231,6 +247,8 @@ export default function ResultPreviewPage() {
         />
 
         <LighthouseCard result={lighthouseResult} />
+
+        <AvailabilityCard responseTimeThresholdMs={1000} result={availabilityResult} />
       </section>
     </main>
   );

@@ -173,6 +173,18 @@ class CheckRunRead(BaseModel):
     updated_at: datetime
 
 
+class CheckRunScoreSummaryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    overall_score: int
+    grade: str
+    deployment_risk: str
+
+
+class CheckRunListItemRead(CheckRunRead):
+    score: CheckRunScoreSummaryRead | None = None
+
+
 class CheckRunDetailRead(CheckRunRead):
     availability_result: AvailabilityResultRead | None
     ssl_result: SslResultRead | None

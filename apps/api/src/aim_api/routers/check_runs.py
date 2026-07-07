@@ -15,7 +15,9 @@ from aim_api.schemas.check_run import (
     BaselineComparisonRead,
     CheckRunCreate,
     CheckRunDetailRead,
+    CheckRunListItemRead,
     CheckRunRead,
+    CheckRunScoreSummaryRead,
     LighthouseResultRead,
     RunComparisonRead,
     ScoreResultRead,
@@ -169,14 +171,14 @@ def create_check_run(
     return CheckRunRead.model_validate(check_run)
 
 
-@router.get("", response_model=list[CheckRunRead])
+@router.get("", response_model=list[CheckRunListItemRead])
 def list_check_runs(
     project_id: UUID,
     session: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-) -> list[CheckRunRead]:
+) -> list[CheckRunListItemRead]:
     try:
         project = project_service.get_project(
             session,
@@ -192,7 +194,19 @@ def list_check_runs(
         limit=limit,
         offset=offset,
     )
-    return [CheckRunRead.model_validate(check_run) for check_run in check_runs]
+    score_results = score_result_service.list_score_results_for_check_runs(
+        session,
+        check_run_ids=[check_run.id for check_run in check_runs],
+    )
+
+    items: list[CheckRunListItemRead] = []
+    for check_run in check_runs:
+        item = CheckRunListItemRead.model_validate(check_run)
+        score_result = score_results.get(check_run.id)
+        if score_result is not None:
+            item.score = CheckRunScoreSummaryRead.model_validate(score_result)
+        items.append(item)
+    return items
 
 
 @router.get("/{check_run_id}", response_model=CheckRunDetailRead)

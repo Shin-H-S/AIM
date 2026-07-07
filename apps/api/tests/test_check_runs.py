@@ -10,6 +10,7 @@ from aim_api.main import app
 from aim_api.models.ai_report import AIReport
 from aim_api.models.check_run import CheckRun
 from aim_api.models.project import Project
+from aim_api.models.scanner_result import ScoreResult
 from aim_api.models.scenario import ScenarioRun
 from aim_api.services import artifacts, scan_queue, scanner_results, score_results
 from aim_api.services import projects as project_service
@@ -329,17 +330,46 @@ def test_create_check_run_marks_linked_scenario_runs_failed_when_queue_is_unavai
         assert scenario_run.finished_at is not None
 
 
+def record_score_result_for_check_run(check_run_id: str) -> None:
+    with get_testing_session() as session:
+        session.add(
+            ScoreResult(
+                check_run_id=UUID(check_run_id),
+                availability_score=100,
+                functional_stability_score=None,
+                web_performance_score=90,
+                accessibility_score=95,
+                seo_basic_quality_score=90,
+                regression_stability_score=None,
+                overall_score=94,
+                evaluated_weight=60,
+                grade="A",
+                deployment_risk="STABLE",
+                gate_reason=None,
+                scoring_version="2026-06-28.scenario-v1",
+            )
+        )
+        session.commit()
+
+
 def test_list_check_runs(client: TestClient) -> None:
     headers = authenticated_headers(client)
     project = create_verified_project(client, headers)
     first_run = create_check_run(client, project["id"], headers)
     second_run = create_check_run(client, project["id"], headers)
+    record_score_result_for_check_run(first_run["id"])
 
     response = client.get(f"/projects/{project['id']}/check-runs", headers=headers)
 
     assert response.status_code == 200
     body = response.json()
     assert [check_run["id"] for check_run in body] == [second_run["id"], first_run["id"]]
+    assert body[0]["score"] is None
+    assert body[1]["score"] == {
+        "overall_score": 94,
+        "grade": "A",
+        "deployment_risk": "STABLE",
+    }
 
 
 def test_get_check_run(client: TestClient) -> None:

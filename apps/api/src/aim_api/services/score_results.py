@@ -517,6 +517,20 @@ def get_score_result(
     return session.scalar(select(ScoreResult).where(ScoreResult.check_run_id == check_run_id))
 
 
+def list_score_results_for_check_runs(
+    session: Session,
+    *,
+    check_run_ids: list[UUID],
+) -> dict[UUID, ScoreResult]:
+    if not check_run_ids:
+        return {}
+
+    results = session.scalars(
+        select(ScoreResult).where(ScoreResult.check_run_id.in_(check_run_ids))
+    )
+    return {result.check_run_id: result for result in results}
+
+
 def list_latest_terminal_scenario_runs(
     session: Session,
     *,

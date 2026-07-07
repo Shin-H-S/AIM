@@ -243,11 +243,11 @@ chmod +x ~/AIM/scripts/backup-postgres.sh
 ~/AIM/scripts/backup-postgres.sh
 ```
 
-crontab에 등록합니다. VM 시계는 UTC이므로 `0 18 * * *`이 매일 03:00 KST입니다.
+crontab에 등록합니다. VM 시계는 UTC이므로 `0 18 * * *`이 매일 03:00 KST입니다. `crontab: command not found`가 나오면 이미지에 cron이 없는 것이므로 먼저 설치합니다(`sudo apt-get install -y cron && sudo systemctl enable --now cron`).
 
 ```bash
 mkdir -p ~/backups/aim
-( crontab -l 2>/dev/null; echo '0 18 * * * $HOME/AIM/scripts/backup-postgres.sh >> $HOME/backups/aim/backup.log 2>&1' ) | crontab -
+( crontab -l 2>/dev/null | grep -v backup-postgres.sh; echo '0 18 * * * $HOME/AIM/scripts/backup-postgres.sh >> $HOME/backups/aim/backup.log 2>&1' ) | crontab -
 ```
 
 ### VM 디스크 snapshot (매주)

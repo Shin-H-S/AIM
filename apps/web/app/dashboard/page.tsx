@@ -15,7 +15,8 @@ import {
   type Project,
   type ScenarioRun
 } from "@/lib/api";
-import { MiniDonut } from "@/components/charts";
+import { MiniDonut, ScoreTrendPanel } from "@/components/charts";
+import { buildScoreTrendSeries, scoredRunCount } from "@/lib/scoreTrend";
 import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
 import { formatDateTime, formatNullableDateTime } from "@/lib/format";
 import {
@@ -31,6 +32,8 @@ import {
 } from "@/components/ui";
 
 const PROJECT_DASHBOARD_LIMIT = 20;
+// 프로젝트 카드의 점수 추이에 쓸 최근 CheckRun 수.
+const PROJECT_TREND_RUN_LIMIT = 10;
 const ACTIVE_CHECK_RUN_STATUSES: CheckRunStatus[] = ["QUEUED", "RUNNING", "ANALYZING"];
 
 const healthStatusCopy: Record<HealthCheckResult["state"], string> = {
@@ -41,6 +44,7 @@ const healthStatusCopy: Record<HealthCheckResult["state"], string> = {
 
 type DashboardProject = {
   project: Project;
+  checkRuns: CheckRunSummary[];
   latestCheckRun: CheckRunSummary | null;
   latestCheckRunState: CheckRunListResult["state"];
 };
@@ -114,14 +118,14 @@ export default function DashboardPage() {
         const checkRunsResult = await fetchCheckRuns({
           projectId: project.id,
           accessToken,
-          limit: 1
+          limit: PROJECT_TREND_RUN_LIMIT
         });
-        const latestCheckRun =
-          checkRunsResult.state === "success" ? (checkRunsResult.checkRuns[0] ?? null) : null;
+        const checkRuns = checkRunsResult.state === "success" ? checkRunsResult.checkRuns : [];
 
         return {
           project,
-          latestCheckRun,
+          checkRuns,
+          latestCheckRun: checkRuns[0] ?? null,
           latestCheckRunState: checkRunsResult.state
         };
       })
@@ -437,7 +441,29 @@ function ProjectDashboardCard({
           projectId={project.id}
         />
       </div>
+
+      <ProjectTrendSection checkRuns={dashboardProject.checkRuns} />
     </article>
+  );
+}
+
+function ProjectTrendSection({ checkRuns }: { checkRuns: CheckRunSummary[] }) {
+  const series = buildScoreTrendSeries(checkRuns);
+  const runCount = scoredRunCount(series);
+
+  if (runCount < 2) {
+    return null;
+  }
+
+  return (
+    <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+        점수 추이 · 최근 {runCount}회
+      </p>
+      <div className="mt-3">
+        <ScoreTrendPanel series={series} />
+      </div>
+    </div>
   );
 }
 

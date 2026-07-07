@@ -8,7 +8,8 @@ import {
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import { formatDateTime, formatNullableDateTime } from "@/lib/format";
-import { ScoreTrendPanel, type ScoreTrendSeries } from "@/components/charts";
+import { ScoreTrendPanel } from "@/components/charts";
+import { buildScoreTrendSeries, scoredRunCount } from "@/lib/scoreTrend";
 import {
   Badge,
   CheckRunStatusBadge,
@@ -234,58 +235,18 @@ function SummaryCard({
   );
 }
 
-function formatTrendLabel(value: string): string {
-  const date = new Date(value);
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${date.getMonth() + 1}/${date.getDate()} ${hours}:${minutes}`;
-}
-
-const trendSeriesDefs: {
-  key: string;
-  label: string;
-  pick: (score: NonNullable<CheckRunSummary["score"]>) => number | null | undefined;
-}[] = [
-  { key: "overall", label: "종합", pick: (score) => score.overall_score },
-  { key: "availability", label: "가용성", pick: (score) => score.availability_score },
-  {
-    key: "functional_stability",
-    label: "기능 안정성",
-    pick: (score) => score.functional_stability_score
-  },
-  { key: "web_performance", label: "웹 성능", pick: (score) => score.web_performance_score },
-  { key: "accessibility", label: "접근성", pick: (score) => score.accessibility_score },
-  {
-    key: "seo_basic_quality",
-    label: "SEO/기본 품질",
-    pick: (score) => score.seo_basic_quality_score
-  }
-];
-
 function ScoreTrendCard({ checkRuns }: { checkRuns: CheckRunSummary[] }) {
-  const oldestFirst = [...checkRuns].reverse();
-  const series: ScoreTrendSeries[] = trendSeriesDefs.map((def) => ({
-    key: def.key,
-    label: def.label,
-    points: oldestFirst.flatMap((checkRun) => {
-      const value = checkRun.score ? def.pick(checkRun.score) : null;
-      return value === null || value === undefined
-        ? []
-        : [{ label: formatTrendLabel(checkRun.queued_at), score: value }];
-    })
-  }));
-  const scoredRunCount = series[0].points.length;
+  const series = buildScoreTrendSeries(checkRuns);
+  const runCount = scoredRunCount(series);
 
-  if (scoredRunCount < 2) {
+  if (runCount < 2) {
     return null;
   }
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6">
       <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">점수 추이</p>
-      <h2 className="mt-3 text-2xl font-bold text-slate-900">
-        최근 {scoredRunCount}회 검사 추이
-      </h2>
+      <h2 className="mt-3 text-2xl font-bold text-slate-900">최근 {runCount}회 검사 추이</h2>
       <p className="mt-2 break-keep text-sm text-slate-500">
         항목을 선택해 종합·카테고리별 추이를 볼 수 있습니다. 점 색상은 점수 구간을 나타냅니다 —
         90+ 좋음 · 50–89 보통 · 0–49 개선 필요.

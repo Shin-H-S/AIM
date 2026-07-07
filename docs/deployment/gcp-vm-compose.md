@@ -230,15 +230,47 @@ docker compose --env-file .env.production -f infra/compose.yaml down -v
 
 ## 11. 백업
 
-PostgreSQL 백업:
+하루 1회 DB 백업과 주 1회 VM 디스크 snapshot을 사용합니다.
+
+### PostgreSQL 자동 백업 (매일)
+
+`scripts/backup-postgres.sh`가 pg_dump 결과를 gzip으로 `~/backups/aim/`에 저장하고, 14일이 지난 백업 파일을 정리합니다. 보존 기간은 `AIM_BACKUP_RETENTION_DAYS`로 조정할 수 있습니다.
+
+VM에서 먼저 한 번 실행해 동작을 확인합니다.
+
+```bash
+chmod +x ~/AIM/scripts/backup-postgres.sh
+~/AIM/scripts/backup-postgres.sh
+```
+
+crontab에 등록합니다. VM 시계는 UTC이므로 `0 18 * * *`이 매일 03:00 KST입니다.
+
+```bash
+mkdir -p ~/backups/aim
+( crontab -l 2>/dev/null; echo '0 18 * * * $HOME/AIM/scripts/backup-postgres.sh >> $HOME/backups/aim/backup.log 2>&1' ) | crontab -
+```
+
+### VM 디스크 snapshot (매주)
+
+GCP snapshot schedule을 만들어 부트 디스크에 연결합니다. 아래는 매주 일요일 18:00 UTC(월요일 03:00 KST) 실행, 28일 보존 예시입니다.
+
+```bash
+gcloud compute resource-policies create snapshot-schedule aim-weekly-snapshot \
+  --region=asia-northeast3 \
+  --weekly-schedule=sunday --start-time=18:00 \
+  --max-retention-days=28 --storage-location=asia-northeast3
+
+gcloud compute disks add-resource-policies aim \
+  --resource-policies=aim-weekly-snapshot --zone=asia-northeast3-a
+```
+
+### 수동 백업
 
 ```bash
 mkdir -p ~/backups/aim
 docker compose --env-file .env.production -f infra/compose.yaml exec -T postgres \
   pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > ~/backups/aim/aim-$(date +%Y%m%d-%H%M%S).sql
 ```
-
-초기에는 하루 1회 DB 백업과 주 1회 VM snapshot을 권장합니다.
 
 ## 12. 운영 주의사항
 

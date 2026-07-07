@@ -42,6 +42,7 @@ import {
 import {
   Badge,
   CheckRunStatusBadge,
+  InfoHint,
   LinkButton,
   LoginRequiredNotice,
   Metric,
@@ -455,7 +456,11 @@ function StatusSummary({
         <CheckRunStatusBadge status={checkRun.status} />
       </div>
       <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
-        <Metric label="Trigger" value={checkRun.trigger_source} />
+        <Metric
+          hint="검사를 시작한 방식입니다 — manual은 수동 실행, scheduled는 정기 스캔."
+          label="Trigger"
+          value={checkRun.trigger_source}
+        />
         <Metric label="Polling" value={shouldPoll ? "자동 새로고침 중" : "중지됨"} />
         <Metric label="Failure" value={checkRun.failure_reason ?? "없음"} />
         <Metric label="Last refresh" value={lastUpdatedAt ?? "아직 없음"} />
@@ -516,6 +521,7 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
             Deterministic score
+            <InfoHint text="수집된 검사 데이터에 고정된 규칙을 적용해 자동 계산한 점수입니다." />
           </p>
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <p className="text-5xl font-black tracking-tight">{result.grade}</p>
@@ -543,15 +549,33 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
       )}
 
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-        <Metric label="Availability" value={formatScore(result.availability_score)} />
         <Metric
+          hint="HTTP 응답 성공 여부와 응답 속도로 계산한 접속 안정성 점수입니다."
+          label="Availability"
+          value={formatScore(result.availability_score)}
+        />
+        <Metric
+          hint="핵심 사용자 흐름(시나리오) 실행이 성공했는지에 대한 점수입니다."
           label="Functional stability"
           value={formatScore(result.functional_stability_score)}
         />
-        <Metric label="Web performance" value={formatScore(result.web_performance_score)} />
-        <Metric label="Accessibility" value={formatScore(result.accessibility_score)} />
-        <Metric label="SEO/basic quality" value={formatScore(result.seo_basic_quality_score)} />
         <Metric
+          hint="Lighthouse 성능 점수 — 페이지 로딩 속도 지표를 기반으로 합니다."
+          label="Web performance"
+          value={formatScore(result.web_performance_score)}
+        />
+        <Metric
+          hint="Lighthouse 접근성 점수 — 색 대비, 스크린 리더 지원 같은 접근성 기준입니다."
+          label="Accessibility"
+          value={formatScore(result.accessibility_score)}
+        />
+        <Metric
+          hint="Lighthouse SEO 점수와 웹 권장사항 점수의 평균입니다."
+          label="SEO/basic quality"
+          value={formatScore(result.seo_basic_quality_score)}
+        />
+        <Metric
+          hint="이전 결과 대비 나빠지지 않았는지 보는 항목입니다. (준비 중)"
           label="Regression stability"
           value={formatScore(result.regression_stability_score)}
         />
@@ -647,6 +671,7 @@ export function AIReportSummaryCard({
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
             AI diagnosis
+            <InfoHint text="수집된 근거만을 바탕으로 AI가 작성한 진단 요약입니다." />
           </p>
           <h2 className="mt-3 text-2xl font-bold">근거 기반 진단 요약</h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{report.summary}</p>
@@ -667,8 +692,16 @@ export function AIReportSummaryCard({
       )}
 
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Grade" value={report.grade} />
-        <Metric label="Overall score" value={`${report.overall_score}/100`} />
+        <Metric
+          hint="종합 점수의 등급입니다 — 90점 이상 A, 80 이상 B, 70 이상 C, 50 이상 D, 그 미만 F."
+          label="Grade"
+          value={report.grade}
+        />
+        <Metric
+          hint="카테고리 점수를 가중치로 평균 낸 종합 점수입니다."
+          label="Overall score"
+          value={`${report.overall_score}/100`}
+        />
         <Metric label="Generated" value={formatDetailDateTime(report.generated_at)} />
         <Metric label="Updated" value={formatDetailDateTime(report.updated_at)} />
       </dl>
@@ -1224,11 +1257,31 @@ function AvailabilityCard({
         unhealthyLabel="사용 불가"
       />
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
-        <Metric label="Status code" value={formatNullable(result.status_code)} />
-        <Metric label="Response time" value={formatMilliseconds(result.response_time_ms)} />
-        <Metric label="Redirects" value={String(result.redirect_count)} />
-        <Metric label="HTTPS" value={result.uses_https ? "사용" : "미사용"} />
-        <Metric label="Timed out" value={result.timed_out ? "예" : "아니오"} />
+        <Metric
+          hint="서버가 반환한 HTTP 상태 코드입니다 — 200이면 정상 응답."
+          label="Status code"
+          value={formatNullable(result.status_code)}
+        />
+        <Metric
+          hint="요청 후 첫 응답을 받기까지 걸린 시간입니다."
+          label="Response time"
+          value={formatMilliseconds(result.response_time_ms)}
+        />
+        <Metric
+          hint="최종 페이지에 도달할 때까지 거친 리다이렉트 횟수입니다."
+          label="Redirects"
+          value={String(result.redirect_count)}
+        />
+        <Metric
+          hint="암호화된 HTTPS로 서비스되고 있는지 여부입니다."
+          label="HTTPS"
+          value={result.uses_https ? "사용" : "미사용"}
+        />
+        <Metric
+          hint="제한 시간 안에 응답하지 못했는지 여부입니다."
+          label="Timed out"
+          value={result.timed_out ? "예" : "아니오"}
+        />
         <Metric label="Failure" value={result.failure_reason ?? "없음"} />
       </dl>
       <AdviceList items={buildAvailabilityAdvice(result, responseTimeThresholdMs)} />
@@ -1258,8 +1311,16 @@ function SslCard({ result }: { result: SslResult | null }) {
         unhealthyLabel="문제 있음"
       />
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
-        <Metric label="Applicable" value={result.is_applicable ? "예" : "아니오"} />
-        <Metric label="Valid" value={formatBoolean(result.is_valid)} />
+        <Metric
+          hint="HTTPS를 사용하는 서비스만 인증서 검사 대상이 됩니다."
+          label="Applicable"
+          value={result.is_applicable ? "예" : "아니오"}
+        />
+        <Metric
+          hint="인증서가 신뢰할 수 있고 만료되지 않았는지 여부입니다."
+          label="Valid"
+          value={formatBoolean(result.is_valid)}
+        />
         <Metric label="Expires at" value={formatDetailDateTime(result.expires_at)} />
         <Metric
           label="Days left"
@@ -1313,13 +1374,41 @@ export function LighthouseCard({ result }: { result: LighthouseResult | null }) 
         unhealthyLabel="실행 실패"
       />
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
-        <Metric label="Performance" value={formatScore(result.performance_score)} />
-        <Metric label="Accessibility" value={formatScore(result.accessibility_score)} />
-        <Metric label="SEO" value={formatScore(result.seo_score)} />
-        <Metric label="Best practices" value={formatScore(result.best_practices_score)} />
-        <Metric label="LCP" value={formatMilliseconds(result.largest_contentful_paint_ms)} />
-        <Metric label="CLS" value={formatDecimal(result.cumulative_layout_shift)} />
-        <Metric label="TBT" value={formatMilliseconds(result.total_blocking_time_ms)} />
+        <Metric
+          hint="로딩 속도 지표를 종합한 Lighthouse 성능 점수입니다. (100점 만점)"
+          label="Performance"
+          value={formatScore(result.performance_score)}
+        />
+        <Metric
+          hint="색 대비, 스크린 리더 지원 같은 접근성 기준 점수입니다. (100점 만점)"
+          label="Accessibility"
+          value={formatScore(result.accessibility_score)}
+        />
+        <Metric
+          hint="검색 엔진이 페이지를 잘 이해할 수 있는지에 대한 점수입니다. (100점 만점)"
+          label="SEO"
+          value={formatScore(result.seo_score)}
+        />
+        <Metric
+          hint="웹 개발 권장사항을 얼마나 지키는지에 대한 점수입니다. (100점 만점)"
+          label="Best practices"
+          value={formatScore(result.best_practices_score)}
+        />
+        <Metric
+          hint="Largest Contentful Paint — 주요 콘텐츠가 화면에 그려지기까지 걸린 시간입니다. (2.5초 이내 권장)"
+          label="LCP"
+          value={formatMilliseconds(result.largest_contentful_paint_ms)}
+        />
+        <Metric
+          hint="Cumulative Layout Shift — 로딩 중 화면 요소가 밀리는 정도입니다. (0.1 이하 권장)"
+          label="CLS"
+          value={formatDecimal(result.cumulative_layout_shift)}
+        />
+        <Metric
+          hint="Total Blocking Time — 로딩 중 입력 반응이 막혀 있던 시간입니다. (200ms 이하 권장)"
+          label="TBT"
+          value={formatMilliseconds(result.total_blocking_time_ms)}
+        />
         <Metric label="Failure" value={result.failure_reason ?? "없음"} />
       </dl>
       <LighthouseTopAuditList audits={result.top_audits} isSuccessful={result.is_successful} />

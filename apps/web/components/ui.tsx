@@ -78,10 +78,31 @@ export function Badge({
   );
 }
 
-export function Metric({ label, value }: { label: string; value: string }) {
+export function InfoHint({ text }: { text: string }) {
+  return (
+    <span className="group relative ml-1.5 inline-flex align-middle">
+      <span
+        aria-label={text}
+        className="flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full border border-slate-300 text-[9px] font-bold leading-none text-slate-400 transition group-hover:border-cyan-400 group-hover:text-cyan-600"
+        role="img"
+        tabIndex={0}
+      >
+        !
+      </span>
+      <span className="pointer-events-none invisible absolute bottom-full left-0 z-20 mb-1.5 w-max max-w-60 break-keep rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium normal-case leading-5 tracking-normal text-white opacity-0 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+        {text}
+      </span>
+    </span>
+  );
+}
+
+export function Metric({ hint, label, value }: { hint?: string; label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</dt>
+      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+        {label}
+        {hint && <InfoHint text={hint} />}
+      </dt>
       <dd className="mt-1 break-words text-slate-700">{value}</dd>
     </div>
   );

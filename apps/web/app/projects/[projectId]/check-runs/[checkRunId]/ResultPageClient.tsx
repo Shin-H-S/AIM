@@ -501,7 +501,7 @@ function TimelineCard({ checkRun }: { checkRun: CheckRunDetail }) {
   );
 }
 
-function ScoreCard({ result }: { result: ScoreResult | null }) {
+export function ScoreCard({ result }: { result: ScoreResult | null }) {
   if (!result) {
     return <EmptyResultCard title="Score" description="아직 계산된 score result가 없습니다." />;
   }
@@ -623,7 +623,7 @@ function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
   );
 }
 
-function AIReportSummaryCard({
+export function AIReportSummaryCard({
   detailResult,
   isLoadingDetail,
   onLoadDetail,
@@ -1300,7 +1300,7 @@ function AdviceList({ items }: { items: string[] }) {
   );
 }
 
-function LighthouseCard({ result }: { result: LighthouseResult | null }) {
+export function LighthouseCard({ result }: { result: LighthouseResult | null }) {
   if (!result) {
     return (
       <EmptyResultCard title="Lighthouse" description="아직 Lighthouse 결과가 없습니다." />
@@ -1326,7 +1326,6 @@ function LighthouseCard({ result }: { result: LighthouseResult | null }) {
         <Metric label="LCP" value={formatMilliseconds(result.largest_contentful_paint_ms)} />
         <Metric label="CLS" value={formatDecimal(result.cumulative_layout_shift)} />
         <Metric label="TBT" value={formatMilliseconds(result.total_blocking_time_ms)} />
-        <Metric label="Raw JSON artifact" value={result.raw_json_artifact_id ?? "없음"} />
         <Metric label="Failure" value={result.failure_reason ?? "없음"} />
       </dl>
       <LighthouseTopAuditList audits={result.top_audits} isSuccessful={result.is_successful} />

@@ -400,13 +400,6 @@ export function ResultPageClient({
             </section>
 
             <ScoreCard result={checkRun.score_result} />
-            <AIReportSummaryCard
-              detailResult={visibleAIReportDetailResult}
-              isLoadingDetail={isAIReportDetailLoading}
-              onLoadDetail={loadAIReportDetail}
-              report={checkRun.ai_report}
-              topAudits={checkRun.lighthouse_result?.top_audits ?? null}
-            />
             <ComparisonCard result={checkRun.comparison_result} />
             <BaselineComparisonCard
               actionError={baselineActionError}
@@ -431,6 +424,14 @@ export function ResultPageClient({
               <LighthouseCard result={checkRun.lighthouse_result} />
               <ArtifactCard accessToken={sessionToken} artifacts={checkRun.artifacts} />
             </section>
+
+            <AIReportSummaryCard
+              detailResult={visibleAIReportDetailResult}
+              isLoadingDetail={isAIReportDetailLoading}
+              onLoadDetail={loadAIReportDetail}
+              report={checkRun.ai_report}
+              topAudits={checkRun.lighthouse_result?.top_audits ?? null}
+            />
           </>
         )}
       </section>

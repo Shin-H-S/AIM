@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   AIReportSummaryCard,
   AvailabilityCard,
@@ -227,7 +228,19 @@ const aiReportDetailResult: AIReportDetailResult = {
 };
 
 // 배포 전 UI 검수용 갤러리: 결과 페이지의 실제 컴포넌트를 예시 데이터로 렌더링한다.
+// 타임스탬프 포맷이 서버/브라우저 ICU 버전에 따라 달라 hydration mismatch가 나므로
+// 마운트 후에만 렌더링한다(클라이언트 전용 dev 페이지).
 export default function ResultPreviewPage() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => setIsMounted(true));
+  }, []);
+
+  if (!isMounted) {
+    return null;
+  }
+
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
@@ -238,6 +251,10 @@ export default function ResultPreviewPage() {
 
         <ScoreCard result={scoreResult} />
 
+        <LighthouseCard result={lighthouseResult} />
+
+        <AvailabilityCard responseTimeThresholdMs={1000} result={availabilityResult} />
+
         <AIReportSummaryCard
           detailResult={aiReportDetailResult}
           isLoadingDetail={false}
@@ -245,10 +262,6 @@ export default function ResultPreviewPage() {
           report={aiReportSummary}
           topAudits={topAudits}
         />
-
-        <LighthouseCard result={lighthouseResult} />
-
-        <AvailabilityCard responseTimeThresholdMs={1000} result={availabilityResult} />
       </section>
     </main>
   );

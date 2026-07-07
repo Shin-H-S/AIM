@@ -45,6 +45,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - HTTP availability scan
 - SSL certificate inspection
 - Lighthouse mobile scan
+- Lighthouse Top 개선 기회(top audits) 추출 및 저장
 - 정규화된 availability, SSL, Lighthouse result 저장
 - Lighthouse raw JSON local artifact 저장
 - Artifact metadata 저장 및 다운로드 API
@@ -60,7 +61,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
   - `wait`
   - `assert_element_exists`
   - `assert_text_exists`
-  - `assert_url`
+  - `assert_url` (현재 URL 부분 일치)
   - `take_screenshot`
 - ScenarioRun 생성 및 worker 실행
 - StepResult 저장
@@ -72,11 +73,15 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 ### Scoring, comparison, diagnosis
 
 - 결정론적 score/risk 계산
+- 점수 산출 근거(score breakdown)를 계산 시점에 저장하고 상세 응답으로 제공
+- CheckRun 목록 응답에 점수 요약(종합·카테고리)과 linked ScenarioRun 포함
 - Service unavailable, SSL failure, Lighthouse failure, critical scenario failure risk gate
 - 직전 terminal CheckRun 대비 comparison 저장
+- Project baseline 지정과 baseline 대비 비교 API
 - AI diagnosis input schema와 builder
 - AI diagnosis report output schema
 - deterministic AIReport generator
+- Anthropic 모델 기반 진단 서술(요약·이슈 영향/조치) 한국어 생성과 실패 시 deterministic fallback
 - AIReport DB 저장 모델과 migration
 - CheckRun별 AIReport 조회 API
 - CheckRun 상세 응답의 AIReport 요약 필드
@@ -98,18 +103,24 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 
 ### Web UI
 
+- 로그인 화면이 첫 페이지(`/`), 로그인 후 `/dashboard`로 이동하는 공통 헤더 라우팅
 - API health 상태 확인
 - Signup 화면과 첫 Project 생성 온보딩 연결
 - Login 화면과 access token 저장
 - Project dashboard에서 프로젝트별 최신 CheckRun 목록 표시
+- Project dashboard 프로젝트 카드의 최신 등급 미니 도넛과 점수 추이 패널
 - Project dashboard에서 최신 CheckRun의 linked ScenarioRun 요약과 바로가기 표시
 - Project 생성·수정 화면
 - HTML meta-tag 기반 domain verification 안내 및 확인 화면
 - Project dashboard에서 수동 CheckRun 시작
 - 결과·Scenario 페이지의 저장된 로그인 세션 자동 사용
+- CheckRun 이력 페이지의 점수 추이 라인 차트(종합·카테고리 토글)
 - CheckRun 결과 페이지
-- CheckRun score/risk 표시
-- AIReport 요약 및 상세 패널 표시
+- CheckRun score/risk 표시 — 등급 도넛, 카테고리 링 게이지, 점수 산출 근거(가중치·감점 사유·등급 제한)
+- Lighthouse 링 게이지, LCP/CLS/TBT 임계값 바, Top 개선 기회 목록
+- 응답 시간 임계값 바와 availability/SSL 권장 조치 안내
+- 기술 용어 옆 `!` 마커의 한국어 설명 툴팁
+- AIReport 요약 및 상세 패널 표시(이슈별 근거 링크로 페이지 내 해당 카드 이동)
 - 직전 run 대비 변화 표시
 - linked ScenarioRun 실패 요약과 상세 페이지 링크
 - Availability, SSL, Lighthouse 결과 표시
@@ -123,8 +134,7 @@ MVP에서 우선 완성하려는 흐름은 다음과 같습니다.
 - Alert overview에서 email alert 사용 여부와 수신자 email 저장
 - Alert overview에서 FAILED email Alert 발송 재시도
 - Alert overview에서 email Alert 상태 필터와 더 보기 pagination
-
-현재 Web에는 회원가입과 로그인 UI, Project dashboard와 결과·Scenario 페이지 세션 연결, Project 생성·수정 UI, domain verification 안내 화면, Scenario 생성 UI가 있습니다.
+- 개발 전용 컴포넌트 갤러리 `/dev/result-preview` (프로덕션 빌드에서는 404)
 
 ## 저장소 구조
 
@@ -204,7 +214,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ## 주요 화면
 
-### Project dashboard
+### 로그인 (첫 페이지)
 
 ```text
 /
@@ -212,30 +222,44 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 표시 항목:
 
+- 브랜드 히어로("AIM. 검사하고, 진단하고, 처방합니다.")와 이메일·비밀번호 로그인
+- JWT access token 저장
+- 저장된 세션이 있으면 자동으로 Project dashboard로 이동
+- 인증 실패와 API 연결 실패 안내
+- `/login` 경로는 `/`로 리다이렉트
+
+### Project dashboard
+
+```text
+/dashboard
+```
+
+표시 항목:
+
 - API health 상태
-- 로그인 세션 또는 직접 입력한 access token 기반 프로젝트 목록 조회
+- 로그인 세션 기반 프로젝트 목록 조회
 - 프로젝트별 service URL, environment, verification 상태
-- 프로젝트별 최신 CheckRun 상태와 실패 사유
+- 프로젝트별 최신 CheckRun 상태·실패 사유와 최신 등급 미니 도넛
+- 프로젝트별 최근 검사 점수 추이 패널(종합·카테고리 토글)
 - 최신 CheckRun에 연결된 ScenarioRun 실패/진행 요약과 최근 결과 링크
 - Project 생성 화면 링크
 - Project 설정 및 domain verification 화면 링크
 - verified Project의 수동 CheckRun 시작 버튼
 - 최신 CheckRun 결과 페이지 링크
-- Scenario 목록 페이지 링크
-- Incident와 Alert overview 페이지 링크
+- CheckRun 이력, Scenario 목록, Alert overview 페이지 링크
 
-### Login
+### CheckRun 이력
 
 ```text
-/login
+/projects/{projectId}/check-runs
 ```
 
 표시 항목:
 
-- 이메일·비밀번호 로그인
-- JWT access token 저장
-- 로그인 성공 후 Project dashboard 이동
-- 인증 실패와 API 연결 실패 안내
+- 최근 실행 요약(total/active/completed/failed/cancelled)
+- 최근 검사 점수 추이 라인 차트(종합·카테고리 토글, 점수 구간 색상)
+- CheckRun 목록과 더 보기 pagination
+- 각 CheckRun 결과 페이지 링크
 
 ### Signup
 
@@ -286,15 +310,18 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 표시 항목:
 
 - CheckRun 상태와 polling 상태
-- score, grade, deployment risk
-- AI 진단 요약
-- AI 진단 상세 패널의 top issues, 개선/회귀 영역, generation warning
+- score, grade, deployment risk — 등급 도넛과 카테고리 링 게이지
+- 점수 산출 근거(카테고리별 가중치·감점 사유·등급 제한)
 - risk gate reason
-- 이전 run 대비 변화
+- 이전 run 대비 변화와 baseline 대비 비교
 - linked ScenarioRun 요약
 - linked ScenarioRun 결과 및 ScenarioRun 목록 페이지 링크
-- availability, SSL, Lighthouse 결과
+- availability 결과와 응답 시간 임계값 바, 권장 조치
+- SSL 결과와 권장 조치
+- Lighthouse 링 게이지, LCP/CLS/TBT 임계값 바, Top 개선 기회
 - artifact metadata와 다운로드 버튼
+- AI 진단 요약(맨 아래)과 상세 패널의 top issues, 개선/회귀 영역, 이슈별 근거 링크
+- 기술 용어 옆 `!` 마커의 한국어 설명 툴팁
 
 ### Scenario 목록
 
@@ -365,10 +392,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ## 배포
 
-초기 운영 배포 목표는 GCP Compute Engine VM 한 대에 Docker Compose로 AIM 전체를 올리는 방식입니다.
+운영 배포는 클라우드 VM 한 대에 Docker Compose로 AIM 전체를 올리는 방식입니다.
 
 ```text
-GCP VM
+VM
   ├─ Caddy
   ├─ Web
   ├─ API
@@ -384,10 +411,21 @@ GCP VM
 - `apps/worker/Dockerfile`
 - `apps/web/Dockerfile`
 - `infra/compose.yaml`
+- `infra/compose.http.yaml` (도메인 연결 전 IP 운영용 HTTP overlay)
 - `infra/Caddyfile`
 - `infra/env.production.example`
 
-자세한 VM 준비, 환경변수 작성, migration, 실행, 백업 절차는 [GCP VM Docker Compose 배포 가이드](docs/deployment/gcp-vm-compose.md)를 참고합니다.
+현재는 도메인 연결 전이라 HTTP overlay를 함께 사용합니다. VM에서의 갱신 배포 절차는 다음과 같습니다.
+
+```bash
+cd ~/AIM
+git pull
+docker compose --env-file .env.production -f infra/compose.yaml -f infra/compose.http.yaml build web api worker beat
+docker compose --env-file .env.production -f infra/compose.yaml -f infra/compose.http.yaml run --rm migrate  # migration이 있는 경우
+docker compose --env-file .env.production -f infra/compose.yaml -f infra/compose.http.yaml up -d
+```
+
+자세한 VM 준비, 환경변수 작성, migration, 실행, 백업 절차는 [VM Docker Compose 배포 가이드](docs/deployment/gcp-vm-compose.md)를 참고합니다.
 
 ## 주요 API
 
@@ -399,6 +437,8 @@ GCP VM
 - Projects: `POST /projects`, `GET /projects`, `GET /projects/{project_id}`, `PATCH /projects/{project_id}`, `DELETE /projects/{project_id}`
 - Verification: `GET /projects/{project_id}/verification`, `POST /projects/{project_id}/verify`
 - CheckRuns: `POST /projects/{project_id}/check-runs`, `GET /projects/{project_id}/check-runs`, `GET /projects/{project_id}/check-runs/{check_run_id}`, `POST /projects/{project_id}/check-runs/{check_run_id}/cancel`
+  - 목록 응답은 CheckRun별 점수 요약(종합·카테고리)과 linked ScenarioRun을 포함합니다.
+- Baseline: `PUT /projects/{project_id}/baseline`, `DELETE /projects/{project_id}/baseline`, `GET /projects/{project_id}/check-runs/{check_run_id}/baseline-comparison`
 - AIReport: `GET /projects/{project_id}/check-runs/{check_run_id}/ai-report`
 - Scenarios: `POST /projects/{project_id}/scenarios`, `GET /projects/{project_id}/scenarios`, `GET /projects/{project_id}/scenarios/{scenario_id}`, `PATCH /projects/{project_id}/scenarios/{scenario_id}`, `DELETE /projects/{project_id}/scenarios/{scenario_id}`
 - ScenarioRuns: `POST /projects/{project_id}/scenarios/{scenario_id}/runs`, `GET /projects/{project_id}/scenarios/{scenario_id}/runs`, `GET /projects/{project_id}/scenarios/{scenario_id}/runs/{scenario_run_id}`
@@ -436,7 +476,8 @@ corepack pnpm web:build
 
 ## 다음 개발 우선순위
 
-1. ScenarioRun 목록 상태 필터 UI 추가
-2. Project dashboard pagination/load more UI 추가
+1. SMTP 설정 기반 email alert 발송 활성화
+2. 도메인 연결과 HTTPS 전환(HTTP overlay 제거)
+3. PostgreSQL 백업 자동화
 
 MVP가 완성될 때까지 Kubernetes, Kafka, microservice 분리, 결제, 복잡한 조직 권한 모델은 범위에 넣지 않습니다.

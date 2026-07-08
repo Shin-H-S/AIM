@@ -254,7 +254,7 @@ def test_retry_project_alert_rejects_non_failed_alert(client: TestClient) -> Non
     )
 
     assert response.status_code == 409
-    assert response.json() == {"detail": "Only failed email alerts can be retried."}
+    assert response.json() == {"detail": "Only failed alerts can be retried."}
 
 
 def test_retry_project_alert_restores_failed_status_when_queue_is_unavailable(

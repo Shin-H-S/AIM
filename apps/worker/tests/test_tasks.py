@@ -736,7 +736,7 @@ def test_deliver_pending_email_alerts_task_returns_delivery_counts(
 ) -> None:
     _ = session
 
-    def fake_deliver_pending_email_alerts(session: Session) -> AlertDeliveryResult:
+    def fake_deliver_pending_alerts(session: Session) -> AlertDeliveryResult:
         _ = session
         return AlertDeliveryResult(
             sent_count=1,
@@ -746,8 +746,8 @@ def test_deliver_pending_email_alerts_task_returns_delivery_counts(
 
     monkeypatch.setattr(
         alert_delivery_service,
-        "deliver_pending_email_alerts",
-        fake_deliver_pending_email_alerts,
+        "deliver_pending_alerts",
+        fake_deliver_pending_alerts,
     )
 
     assert tasks.deliver_pending_email_alerts.run() == {

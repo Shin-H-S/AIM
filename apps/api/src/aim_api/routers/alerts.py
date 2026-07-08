@@ -32,7 +32,7 @@ def alert_not_found() -> HTTPException:
 def alert_retry_not_allowed() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
-        detail="Only failed email alerts can be retried.",
+        detail="Only failed alerts can be retried.",
     )
 
 
@@ -112,7 +112,7 @@ def retry_project_alert(
         raise project_not_found() from exc
 
     try:
-        alert = alert_delivery.retry_failed_email_alert(
+        alert = alert_delivery.retry_failed_alert(
             session,
             project_id=project.id,
             alert_id=alert_id,

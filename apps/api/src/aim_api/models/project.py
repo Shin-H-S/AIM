@@ -75,6 +75,8 @@ class Project(Base):
     quality_score_threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=80)
     alert_email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     alert_recipient_email: Mapped[str | None] = mapped_column(String(320))
+    # Slack/Discord incoming webhook. A non-null value enables the WEBHOOK alert channel.
+    alert_webhook_url: Mapped[str | None] = mapped_column(String(1024))
     # No DB foreign key: projects <-> check_runs would form a circular table
     # dependency. Integrity is enforced in the projects service on assignment.
     baseline_check_run_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))

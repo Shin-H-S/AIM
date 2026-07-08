@@ -235,9 +235,10 @@ def schedule_due_check_runs() -> dict[str, int]:
     time_limit=90,
 )
 def deliver_pending_email_alerts() -> dict[str, int]:
+    # Celery task 이름은 배포 중 큐 호환을 위해 유지한다. email과 webhook 채널을 모두 발송한다.
     with SessionLocal() as session:
         try:
-            result = alert_delivery_service.deliver_pending_email_alerts(session)
+            result = alert_delivery_service.deliver_pending_alerts(session)
         except Exception:
             session.rollback()
             logger.exception(EMAIL_ALERT_DELIVERY_FAILED_MESSAGE)

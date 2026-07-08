@@ -6,6 +6,7 @@ import pytest
 from aim_api.database import Base
 from aim_api.models.alert import (
     Alert,
+    AlertChannel,
     AlertStatus,
     AlertType,
     Incident,
@@ -238,6 +239,87 @@ def test_sync_incidents_skips_email_alert_when_project_alert_email_is_disabled(
     assert result.alerts == []
     assert session.scalars(select(Incident)).one()
     assert session.scalars(select(Alert)).all() == []
+
+
+def test_sync_incidents_creates_webhook_alert_when_webhook_url_is_set(
+    session: Session,
+) -> None:
+    user, project = create_project(session)
+    project.alert_email_enabled = False
+    project.alert_webhook_url = "https://hooks.slack.com/services/T000/B000/XXXX"
+    session.commit()
+    check_run = create_check_run(
+        session,
+        project=project,
+        requested_by_id=user.id,
+        status=CheckRunStatus.FAILED,
+        created_at=datetime(2026, 7, 1, 1, tzinfo=UTC),
+    )
+    availability_result, score_result = record_score_for_availability(
+        session,
+        project=project,
+        check_run=check_run,
+        is_available=False,
+        status_code=None,
+        response_time_ms=None,
+        failure_reason="Connection timed out.",
+    )
+
+    incidents.sync_incidents_for_check_run(
+        session,
+        check_run=check_run,
+        project=project,
+        availability_result=availability_result,
+        lighthouse_result=None,
+        score_result=score_result,
+    )
+
+    alert = session.scalars(select(Alert)).one()
+    assert alert.channel == AlertChannel.WEBHOOK.value
+    assert alert.status == AlertStatus.PENDING.value
+    assert alert.recipient_email is None
+    assert alert.subject
+    assert alert.body
+
+
+def test_sync_incidents_creates_alerts_for_both_channels(session: Session) -> None:
+    user, project = create_project(session)
+    project.alert_webhook_url = "https://hooks.slack.com/services/T000/B000/XXXX"
+    session.commit()
+    check_run = create_check_run(
+        session,
+        project=project,
+        requested_by_id=user.id,
+        status=CheckRunStatus.FAILED,
+        created_at=datetime(2026, 7, 1, 1, tzinfo=UTC),
+    )
+    availability_result, score_result = record_score_for_availability(
+        session,
+        project=project,
+        check_run=check_run,
+        is_available=False,
+        status_code=None,
+        response_time_ms=None,
+        failure_reason="Connection timed out.",
+    )
+
+    result = incidents.sync_incidents_for_check_run(
+        session,
+        check_run=check_run,
+        project=project,
+        availability_result=availability_result,
+        lighthouse_result=None,
+        score_result=score_result,
+    )
+
+    assert len(result.opened_incidents) == 1
+    alerts = session.scalars(select(Alert)).all()
+    assert {alert.channel for alert in alerts} == {
+        AlertChannel.EMAIL.value,
+        AlertChannel.WEBHOOK.value,
+    }
+    assert all(alert.incident_id == result.opened_incidents[0].id for alert in alerts)
+    assert len({alert.subject for alert in alerts}) == 1
 
 
 def test_sync_incidents_does_not_duplicate_existing_open_incident(

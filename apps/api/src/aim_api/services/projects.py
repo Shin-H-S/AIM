@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from pydantic import HttpUrl
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -8,6 +9,15 @@ from aim_api.models.project import Project
 from aim_api.models.scanner_result import ScoreResult
 from aim_api.schemas.project import ProjectCreate, ProjectUpdate
 from aim_api.url_validation import validate_service_url
+
+
+def validated_webhook_url(url: HttpUrl | None) -> str | None:
+    if url is None:
+        return None
+
+    normalized = str(url)
+    validate_service_url(normalized)
+    return normalized
 
 BASELINE_ELIGIBLE_STATUSES = (
     CheckRunStatus.COMPLETED.value,
@@ -44,6 +54,7 @@ def create_project(session: Session, *, owner_id: UUID, payload: ProjectCreate) 
         alert_recipient_email=str(payload.alert_recipient_email)
         if payload.alert_recipient_email is not None
         else None,
+        alert_webhook_url=validated_webhook_url(payload.alert_webhook_url),
     )
     session.add(project)
     session.commit()
@@ -109,6 +120,8 @@ def update_project(
             if payload.alert_recipient_email is not None
             else None
         )
+    if "alert_webhook_url" in updated_fields:
+        project.alert_webhook_url = validated_webhook_url(payload.alert_webhook_url)
 
     session.commit()
     session.refresh(project)

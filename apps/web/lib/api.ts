@@ -68,6 +68,7 @@ export type Project = {
   quality_score_threshold: number;
   alert_email_enabled: boolean;
   alert_recipient_email: string | null;
+  alert_webhook_url: string | null;
   is_verified: boolean;
   baseline_check_run_id: string | null;
   created_at: string;
@@ -85,6 +86,7 @@ export type ProjectPayload = {
   quality_score_threshold: number;
   alert_email_enabled?: boolean;
   alert_recipient_email?: string | null;
+  alert_webhook_url?: string | null;
 };
 
 export type Incident = {

@@ -73,7 +73,7 @@ export default function Home() {
 
             <div className="mt-6 space-y-4">
               <label className="block" htmlFor="email">
-                <span className="text-sm font-semibold text-slate-600">Email</span>
+                <span className="text-sm font-semibold text-slate-600">이메일</span>
                 <input
                   autoComplete="email"
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
@@ -87,7 +87,7 @@ export default function Home() {
               </label>
 
               <label className="block" htmlFor="password">
-                <span className="text-sm font-semibold text-slate-600">Password</span>
+                <span className="text-sm font-semibold text-slate-600">비밀번호</span>
                 <input
                   autoComplete="current-password"
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"

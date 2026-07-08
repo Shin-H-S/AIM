@@ -19,6 +19,7 @@ import {
   type UpdateScenarioResult
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import { runStatusLabel } from "@/lib/statusLabels";
 import {
   LinkButton,
   LoginRequiredNotice,
@@ -50,13 +51,13 @@ const supportedActions: TestStepAction[] = [
 ];
 
 const actionHelp: Record<TestStepAction, string> = {
-  navigate: "Target에 이동할 URL을 입력합니다.",
-  click: "Target에 클릭할 CSS selector를 입력합니다.",
-  fill: "Target에 입력 필드 selector, Value에 입력값을 넣습니다.",
-  wait: "Timeout에 대기 시간을 ms 단위로 입력합니다.",
-  assert_element_exists: "Target에 존재해야 하는 CSS selector를 입력합니다.",
-  assert_text_exists: "Value에 화면에 보여야 하는 텍스트를 입력합니다.",
-  assert_url: "Value에 현재 URL에 포함되어야 하는 URL 또는 URL 조각을 입력합니다.",
+  navigate: "대상에 이동할 URL을 입력합니다.",
+  click: "대상에 클릭할 CSS 선택자를 입력합니다.",
+  fill: "대상에 입력 필드 선택자, 값에 입력할 내용을 넣습니다.",
+  wait: "제한 시간에 대기 시간을 ms 단위로 입력합니다.",
+  assert_element_exists: "대상에 존재해야 하는 CSS 선택자를 입력합니다.",
+  assert_text_exists: "값에 화면에 보여야 하는 텍스트를 입력합니다.",
+  assert_url: "값에 현재 URL에 포함되어야 하는 URL 또는 URL 조각을 입력합니다.",
   take_screenshot: "추가 입력 없이 현재 화면을 캡처합니다."
 };
 
@@ -364,18 +365,18 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
-                AIM Scenarios
+                AIM 시나리오
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-                Scenario 목록
+                시나리오 목록
               </h1>
               <p className="mt-4 text-sm leading-6 text-slate-600">
-                로그인·검색 같은 핵심 사용자 흐름을 scenario로 등록하고, 수동 실행으로
+                로그인·검색 같은 핵심 사용자 흐름을 시나리오로 등록하고, 수동 실행으로
                 실제 브라우저에서 동작을 검증합니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <LinkButton href={`/projects/${projectId}/settings`} label="Project 설정" />
+              <LinkButton href={`/projects/${projectId}/settings`} label="프로젝트 설정" />
               <RefreshButton isLoading={isLoading} onClick={() => void loadScenarios()} />
             </div>
           </div>
@@ -385,7 +386,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
           <Notice
             tone="info"
             title="로그인 세션 확인 중"
-            description="저장된 로그인 세션이 있으면 자동으로 Scenario 목록을 조회합니다."
+            description="저장된 로그인 세션이 있으면 자동으로 시나리오 목록을 조회합니다."
           />
         )}
 
@@ -397,7 +398,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
           <Notice
             tone="danger"
             title="프로젝트를 찾을 수 없습니다"
-            description="Project ID 또는 현재 사용자 권한을 확인하세요."
+            description="프로젝트 ID 또는 현재 사용자 권한을 확인하세요."
           />
         )}
 
@@ -425,8 +426,8 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
         {createdRunResult?.state === "success" && (
           <Notice
             tone="info"
-            title="ScenarioRun 생성 완료"
-            description={`새 ScenarioRun이 ${createdRunResult.scenarioRun.status} 상태로 생성되었습니다.`}
+            title="시나리오 실행 생성 완료"
+            description={`새 시나리오 실행이 ${runStatusLabel(createdRunResult.scenarioRun.status)} 상태로 생성되었습니다.`}
             action={
               <Link
                 className="inline-flex text-sm font-bold underline"
@@ -441,15 +442,15 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
         {createdRunResult?.state === "conflict" && (
           <Notice
             tone="danger"
-            title="ScenarioRun 생성 실패"
-            description="비활성 scenario는 실행할 수 없습니다."
+            title="시나리오 실행 생성 실패"
+            description="비활성 시나리오는 실행할 수 없습니다."
           />
         )}
 
         {createdRunResult?.state === "unauthorized" && (
           <Notice
             tone="danger"
-            title="ScenarioRun 생성 인증 실패"
+            title="시나리오 실행 생성 인증 실패"
             description="토큰이 없거나 만료되었거나, 이 프로젝트에 접근할 권한이 없습니다."
           />
         )}
@@ -457,15 +458,15 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
         {createdRunResult?.state === "not-found" && (
           <Notice
             tone="danger"
-            title="ScenarioRun 생성 대상 없음"
-            description="Project ID 또는 Scenario ID를 확인하세요."
+            title="시나리오 실행 생성 대상 없음"
+            description="프로젝트 ID 또는 시나리오 ID를 확인하세요."
           />
         )}
 
         {createdRunResult?.state === "unavailable" && (
           <Notice
             tone="danger"
-            title="ScenarioRun 생성 요청 실패"
+            title="시나리오 실행 생성 요청 실패"
             description="실행 요청에 실패했습니다. 잠시 후 다시 시도하세요."
           />
         )}
@@ -474,7 +475,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
           <section className="rounded-3xl border border-slate-200 bg-white p-6">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-semibold">저장된 Scenario</h2>
+                <h2 className="text-xl font-semibold">저장된 시나리오</h2>
                 <p className="mt-2 text-sm text-slate-500">
                   마지막 조회: {lastUpdatedAt ?? "아직 없음"}
                 </p>
@@ -537,11 +538,11 @@ function ScenarioCreateForm({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-            Scenario builder
+            시나리오 빌더
           </p>
-          <h2 className="mt-3 text-2xl font-bold">새 Scenario 생성</h2>
+          <h2 className="mt-3 text-2xl font-bold">새 시나리오 생성</h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            핵심 사용자 흐름을 step 단위로 작성합니다. destructive action은 MVP 범위에서
+            핵심 사용자 흐름을 단계 단위로 작성합니다. 결제·삭제처럼 되돌리기 어려운 동작은
             피하고, 로그인·검색·주요 페이지 접근처럼 안전하게 반복 가능한 흐름부터 등록하세요.
           </p>
         </div>
@@ -550,19 +551,19 @@ function ScenarioCreateForm({
           onClick={onAddStep}
           type="button"
         >
-          Step 추가
+          단계 추가
         </button>
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_220px]">
         <label className="block" htmlFor="scenario-name">
-          <span className="text-sm font-semibold text-slate-600">Scenario name</span>
+          <span className="text-sm font-semibold text-slate-600">시나리오 이름</span>
           <input
             className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
             id="scenario-name"
             maxLength={120}
             onChange={(event) => onChange({ ...form, name: event.target.value })}
-            placeholder="Login flow"
+            placeholder="로그인 흐름"
             required
             type="text"
             value={form.name}
@@ -576,18 +577,18 @@ function ScenarioCreateForm({
             onChange={(event) => onChange({ ...form, isActive: event.target.checked })}
             type="checkbox"
           />
-          Active scenario
+          시나리오 활성화
         </label>
       </div>
 
       <label className="mt-4 block" htmlFor="scenario-description">
-        <span className="text-sm font-semibold text-slate-600">Description</span>
+        <span className="text-sm font-semibold text-slate-600">설명</span>
         <textarea
           className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
           id="scenario-description"
           maxLength={1000}
           onChange={(event) => onChange({ ...form, description: event.target.value })}
-          placeholder="이 scenario가 검증하는 핵심 사용자 흐름을 적어두세요."
+          placeholder="이 시나리오가 검증하는 핵심 사용자 흐름을 적어두세요."
           value={form.description}
         />
       </label>
@@ -611,10 +612,10 @@ function ScenarioCreateForm({
           disabled={createState === "creating"}
           type="submit"
         >
-          {createState === "creating" ? "Scenario 생성 중" : "Scenario 생성"}
+          {createState === "creating" ? "시나리오 생성 중" : "시나리오 생성"}
         </button>
         <p className="text-xs leading-5 text-slate-500">
-          생성 후 목록에 바로 추가됩니다. active 상태라면 수동 ScenarioRun을 실행할 수 있습니다.
+          생성 후 목록에 바로 추가됩니다. 활성 상태라면 수동 실행을 시작할 수 있습니다.
         </p>
       </div>
 
@@ -640,7 +641,7 @@ function ScenarioStepEditor({
     <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-slate-900">Step #{index + 1}</p>
+          <p className="text-sm font-bold text-slate-900">단계 #{index + 1}</p>
           <p className="mt-1 text-xs leading-5 text-slate-400">{actionHelp[step.action]}</p>
         </div>
         <button
@@ -656,7 +657,7 @@ function ScenarioStepEditor({
       <div className="grid gap-3 lg:grid-cols-[220px_1fr_1fr_180px]">
         <label className="block" htmlFor={`scenario-step-action-${step.id}`}>
           <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Action
+            동작
           </span>
           <select
             className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-cyan-500"
@@ -673,19 +674,19 @@ function ScenarioStepEditor({
         </label>
 
         <StepInput
-          label="Target"
+          label="대상"
           onChange={(value) => onUpdate({ target: value })}
           placeholder={getTargetPlaceholder(step.action)}
           value={step.target}
         />
         <StepInput
-          label="Value"
+          label="값"
           onChange={(value) => onUpdate({ value })}
           placeholder={getValuePlaceholder(step.action)}
           value={step.value}
         />
         <StepInput
-          label="Timeout ms"
+          label="제한 시간(ms)"
           onChange={(value) => onUpdate({ timeoutMs: value })}
           placeholder={step.action === "wait" ? "1000" : "선택"}
           type="number"
@@ -700,7 +701,7 @@ function ScenarioStepEditor({
           onChange={(event) => onUpdate({ isCritical: event.target.checked })}
           type="checkbox"
         />
-        Critical step
+        핵심 단계 (실패 시 이후 단계 중단)
       </label>
     </article>
   );
@@ -751,7 +752,7 @@ function ScenarioCreateNotice({
     <div className="mt-5">
       <Notice
         description={createMessage}
-        title={createState === "success" ? "Scenario 생성 완료" : "Scenario 생성 실패"}
+        title={createState === "success" ? "시나리오 생성 완료" : "시나리오 생성 실패"}
         tone={createState === "success" ? "info" : "danger"}
       />
     </div>
@@ -879,12 +880,12 @@ function ScenarioCard({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-                Scenario editor
+                시나리오 편집
               </p>
               <h3 className="mt-2 text-lg font-semibold text-slate-900">{scenario.name}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                저장하면 step 목록이 현재 폼 기준으로 교체됩니다. 이미 생성된 ScenarioRun 결과는
-                그대로 보존됩니다.
+                저장하면 단계 목록이 현재 폼 기준으로 교체됩니다. 이미 생성된 시나리오 실행
+                결과는 그대로 보존됩니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -893,7 +894,7 @@ function ScenarioCard({
                 onClick={addEditStep}
                 type="button"
               >
-                Step 추가
+                단계 추가
               </button>
               <button
                 className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
@@ -907,7 +908,7 @@ function ScenarioCard({
 
           <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_220px]">
             <label className="block" htmlFor={`scenario-edit-name-${scenario.id}`}>
-              <span className="text-sm font-semibold text-slate-600">Scenario name</span>
+              <span className="text-sm font-semibold text-slate-600">시나리오 이름</span>
               <input
                 className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
                 id={`scenario-edit-name-${scenario.id}`}
@@ -926,12 +927,12 @@ function ScenarioCard({
                 onChange={(event) => setForm({ ...form, isActive: event.target.checked })}
                 type="checkbox"
               />
-              Active scenario
+              시나리오 활성화
             </label>
           </div>
 
           <label className="mt-4 block" htmlFor={`scenario-edit-description-${scenario.id}`}>
-            <span className="text-sm font-semibold text-slate-600">Description</span>
+            <span className="text-sm font-semibold text-slate-600">설명</span>
             <textarea
               className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
               id={`scenario-edit-description-${scenario.id}`}
@@ -960,10 +961,10 @@ function ScenarioCard({
               disabled={mutationState === "creating"}
               type="submit"
             >
-              {mutationState === "creating" ? "저장 중" : "Scenario 저장"}
+              {mutationState === "creating" ? "저장 중" : "시나리오 저장"}
             </button>
             <p className="text-xs leading-5 text-slate-500">
-              destructive action 없이 반복 가능한 사용자 흐름만 유지하세요.
+              결제·삭제 같은 파괴적인 동작 없이 반복 가능한 사용자 흐름만 유지하세요.
             </p>
           </div>
 
@@ -971,7 +972,7 @@ function ScenarioCard({
             <div className="mt-5">
               <Notice
                 description={mutationMessage}
-                title={mutationState === "success" ? "Scenario 저장 완료" : "Scenario 저장 실패"}
+                title={mutationState === "success" ? "시나리오 저장 완료" : "시나리오 저장 실패"}
                 tone={mutationState === "success" ? "info" : "danger"}
               />
             </div>
@@ -1029,17 +1030,17 @@ function ScenarioCard({
             onClick={onRun}
             type="button"
           >
-            {isCreating ? "실행 생성 중" : "ScenarioRun 생성"}
+            {isCreating ? "실행 생성 중" : "시나리오 실행"}
           </button>
         </div>
       </div>
 
       {isConfirmingDelete && (
         <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800">
-          <h4 className="font-semibold">Scenario 삭제 확인</h4>
+          <h4 className="font-semibold">시나리오 삭제 확인</h4>
           <p className="mt-2 text-sm leading-6 opacity-85">
-            이 scenario와 step 정의를 삭제합니다. 이미 저장된 실행 결과는 별도 기록으로 남아있을 수
-            있지만, 새 실행은 만들 수 없습니다.
+            이 시나리오와 단계 정의를 삭제합니다. 이미 저장된 실행 결과는 별도 기록으로 남아있을
+            수 있지만, 새 실행은 만들 수 없습니다.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
@@ -1065,7 +1066,7 @@ function ScenarioCard({
         <div className="mt-5">
           <Notice
             description={mutationMessage}
-            title={mutationState === "success" ? "Scenario 작업 완료" : "Scenario 작업 실패"}
+            title={mutationState === "success" ? "시나리오 작업 완료" : "시나리오 작업 실패"}
             tone={mutationState === "success" ? "info" : "danger"}
           />
         </div>
@@ -1073,7 +1074,7 @@ function ScenarioCard({
 
       <div className="mt-5">
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-          Steps
+          단계
         </p>
         <ol className="grid gap-2">
           {scenario.steps.map((step) => (
@@ -1099,13 +1100,13 @@ function StepRow({ step }: { step: TestStep }) {
               : "bg-slate-200 text-slate-600 ring-slate-200"
           }`}
         >
-          {step.is_critical ? "critical" : "non-critical"}
+          {step.is_critical ? "핵심" : "일반"}
         </span>
       </div>
       <dl className="mt-3 grid gap-3 sm:grid-cols-3">
-        <Metric label="Target" value={step.target ?? "없음"} />
-        <Metric label="Value" value={step.value ?? "없음"} />
-        <Metric label="Timeout" value={step.timeout_ms === null ? "기본값" : `${step.timeout_ms}ms`} />
+        <Metric label="대상" value={step.target ?? "없음"} />
+        <Metric label="값" value={step.value ?? "없음"} />
+        <Metric label="제한 시간" value={step.timeout_ms === null ? "기본값" : `${step.timeout_ms}ms`} />
       </dl>
     </li>
   );
@@ -1162,14 +1163,14 @@ function buildScenarioPayload(form: ScenarioFormState): ScenarioPayloadBuildResu
   if (!name) {
     return {
       ok: false,
-      message: "Scenario name을 입력하세요."
+      message: "시나리오 이름을 입력하세요."
     };
   }
 
   if (form.steps.length === 0) {
     return {
       ok: false,
-      message: "Scenario에는 최소 1개 이상의 step이 필요합니다."
+      message: "시나리오에는 최소 1개 이상의 단계가 필요합니다."
     };
   }
 
@@ -1183,28 +1184,28 @@ function buildScenarioPayload(form: ScenarioFormState): ScenarioPayloadBuildResu
     if (!timeoutResult.ok) {
       return {
         ok: false,
-        message: `Step #${index + 1}: timeout은 1~120000ms 사이의 정수여야 합니다.`
+        message: `단계 #${index + 1}: 제한 시간은 1~120000ms 사이의 정수여야 합니다.`
       };
     }
 
     if (requiresTarget(step.action) && !target) {
       return {
         ok: false,
-        message: `Step #${index + 1}: ${actionLabels[step.action]} action은 target이 필요합니다.`
+        message: `단계 #${index + 1}: ${actionLabels[step.action]} 동작은 대상이 필요합니다.`
       };
     }
 
     if (step.action === "fill" && !value) {
       return {
         ok: false,
-        message: `Step #${index + 1}: 입력 action은 value가 필요합니다.`
+        message: `단계 #${index + 1}: 입력 동작은 값이 필요합니다.`
       };
     }
 
     if (requiresValue(step.action) && !value) {
       return {
         ok: false,
-        message: `Step #${index + 1}: ${actionLabels[step.action]} action은 value가 필요합니다.`
+        message: `단계 #${index + 1}: ${actionLabels[step.action]} 동작은 값이 필요합니다.`
       };
     }
 
@@ -1281,7 +1282,7 @@ function getTargetPlaceholder(action: TestStepAction): string {
   }
 
   if (action === "click" || action === "fill" || action === "assert_element_exists") {
-    return "CSS selector";
+    return "CSS 선택자";
   }
 
   return "선택";
@@ -1307,20 +1308,20 @@ const scenarioCreateStateMessage: Record<
   Exclude<ScenarioCreateState, "idle" | "creating" | "success">,
   string
 > = {
-  invalid: "입력값을 확인하세요. action별 필수 target, value, timeout을 채워야 합니다.",
+  invalid: "입력값을 확인하세요. 동작별 필수 대상, 값, 제한 시간을 채워야 합니다.",
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
-  "not-found": "Project를 찾을 수 없습니다. Dashboard에서 Project 상태를 다시 확인하세요.",
-  unavailable: "Scenario 생성에 실패했습니다. 잠시 후 다시 시도하세요."
+  "not-found": "프로젝트를 찾을 수 없습니다. 대시보드에서 프로젝트 상태를 다시 확인하세요.",
+  unavailable: "시나리오 생성에 실패했습니다. 잠시 후 다시 시도하세요."
 };
 
 const scenarioUpdateStateMessage: Record<
   Exclude<UpdateScenarioResult["state"], "success">,
   string
 > = {
-  invalid: "입력값을 확인하세요. action별 필수 target, value, timeout을 채워야 합니다.",
+  invalid: "입력값을 확인하세요. 동작별 필수 대상, 값, 제한 시간을 채워야 합니다.",
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
-  "not-found": "Project 또는 Scenario를 찾을 수 없습니다. 목록을 다시 조회하세요.",
-  unavailable: "Scenario 저장에 실패했습니다. 잠시 후 다시 시도하세요."
+  "not-found": "프로젝트 또는 시나리오를 찾을 수 없습니다. 목록을 다시 조회하세요.",
+  unavailable: "시나리오 저장에 실패했습니다. 잠시 후 다시 시도하세요."
 };
 
 const scenarioDeleteStateMessage: Record<
@@ -1328,6 +1329,6 @@ const scenarioDeleteStateMessage: Record<
   string
 > = {
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
-  "not-found": "Project 또는 Scenario를 찾을 수 없습니다. 목록을 다시 조회하세요.",
-  unavailable: "Scenario 삭제에 실패했습니다. 잠시 후 다시 시도하세요."
+  "not-found": "프로젝트 또는 시나리오를 찾을 수 없습니다. 목록을 다시 조회하세요.",
+  unavailable: "시나리오 삭제에 실패했습니다. 잠시 후 다시 시도하세요."
 };

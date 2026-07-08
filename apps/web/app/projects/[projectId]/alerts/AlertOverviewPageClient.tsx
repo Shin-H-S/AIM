@@ -18,6 +18,17 @@ import {
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import { formatDateTime, formatNullableDateTime } from "@/lib/format";
 import {
+  alertChannelLabel,
+  alertStatusLabel,
+  alertTypeLabel,
+  enabledLabel,
+  environmentLabel,
+  incidentStatusLabel,
+  incidentTriggerLabel,
+  severityLabel,
+  verifiedLabel
+} from "@/lib/statusLabels";
+import {
   Badge,
   EmptyState,
   LinkButton,
@@ -206,7 +217,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     const recipientEmail = normalizeOptionalText(settingsForm.alertRecipientEmail);
     if (recipientEmail !== null && !isValidEmail(recipientEmail)) {
       setSettingsSubmitState("invalid");
-      setSettingsSubmitMessage("Alert recipient email 형식을 확인하세요.");
+      setSettingsSubmitMessage("수신자 이메일 형식을 확인하세요.");
       return;
     }
 
@@ -251,7 +262,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     });
     setSettingsForm(formFromProjectAlertSettings(result.project));
     setSettingsSubmitState("success");
-    setSettingsSubmitMessage("Alert 채널 설정을 저장했습니다. 이후 생성되는 alert부터 반영됩니다.");
+    setSettingsSubmitMessage("알림 채널 설정을 저장했습니다. 이후 생성되는 알림부터 반영됩니다.");
   }
 
   async function handleRetryAlert(alert: Alert) {
@@ -289,7 +300,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
       setRetryFeedback({
         alertId: alert.id,
         state: "success",
-        message: "Alert 재시도 요청을 등록했습니다. 상태가 PENDING으로 변경되었습니다."
+        message: "알림 재시도 요청을 등록했습니다. 상태가 대기로 변경되었습니다."
       });
       setRetryingAlertId(null);
       return;
@@ -314,18 +325,17 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
-                AIM Alerts
+                AIM 알림
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-                Incident & Alert overview
+                장애·알림 현황
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600">
-                프로젝트의 incident와 email alert 이력을 확인하고, alert 사용 여부와
-                수신자를 설정합니다.
+                프로젝트의 장애와 알림 이력을 확인하고, 알림 채널을 설정합니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <LinkButton href={`/projects/${projectId}/settings`} label="Project 설정" />
+              <LinkButton href={`/projects/${projectId}/settings`} label="프로젝트 설정" />
               <RefreshButton
                 isLoading={loadState === "loading"}
                 onClick={() => void loadOverview()}
@@ -336,7 +346,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
 
         {sessionState === "checking" && (
           <Notice
-            description="저장된 로그인 세션이 있으면 자동으로 alert overview를 조회합니다."
+            description="저장된 로그인 세션이 있으면 자동으로 알림 현황을 조회합니다."
             title="로그인 세션 확인 중"
             tone="info"
           />
@@ -412,7 +422,7 @@ function ProjectAlertSettingsCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">
-            기본 Alert 기준
+            기본 알림 기준
           </p>
           <h2 className="mt-3 text-2xl font-bold text-slate-900">{project.name}</h2>
           <p className="mt-2 break-all text-sm text-cyan-700">{project.service_url}</p>
@@ -421,27 +431,27 @@ function ProjectAlertSettingsCard({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge label={project.environment} />
-          <Badge label={project.is_verified ? "verified" : "unverified"} />
+          <Badge label={environmentLabel(project.environment)} />
+          <Badge label={verifiedLabel(project.is_verified)} />
         </div>
       </div>
 
       <dl className="mt-6 grid gap-4 md:grid-cols-4">
-        <Metric label="Response threshold" value={`${project.response_time_threshold_ms}ms`} />
-        <Metric label="Quality threshold" value={`${project.quality_score_threshold}`} />
-        <Metric label="Incidents" value={`${incidentCount}개`} />
-        <Metric label="Alerts" value={`${alertCount}개`} />
+        <Metric label="응답 임계값" value={`${project.response_time_threshold_ms}ms`} />
+        <Metric label="품질 임계값" value={`${project.quality_score_threshold}`} />
+        <Metric label="장애" value={`${incidentCount}개`} />
+        <Metric label="알림" value={`${alertCount}개`} />
         <Metric
-          label="Email alert"
-          value={project.alert_email_enabled ? "enabled" : "disabled"}
+          label="이메일 알림"
+          value={enabledLabel(project.alert_email_enabled)}
         />
         <Metric
-          label="Recipient"
-          value={project.alert_recipient_email ?? "Project owner email fallback"}
+          label="수신자"
+          value={project.alert_recipient_email ?? "미설정 시 소유자 이메일"}
         />
         <Metric
-          label="Webhook alert"
-          value={project.alert_webhook_url ? "enabled" : "disabled"}
+          label="Webhook 알림"
+          value={enabledLabel(Boolean(project.alert_webhook_url))}
         />
       </dl>
 
@@ -451,11 +461,11 @@ function ProjectAlertSettingsCard({
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Alert 채널 설정</h3>
+            <h3 className="text-lg font-bold text-slate-900">알림 채널 설정</h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              incident open/recovery 시 활성화된 채널로 alert를 발송합니다. Email은 체크한
-              경우에만, webhook은 URL을 등록한 경우에만 사용합니다. 수신자를 비워두면 Project
-              owner email을 사용합니다.
+              장애 발생/복구 시 활성화된 채널로 알림을 발송합니다. 이메일은 체크한 경우에만,
+              Webhook은 URL을 등록한 경우에만 사용합니다. 수신자를 비워두면 프로젝트 소유자
+              이메일을 사용합니다.
             </p>
           </div>
           <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
@@ -470,12 +480,12 @@ function ProjectAlertSettingsCard({
               }
               type="checkbox"
             />
-            Email alert 사용
+            이메일 알림 사용
           </label>
         </div>
 
         <label className="mt-5 block" htmlFor="alert-recipient-email">
-          <span className="text-sm font-semibold text-slate-600">Recipient email</span>
+          <span className="text-sm font-semibold text-slate-600">수신자 이메일</span>
           <input
             className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
             id="alert-recipient-email"
@@ -511,8 +521,8 @@ function ProjectAlertSettingsCard({
             value={form.alertWebhookUrl}
           />
           <span className="mt-2 block text-xs leading-5 text-slate-500">
-            Slack 또는 Discord incoming webhook URL을 붙여넣으세요. 비워두면 webhook 알림을
-            보내지 않습니다.
+            Slack 또는 Discord의 incoming webhook URL을 붙여넣으세요. 비워두면 Webhook
+            알림을 보내지 않습니다.
           </span>
         </label>
 
@@ -521,7 +531,7 @@ function ProjectAlertSettingsCard({
           disabled={submitState === "submitting"}
           type="submit"
         >
-          {submitState === "submitting" ? "저장 중" : "Alert 설정 저장"}
+          {submitState === "submitting" ? "저장 중" : "알림 설정 저장"}
         </button>
 
         {submitMessage && (
@@ -543,9 +553,9 @@ function ProjectAlertSettingsCard({
 function IncidentSection({ incidents, projectId }: { incidents: Incident[]; projectId: string }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6">
-      <SectionHeader count={incidents.length} title="Incidents" />
+      <SectionHeader count={incidents.length} title="장애" />
       {incidents.length === 0 ? (
-        <EmptyState description="아직 이 프로젝트에서 기록된 incident가 없습니다." />
+        <EmptyState description="아직 이 프로젝트에서 기록된 장애가 없습니다." />
       ) : (
         <ul className="grid gap-4">
           {incidents.map((incident) => (
@@ -565,21 +575,21 @@ function IncidentCard({ incident, projectId }: { incident: Incident; projectId: 
           <div className="flex flex-wrap gap-2">
             <IncidentStatusBadge status={incident.status} />
             <SeverityBadge severity={incident.severity} />
-            <Badge label={formatTriggerType(incident.trigger_type)} />
+            <Badge label={incidentTriggerLabel(incident.trigger_type)} />
           </div>
           <h3 className="mt-4 text-lg font-bold text-slate-900">{incident.title}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">{incident.summary}</p>
         </div>
         <LinkButton
           href={`/projects/${projectId}/check-runs/${incident.opened_check_run_id}`}
-          label="시작 run 보기"
+          label="발생 검사 보기"
           variant="dark"
         />
       </div>
 
       <dl className="mt-5 grid gap-3 md:grid-cols-2">
-        <Metric label="Started" value={formatDateTime(incident.started_at)} />
-        <Metric label="Resolved" value={formatNullableDateTime(incident.resolved_at)} />
+        <Metric label="시작 시각" value={formatDateTime(incident.started_at)} />
+        <Metric label="해소 시각" value={formatNullableDateTime(incident.resolved_at)} />
       </dl>
     </li>
   );
@@ -618,9 +628,9 @@ function AlertSection({
     <section className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Email alerts</h2>
+          <h2 className="text-xl font-semibold text-slate-900">알림 목록</h2>
           <p className="mt-2 text-sm text-slate-500">
-            로드된 alert {totalAlertCount}개 중 {alerts.length}개를 표시합니다.
+            로드된 알림 {totalAlertCount}개 중 {alerts.length}개를 표시합니다.
           </p>
         </div>
         <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
@@ -635,9 +645,9 @@ function AlertSection({
       />
 
       {totalAlertCount === 0 ? (
-        <EmptyState description="아직 이 프로젝트에서 생성된 alert가 없습니다." />
+        <EmptyState description="아직 이 프로젝트에서 생성된 알림이 없습니다." />
       ) : alerts.length === 0 ? (
-        <EmptyState description="현재 선택한 상태에 해당하는 loaded alert가 없습니다." />
+        <EmptyState description="현재 선택한 상태에 해당하는 알림이 없습니다." />
       ) : (
         <ul className="mt-5 grid gap-4">
           {alerts.map((alert) => (
@@ -660,12 +670,12 @@ function AlertSection({
           onClick={onLoadMore}
           type="button"
         >
-          {isLoadingMoreAlerts ? "더 불러오는 중" : "Alert 더 보기"}
+          {isLoadingMoreAlerts ? "더 불러오는 중" : "알림 더 보기"}
         </button>
         <p className="text-sm text-slate-500">
           {hasMoreAlerts
             ? `${LIST_LIMIT}개 단위로 더 불러옵니다.`
-            : "현재 로드된 목록이 마지막 page입니다."}
+            : "현재 로드된 목록이 마지막 페이지입니다."}
         </p>
       </div>
 
@@ -754,8 +764,8 @@ function AlertCard({
         <div>
           <div className="flex flex-wrap gap-2">
             <AlertStatusBadge status={alert.status} />
-            <Badge label={alert.channel} />
-            <Badge label={formatAlertType(alert.alert_type)} />
+            <Badge label={alertChannelLabel(alert.channel)} />
+            <Badge label={alertTypeLabel(alert.alert_type)} />
           </div>
           <h3 className="mt-4 text-lg font-bold text-slate-900">{alert.subject}</h3>
           <p className="mt-2 text-sm text-slate-500">
@@ -777,7 +787,7 @@ function AlertCard({
           {alert.check_run_id && (
             <LinkButton
               href={`/projects/${projectId}/check-runs/${alert.check_run_id}`}
-              label="관련 run 보기"
+              label="관련 검사 보기"
               variant="dark"
             />
           )}
@@ -785,9 +795,9 @@ function AlertCard({
       </div>
 
       <dl className="mt-5 grid gap-3 md:grid-cols-3">
-        <Metric label="Created" value={formatDateTime(alert.created_at)} />
-        <Metric label="Sent" value={formatNullableDateTime(alert.sent_at)} />
-        <Metric label="Trigger" value={formatTriggerType(alert.trigger_type)} />
+        <Metric label="생성 시각" value={formatDateTime(alert.created_at)} />
+        <Metric label="발송 시각" value={formatNullableDateTime(alert.sent_at)} />
+        <Metric label="트리거" value={incidentTriggerLabel(alert.trigger_type)} />
       </dl>
 
       {alert.last_error && (
@@ -835,7 +845,7 @@ function ResultNotice({
   if (firstProblem.state === "not-found") {
     return (
       <Notice
-        description="Project ID 또는 현재 사용자 권한을 확인하세요."
+        description="프로젝트 ID 또는 현재 사용자 권한을 확인하세요."
         title="프로젝트를 찾을 수 없습니다"
         tone="danger"
       />
@@ -845,7 +855,7 @@ function ResultNotice({
   return (
     <Notice
       description="서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
-      title="Alert overview 요청 실패"
+      title="알림 현황 요청 실패"
       tone="danger"
     />
   );
@@ -870,7 +880,7 @@ function IncidentStatusBadge({ status }: { status: string }) {
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
-      {status}
+      {incidentStatusLabel(status)}
     </span>
   );
 }
@@ -883,7 +893,7 @@ function SeverityBadge({ severity }: { severity: string }) {
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
-      {severity}
+      {severityLabel(severity)}
     </span>
   );
 }
@@ -898,17 +908,9 @@ function AlertStatusBadge({ status }: { status: string }) {
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${className}`}>
-      {status}
+      {alertStatusLabel(status)}
     </span>
   );
-}
-
-function formatTriggerType(value: string): string {
-  return value.toLowerCase().replaceAll("_", " ");
-}
-
-function formatAlertType(value: string): string {
-  return value.toLowerCase().replaceAll("_", " ");
 }
 
 function formFromProjectAlertSettings(project: Project): AlertSettingsFormState {
@@ -977,10 +979,10 @@ const alertSettingsSubmitMessage: Record<
   Exclude<AlertSettingsSubmitState, "idle" | "submitting" | "success">,
   string
 > = {
-  invalid: "입력값을 확인하세요. Recipient email은 비워두거나 올바른 이메일 형식이어야 합니다.",
+  invalid: "입력값을 확인하세요. 수신자 이메일은 비워두거나 올바른 이메일 형식이어야 합니다.",
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
-  "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
-  unavailable: "Alert 설정 저장에 실패했습니다. 잠시 후 다시 시도하세요."
+  "not-found": "프로젝트를 찾을 수 없습니다. 대시보드에서 다시 선택하세요.",
+  unavailable: "알림 설정 저장에 실패했습니다. 잠시 후 다시 시도하세요."
 };
 
 const retryAlertFeedbackMessage: Record<
@@ -988,9 +990,9 @@ const retryAlertFeedbackMessage: Record<
   string
 > = {
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
-  "not-found": "Project 또는 Alert를 찾을 수 없습니다. 목록을 다시 조회하세요.",
-  conflict: "FAILED 상태의 email alert만 재시도할 수 있습니다.",
-  unavailable: "Alert 재시도 요청에 실패했습니다. 잠시 후 다시 시도하세요."
+  "not-found": "프로젝트 또는 알림을 찾을 수 없습니다. 목록을 다시 조회하세요.",
+  conflict: "실패 상태의 알림만 재시도할 수 있습니다.",
+  unavailable: "알림 재시도 요청에 실패했습니다. 잠시 후 다시 시도하세요."
 };
 
 const alertListMessageByState: Record<
@@ -998,6 +1000,6 @@ const alertListMessageByState: Record<
   string
 > = {
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
-  "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
-  unavailable: "Alert 목록을 더 불러오지 못했습니다. 잠시 후 다시 시도하세요."
+  "not-found": "프로젝트를 찾을 수 없습니다. 대시보드에서 다시 선택하세요.",
+  unavailable: "알림 목록을 더 불러오지 못했습니다. 잠시 후 다시 시도하세요."
 };

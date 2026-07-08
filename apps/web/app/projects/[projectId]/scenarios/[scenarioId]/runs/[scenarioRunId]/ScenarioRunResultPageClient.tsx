@@ -16,6 +16,7 @@ import {
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
+import { triggerSourceLabel } from "@/lib/statusLabels";
 import {
   LinkButton,
   LoginRequiredNotice,
@@ -118,20 +119,20 @@ export function ScenarioRunResultPageClient({
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
-                AIM Scenario Result
+                AIM 시나리오 결과
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-                ScenarioRun 결과
+                시나리오 실행 결과
               </h1>
               <p className="mt-4 text-sm leading-6 text-slate-600">
-                시나리오 실행의 step별 결과와 실패 근거를 보여줍니다. 실행 중에는
+                시나리오 실행의 단계별 결과와 실패 근거를 보여줍니다. 실행 중에는
                 자동으로 새로고침됩니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <LinkButton
                 href={`/projects/${projectId}/scenarios/${scenarioId}/runs`}
-                label="ScenarioRun 목록"
+                label="실행 목록"
               />
               <RefreshButton isLoading={isLoading} onClick={() => void loadScenarioRun()} />
             </div>
@@ -142,7 +143,7 @@ export function ScenarioRunResultPageClient({
           <Notice
             tone="info"
             title="로그인 세션 확인 중"
-            description="저장된 로그인 세션이 있으면 자동으로 ScenarioRun 결과를 조회합니다."
+            description="저장된 로그인 세션이 있으면 자동으로 시나리오 실행 결과를 조회합니다."
           />
         )}
 
@@ -153,8 +154,8 @@ export function ScenarioRunResultPageClient({
         {result.state === "not-found" && (
           <Notice
             tone="danger"
-            title="ScenarioRun을 찾을 수 없습니다"
-            description="Project ID, Scenario ID, ScenarioRun ID 또는 현재 사용자 권한을 확인하세요."
+            title="시나리오 실행을 찾을 수 없습니다"
+            description="프로젝트 ID, 시나리오 ID, 실행 ID 또는 현재 사용자 권한을 확인하세요."
           />
         )}
 
@@ -211,11 +212,11 @@ function StatusSummary({
         <ScenarioRunStatusBadge status={scenarioRun.status} />
       </div>
       <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
-        <Metric label="Trigger" value={scenarioRun.trigger_source} />
-        <Metric label="Duration" value={formatMilliseconds(scenarioRun.duration_ms)} />
+        <Metric label="트리거" value={triggerSourceLabel(scenarioRun.trigger_source)} />
+        <Metric label="소요 시간" value={formatMilliseconds(scenarioRun.duration_ms)} />
         <Metric label="자동 새로고침" value={shouldPoll ? "실행 중" : "중지됨"} />
         <Metric label="마지막 갱신" value={lastUpdatedAt ?? "아직 없음"} />
-        <Metric label="Failure" value={scenarioRun.failure_reason ?? "없음"} />
+        <Metric label="실패 사유" value={scenarioRun.failure_reason ?? "없음"} />
       </dl>
     </article>
   );
@@ -226,10 +227,10 @@ function TimelineCard({ scenarioRun }: { scenarioRun: ScenarioRunDetail }) {
     <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <h2 className="mb-5 text-xl font-semibold">타임라인</h2>
       <dl className="grid gap-4 text-sm text-slate-600">
-        <Metric label="Queued" value={formatDetailDateTime(scenarioRun.queued_at)} />
-        <Metric label="Started" value={formatDetailDateTime(scenarioRun.started_at)} />
-        <Metric label="Finished" value={formatDetailDateTime(scenarioRun.finished_at)} />
-        <Metric label="Updated" value={formatDetailDateTime(scenarioRun.updated_at)} />
+        <Metric label="대기 시각" value={formatDetailDateTime(scenarioRun.queued_at)} />
+        <Metric label="시작 시각" value={formatDetailDateTime(scenarioRun.started_at)} />
+        <Metric label="종료 시각" value={formatDetailDateTime(scenarioRun.finished_at)} />
+        <Metric label="갱신 시각" value={formatDetailDateTime(scenarioRun.updated_at)} />
       </dl>
     </article>
   );
@@ -245,8 +246,8 @@ function StepResultsCard({
   if (stepResults.length === 0) {
     return (
       <EmptyResultCard
-        title="Step results"
-        description="아직 저장된 step-level 결과가 없습니다."
+        title="단계별 결과"
+        description="아직 저장된 단계별 결과가 없습니다."
       />
     );
   }
@@ -254,7 +255,7 @@ function StepResultsCard({
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">Step results</h2>
+        <h2 className="text-xl font-semibold">단계별 결과</h2>
         <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
           {stepResults.length}개
         </span>
@@ -271,7 +272,7 @@ function StepResultsCard({
                   #{stepResult.step_order} {actionLabels[stepResult.action]}
                 </p>
                 <p className="mt-2 break-all font-mono text-xs text-slate-500">
-                  {stepResult.target ?? "target 없음"}
+                  {stepResult.target ?? "대상 없음"}
                 </p>
               </div>
               <span
@@ -283,9 +284,9 @@ function StepResultsCard({
               </span>
             </div>
             <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <Metric label="Duration" value={formatMilliseconds(stepResult.duration_ms)} />
-              <Metric label="Started" value={formatDetailDateTime(stepResult.started_at)} />
-              <Metric label="Finished" value={formatDetailDateTime(stepResult.finished_at)} />
+              <Metric label="소요 시간" value={formatMilliseconds(stepResult.duration_ms)} />
+              <Metric label="시작 시각" value={formatDetailDateTime(stepResult.started_at)} />
+              <Metric label="종료 시각" value={formatDetailDateTime(stepResult.finished_at)} />
             </dl>
             {stepResult.error_message && (
               <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
@@ -302,7 +303,7 @@ function StepResultsCard({
                 <ArtifactImagePreview
                   artifactId={stepResult.failure_screenshot_artifact_id}
                   accessToken={accessToken}
-                  alt={`Step #${stepResult.step_order} 실패 스크린샷`}
+                  alt={`단계 #${stepResult.step_order} 실패 스크린샷`}
                 />
               </div>
             )}
@@ -331,10 +332,10 @@ function EvidenceSummaryCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] opacity-80">
-            Browser evidence
+            브라우저 근거
           </p>
           <h2 className="mt-3 text-2xl font-bold">
-            {hasEvidence ? "추가 실패 근거가 수집되었습니다" : "추가 browser evidence 없음"}
+            {hasEvidence ? "추가 실패 근거가 수집되었습니다" : "추가 브라우저 근거 없음"}
           </h2>
           <p className="mt-3 text-sm leading-6 opacity-80">
             {getEvidenceSummaryDescription(consoleErrors, networkFailures)}
@@ -345,9 +346,9 @@ function EvidenceSummaryCard({
         </span>
       </div>
       <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-3">
-        <Metric label="Console errors" value={`${consoleErrors.length}개`} />
-        <Metric label="Network failures" value={`${networkFailures.length}개`} />
-        <Metric label="Total evidence" value={`${totalEvidenceCount}개`} />
+        <Metric label="콘솔 오류" value={`${consoleErrors.length}개`} />
+        <Metric label="네트워크 실패" value={`${networkFailures.length}개`} />
+        <Metric label="전체 근거" value={`${totalEvidenceCount}개`} />
       </dl>
     </article>
   );
@@ -358,26 +359,26 @@ function getEvidenceSummaryDescription(
   networkFailures: NetworkFailure[]
 ) {
   if (networkFailures.length > 0 && consoleErrors.length > 0) {
-    return "브라우저 console error와 failed network request가 함께 기록되었습니다. 실패 step과 같은 시간대의 요청 실패를 우선 확인하세요.";
+    return "브라우저 콘솔 오류와 실패한 네트워크 요청이 함께 기록되었습니다. 실패 단계와 같은 시간대의 요청 실패를 우선 확인하세요.";
   }
 
   if (networkFailures.length > 0) {
-    return "failed network request가 기록되었습니다. API, 정적 리소스, redirect, CORS, 차단된 요청 여부를 상세 카드에서 확인하세요.";
+    return "실패한 네트워크 요청이 기록되었습니다. API, 정적 리소스, 리다이렉트, CORS, 차단된 요청 여부를 상세 카드에서 확인하세요.";
   }
 
   if (consoleErrors.length > 0) {
-    return "브라우저 console.error가 기록되었습니다. 사용자 흐름 실패와 직접 관련된 client-side 오류인지 상세 카드에서 확인하세요.";
+    return "브라우저 콘솔 오류(console.error)가 기록되었습니다. 사용자 흐름 실패와 직접 관련된 클라이언트 오류인지 상세 카드에서 확인하세요.";
   }
 
-  return "ScenarioRun 실행 중 저장된 console.error 또는 failed network request가 없습니다.";
+  return "실행 중 저장된 콘솔 오류 또는 실패한 네트워크 요청이 없습니다.";
 }
 
 function ConsoleErrorsCard({ consoleErrors }: { consoleErrors: ConsoleError[] }) {
   if (consoleErrors.length === 0) {
     return (
       <EmptyResultCard
-        title="Console errors"
-        description="저장된 browser console error가 없습니다."
+        title="콘솔 오류"
+        description="저장된 브라우저 콘솔 오류가 없습니다."
       />
     );
   }
@@ -385,17 +386,17 @@ function ConsoleErrorsCard({ consoleErrors }: { consoleErrors: ConsoleError[] })
   return (
     <EvidenceListCard
       count={consoleErrors.length}
-      description="브라우저에서 수집한 console.error 근거입니다. 메시지, source URL, line/column을 확인해 사용자 흐름 실패와의 연관성을 판단하세요."
-      title="Browser console errors"
+      description="브라우저에서 수집한 console.error 근거입니다. 메시지, 발생 URL, 줄/열 위치를 확인해 사용자 흐름 실패와의 연관성을 판단하세요."
+      title="브라우저 콘솔 오류"
       items={consoleErrors.map((consoleError) => ({
         id: consoleError.id,
         title: consoleError.message,
-        subtitle: consoleError.source_url ?? "source 없음",
+        subtitle: consoleError.source_url ?? "발생 위치 없음",
         details: [
-          ["Level", consoleError.level],
-          ["Line", formatNullable(consoleError.line_number)],
-          ["Column", formatNullable(consoleError.column_number)],
-          ["Created", formatDetailDateTime(consoleError.created_at)]
+          ["수준", consoleError.level],
+          ["줄", formatNullable(consoleError.line_number)],
+          ["열", formatNullable(consoleError.column_number)],
+          ["기록 시각", formatDetailDateTime(consoleError.created_at)]
         ]
       }))}
     />
@@ -406,8 +407,8 @@ function NetworkFailuresCard({ networkFailures }: { networkFailures: NetworkFail
   if (networkFailures.length === 0) {
     return (
       <EmptyResultCard
-        title="Network failures"
-        description="저장된 failed network request가 없습니다."
+        title="네트워크 실패"
+        description="저장된 실패한 네트워크 요청이 없습니다."
       />
     );
   }
@@ -415,16 +416,16 @@ function NetworkFailuresCard({ networkFailures }: { networkFailures: NetworkFail
   return (
     <EvidenceListCard
       count={networkFailures.length}
-      description="Playwright 실행 중 실패한 network request 근거입니다. API 요청 실패나 필수 리소스 로딩 실패 여부를 먼저 확인하세요."
-      title="Failed network requests"
+      description="Playwright 실행 중 실패한 네트워크 요청 근거입니다. API 요청 실패나 필수 리소스 로딩 실패 여부를 먼저 확인하세요."
+      title="실패한 네트워크 요청"
       items={networkFailures.map((networkFailure) => ({
         id: networkFailure.id,
         title: networkFailure.request_url,
-        subtitle: networkFailure.failure_text ?? "failure text 없음",
+        subtitle: networkFailure.failure_text ?? "실패 사유 없음",
         details: [
-          ["Method", networkFailure.method],
-          ["Resource", networkFailure.resource_type ?? "알 수 없음"],
-          ["Created", formatDetailDateTime(networkFailure.created_at)]
+          ["메서드", networkFailure.method],
+          ["리소스 유형", networkFailure.resource_type ?? "알 수 없음"],
+          ["기록 시각", formatDetailDateTime(networkFailure.created_at)]
         ]
       }))}
     />
@@ -452,7 +453,7 @@ function EvidenceListCard({
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-rose-700">
-            Evidence
+            근거
           </p>
           <h2 className="mt-2 text-xl font-semibold">{title}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>

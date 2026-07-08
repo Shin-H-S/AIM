@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import { formatDateTime, formatNullableDateTime } from "@/lib/format";
+import { triggerSourceLabel } from "@/lib/statusLabels";
 import { ScoreTrendPanel } from "@/components/charts";
 import { buildScoreTrendSeries, scoredRunCount } from "@/lib/scoreTrend";
 import {
@@ -115,7 +116,7 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
     setHasMoreCheckRuns(nextResult.checkRuns.length === LIST_LIMIT);
 
     if (nextResult.checkRuns.length === 0) {
-      setListMessage("더 불러올 CheckRun이 없습니다.");
+      setListMessage("더 불러올 검사가 없습니다.");
     }
 
     setIsLoadingMore(false);
@@ -134,18 +135,18 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
-                AIM Check Runs
+                AIM 검사
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-                CheckRun 이력
+                검사 이력
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600">
-                이 프로젝트의 전체 검사 이력입니다. 결과 페이지에서 점수, baseline 비교,
+                이 프로젝트의 전체 검사 이력입니다. 결과 페이지에서 점수, 기준점 비교,
                 AI 진단을 확인할 수 있습니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <LinkButton href={`/projects/${projectId}/settings`} label="Project 설정" />
+              <LinkButton href={`/projects/${projectId}/settings`} label="프로젝트 설정" />
               <RefreshButton isLoading={isLoading} onClick={() => void loadCheckRuns()} />
             </div>
           </div>
@@ -153,7 +154,7 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
 
         {result.state === "checking" && (
           <Notice
-            description="저장된 로그인 세션이 있으면 자동으로 CheckRun 이력을 조회합니다."
+            description="저장된 로그인 세션이 있으면 자동으로 검사 이력을 조회합니다."
             title="로그인 세션 확인 중"
             tone="info"
           />
@@ -165,8 +166,8 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
 
         {result.state === "not-found" && (
           <Notice
-            description="Project ID 또는 현재 사용자 권한을 확인하세요."
-            title="CheckRun 이력을 찾을 수 없습니다"
+            description="프로젝트 ID 또는 현재 사용자 권한을 확인하세요."
+            title="검사 이력을 찾을 수 없습니다"
             tone="danger"
           />
         )}
@@ -213,7 +214,7 @@ function SummaryCard({
             최근 실행 요약
           </p>
           <h2 className="mt-3 text-2xl font-bold text-slate-900">
-            최근 CheckRun {summary.total}개
+            최근 검사 {summary.total}개
           </h2>
           <p className="mt-2 text-sm text-slate-500">
             마지막 조회: {lastUpdatedAt ?? "아직 없음"}
@@ -225,11 +226,11 @@ function SummaryCard({
       </div>
 
       <dl className="mt-6 grid gap-4 md:grid-cols-5">
-        <Metric label="Total" value={`${summary.total}개`} />
-        <Metric label="Active" value={`${summary.active}개`} />
-        <Metric label="Completed" value={`${summary.completed}개`} />
-        <Metric label="Failed" value={`${summary.failed}개`} />
-        <Metric label="Cancelled" value={`${summary.cancelled}개`} />
+        <Metric label="전체" value={`${summary.total}개`} />
+        <Metric label="진행 중" value={`${summary.active}개`} />
+        <Metric label="완료" value={`${summary.completed}개`} />
+        <Metric label="실패" value={`${summary.failed}개`} />
+        <Metric label="취소" value={`${summary.cancelled}개`} />
       </dl>
     </section>
   );
@@ -276,9 +277,9 @@ function CheckRunList({
   if (checkRuns.length === 0) {
     return (
       <section className="rounded-3xl border border-dashed border-slate-200 bg-white/60 p-6">
-        <h2 className="text-xl font-semibold">CheckRun 없음</h2>
+        <h2 className="text-xl font-semibold">검사 없음</h2>
         <p className="mt-3 text-sm leading-6 text-slate-500">
-          아직 실행된 CheckRun이 없습니다. Dashboard에서 검사를 시작하면 이곳에 이력이
+          아직 실행된 검사가 없습니다. 대시보드에서 검사를 시작하면 이곳에 이력이
           기록됩니다.
         </p>
       </section>
@@ -306,12 +307,12 @@ function CheckRunList({
           onClick={onLoadMore}
           type="button"
         >
-          {isLoadingMore ? "더 불러오는 중" : "CheckRun 더 보기"}
+          {isLoadingMore ? "더 불러오는 중" : "검사 더 보기"}
         </button>
         <p className="text-sm text-slate-500">
           {hasMoreCheckRuns
             ? `${LIST_LIMIT}개 단위로 다음 실행 이력을 불러옵니다.`
-            : "현재 로드된 목록이 마지막 page입니다."}
+            : "현재 로드된 목록이 마지막 페이지입니다."}
         </p>
       </div>
 
@@ -336,7 +337,7 @@ function CheckRunCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap gap-2">
           <CheckRunStatusBadge status={checkRun.status} />
-          <Badge label={checkRun.trigger_source} />
+          <Badge label={triggerSourceLabel(checkRun.trigger_source)} />
         </div>
         <LinkButton
           href={`/projects/${projectId}/check-runs/${checkRun.id}`}
@@ -346,9 +347,9 @@ function CheckRunCard({
       </div>
 
       <dl className="mt-5 grid gap-3 md:grid-cols-3">
-        <Metric label="Queued" value={formatDateTime(checkRun.queued_at)} />
-        <Metric label="Started" value={formatNullableDateTime(checkRun.started_at)} />
-        <Metric label="Finished" value={formatNullableDateTime(checkRun.finished_at)} />
+        <Metric label="대기 시각" value={formatDateTime(checkRun.queued_at)} />
+        <Metric label="시작 시각" value={formatNullableDateTime(checkRun.started_at)} />
+        <Metric label="종료 시각" value={formatNullableDateTime(checkRun.finished_at)} />
       </dl>
 
       {checkRun.failure_reason && (
@@ -400,6 +401,6 @@ function summarizeCheckRuns(checkRuns: CheckRunSummary[]): CheckRunListSummary {
 const checkRunListMessageByState: Record<Exclude<CheckRunListResult["state"], "success">, string> =
   {
     unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
-    "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
-    unavailable: "CheckRun 이력을 더 불러오지 못했습니다. 잠시 후 다시 시도하세요."
+    "not-found": "프로젝트를 찾을 수 없습니다. 대시보드에서 다시 선택하세요.",
+    unavailable: "검사 이력을 더 불러오지 못했습니다. 잠시 후 다시 시도하세요."
   };

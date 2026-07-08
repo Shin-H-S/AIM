@@ -157,9 +157,9 @@ function AIReportChangesCard({
             <li className="rounded-2xl border border-slate-200 bg-slate-50 p-4" key={change.id}>
               <p className="text-sm font-semibold text-slate-900">{change.summary}</p>
               <dl className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
-                <Metric label="Previous" value={formatReportValue(change.previous_value)} />
-                <Metric label="Current" value={formatReportValue(change.current_value)} />
-                <Metric label="Delta" value={formatReportValue(change.delta)} />
+                <Metric label="이전" value={formatReportValue(change.previous_value)} />
+                <Metric label="현재" value={formatReportValue(change.current_value)} />
+                <Metric label="변화" value={formatReportValue(change.delta)} />
               </dl>
             </li>
           ))}

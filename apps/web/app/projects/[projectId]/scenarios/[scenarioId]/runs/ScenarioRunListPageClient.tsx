@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
 import { formatDateTime, formatMilliseconds, formatNullableDateTime } from "@/lib/format";
+import { triggerSourceLabel } from "@/lib/statusLabels";
 import {
   Badge,
   LinkButton,
@@ -121,7 +122,7 @@ export function ScenarioRunListPageClient({
     setHasMoreScenarioRuns(nextResult.scenarioRuns.length === LIST_LIMIT);
 
     if (nextResult.scenarioRuns.length === 0) {
-      setListMessage("더 불러올 ScenarioRun이 없습니다.");
+      setListMessage("더 불러올 시나리오 실행이 없습니다.");
     }
 
     setIsLoadingMore(false);
@@ -140,18 +141,18 @@ export function ScenarioRunListPageClient({
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
-                AIM Scenario Runs
+                AIM 시나리오 실행
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-                ScenarioRun 목록
+                시나리오 실행 목록
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600">
-                이 scenario의 최근 실행 이력입니다. 실패한 실행은 상세 결과에서 step별
+                이 시나리오의 최근 실행 이력입니다. 실패한 실행은 상세 결과에서 단계별
                 원인과 브라우저 근거를 확인할 수 있습니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <LinkButton href={`/projects/${projectId}/scenarios`} label="Scenario 목록" />
+              <LinkButton href={`/projects/${projectId}/scenarios`} label="시나리오 목록" />
               <RefreshButton isLoading={isLoading} onClick={() => void loadScenarioRuns()} />
             </div>
           </div>
@@ -159,7 +160,7 @@ export function ScenarioRunListPageClient({
 
         {result.state === "checking" && (
           <Notice
-            description="저장된 로그인 세션이 있으면 자동으로 ScenarioRun 목록을 조회합니다."
+            description="저장된 로그인 세션이 있으면 자동으로 시나리오 실행 목록을 조회합니다."
             title="로그인 세션 확인 중"
             tone="info"
           />
@@ -171,8 +172,8 @@ export function ScenarioRunListPageClient({
 
         {result.state === "not-found" && (
           <Notice
-            description="Project ID, Scenario ID 또는 현재 사용자 권한을 확인하세요."
-            title="ScenarioRun 목록을 찾을 수 없습니다"
+            description="프로젝트 ID, 시나리오 ID 또는 현재 사용자 권한을 확인하세요."
+            title="시나리오 실행 목록을 찾을 수 없습니다"
             tone="danger"
           />
         )}
@@ -219,7 +220,7 @@ function SummaryCard({
             최근 실행 요약
           </p>
           <h2 className="mt-3 text-2xl font-bold text-slate-900">
-            최근 ScenarioRun {summary.total}개
+            최근 시나리오 실행 {summary.total}개
           </h2>
           <p className="mt-2 text-sm text-slate-500">
             마지막 조회: {lastUpdatedAt ?? "아직 없음"}
@@ -231,11 +232,11 @@ function SummaryCard({
       </div>
 
       <dl className="mt-6 grid gap-4 md:grid-cols-5">
-        <Metric label="Total" value={`${summary.total}개`} />
-        <Metric label="Active" value={`${summary.active}개`} />
-        <Metric label="Completed" value={`${summary.completed}개`} />
-        <Metric label="Failed" value={`${summary.failed}개`} />
-        <Metric label="Cancelled" value={`${summary.cancelled}개`} />
+        <Metric label="전체" value={`${summary.total}개`} />
+        <Metric label="진행 중" value={`${summary.active}개`} />
+        <Metric label="완료" value={`${summary.completed}개`} />
+        <Metric label="실패" value={`${summary.failed}개`} />
+        <Metric label="취소" value={`${summary.cancelled}개`} />
       </dl>
     </section>
   );
@@ -261,9 +262,9 @@ function ScenarioRunList({
   if (scenarioRuns.length === 0) {
     return (
       <section className="rounded-3xl border border-dashed border-slate-200 bg-white/60 p-6">
-        <h2 className="text-xl font-semibold">ScenarioRun 없음</h2>
+        <h2 className="text-xl font-semibold">시나리오 실행 없음</h2>
         <p className="mt-3 text-sm leading-6 text-slate-500">
-          아직 이 Scenario에서 생성된 실행 이력이 없습니다. Scenario 목록에서 수동 실행을
+          아직 이 시나리오에서 생성된 실행 이력이 없습니다. 시나리오 목록에서 수동 실행을
           생성하면 이곳에 기록됩니다.
         </p>
       </section>
@@ -296,12 +297,12 @@ function ScenarioRunList({
           onClick={onLoadMore}
           type="button"
         >
-          {isLoadingMore ? "더 불러오는 중" : "ScenarioRun 더 보기"}
+          {isLoadingMore ? "더 불러오는 중" : "실행 더 보기"}
         </button>
         <p className="text-sm text-slate-500">
           {hasMoreScenarioRuns
             ? `${LIST_LIMIT}개 단위로 다음 실행 이력을 불러옵니다.`
-            : "현재 로드된 목록이 마지막 page입니다."}
+            : "현재 로드된 목록이 마지막 페이지입니다."}
         </p>
       </div>
 
@@ -328,14 +329,14 @@ function ScenarioRunCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap gap-2">
           <ScenarioRunStatusBadge status={scenarioRun.status} />
-          <Badge label={scenarioRun.trigger_source} />
-          {scenarioRun.check_run_id && <Badge label="linked check run" />}
+          <Badge label={triggerSourceLabel(scenarioRun.trigger_source)} />
+          {scenarioRun.check_run_id && <Badge label="검사 연동" />}
         </div>
         <div className="flex flex-wrap gap-2">
           {scenarioRun.check_run_id && (
             <LinkButton
               href={`/projects/${projectId}/check-runs/${scenarioRun.check_run_id}`}
-              label="CheckRun 보기"
+              label="검사 보기"
             />
           )}
           <LinkButton
@@ -347,10 +348,10 @@ function ScenarioRunCard({
       </div>
 
       <dl className="mt-5 grid gap-3 md:grid-cols-4">
-        <Metric label="Queued" value={formatDateTime(scenarioRun.queued_at)} />
-        <Metric label="Started" value={formatNullableDateTime(scenarioRun.started_at)} />
-        <Metric label="Finished" value={formatNullableDateTime(scenarioRun.finished_at)} />
-        <Metric label="Duration" value={formatMilliseconds(scenarioRun.duration_ms)} />
+        <Metric label="대기 시각" value={formatDateTime(scenarioRun.queued_at)} />
+        <Metric label="시작 시각" value={formatNullableDateTime(scenarioRun.started_at)} />
+        <Metric label="종료 시각" value={formatNullableDateTime(scenarioRun.finished_at)} />
+        <Metric label="소요 시간" value={formatMilliseconds(scenarioRun.duration_ms)} />
       </dl>
 
       {scenarioRun.failure_reason && (
@@ -400,6 +401,6 @@ const scenarioRunListMessageByState: Record<
   string
 > = {
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
-  "not-found": "Project 또는 Scenario를 찾을 수 없습니다. Scenario 목록에서 다시 선택하세요.",
-  unavailable: "ScenarioRun 목록을 더 불러오지 못했습니다. 잠시 후 다시 시도하세요."
+  "not-found": "프로젝트 또는 시나리오를 찾을 수 없습니다. 시나리오 목록에서 다시 선택하세요.",
+  unavailable: "시나리오 실행 목록을 더 불러오지 못했습니다. 잠시 후 다시 시도하세요."
 };

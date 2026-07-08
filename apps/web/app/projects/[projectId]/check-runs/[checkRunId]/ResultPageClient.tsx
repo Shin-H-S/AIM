@@ -31,6 +31,7 @@ import {
   type SslResult
 } from "@/lib/api";
 import { buildAvailabilityAdvice, buildSslAdvice } from "@/lib/advice";
+import { triggerSourceLabel } from "@/lib/statusLabels";
 import {
   RingGauge,
   ScoreBandLegend,
@@ -253,12 +254,12 @@ export function ResultPageClient({
       setBaselineActionError("인증이 만료되었습니다. 다시 로그인한 뒤 시도하세요.");
     } else if (mutationResult.state === "conflict") {
       setBaselineActionError(
-        "terminal 상태이고 score가 계산된 CheckRun만 baseline으로 지정할 수 있습니다."
+        "종료 상태이고 점수가 계산된 검사만 기준점으로 지정할 수 있습니다."
       );
     } else if (mutationResult.state === "not-found") {
-      setBaselineActionError("프로젝트 또는 CheckRun을 찾을 수 없습니다.");
+      setBaselineActionError("프로젝트 또는 검사를 찾을 수 없습니다.");
     } else {
-      setBaselineActionError("baseline 설정 요청이 실패했습니다. API 서버 상태를 확인하세요.");
+      setBaselineActionError("기준점 설정 요청이 실패했습니다. API 서버 상태를 확인하세요.");
     }
 
     setIsBaselineMutating(false);
@@ -286,7 +287,7 @@ export function ResultPageClient({
     } else if (mutationResult.state === "not-found") {
       setBaselineActionError("프로젝트를 찾을 수 없습니다.");
     } else {
-      setBaselineActionError("baseline 해제 요청이 실패했습니다. API 서버 상태를 확인하세요.");
+      setBaselineActionError("기준점 해제 요청이 실패했습니다. API 서버 상태를 확인하세요.");
     }
 
     setIsBaselineMutating(false);
@@ -325,7 +326,7 @@ export function ResultPageClient({
       clearStoredAccessTokenIfMatches(accessToken);
       setCancelError("인증이 만료되었습니다. 다시 로그인한 뒤 시도하세요.");
     } else if (cancelResult.state === "not-found") {
-      setCancelError("CheckRun을 찾을 수 없습니다.");
+      setCancelError("검사를 찾을 수 없습니다.");
     } else {
       setCancelError("취소 요청이 실패했습니다. API 서버 상태를 확인하세요.");
     }
@@ -340,10 +341,10 @@ export function ResultPageClient({
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
-                AIM Scan Result
+                AIM 검사 결과
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-                CheckRun 결과
+                검사 결과
               </h1>
               <p className="mt-4 text-sm leading-6 text-slate-600">
                 검사 상태와 수집된 결과를 보여줍니다. 검사가 진행 중이면 자동으로
@@ -351,7 +352,7 @@ export function ResultPageClient({
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <LinkButton href={`/projects/${projectId}/check-runs`} label="CheckRun 이력" />
+              <LinkButton href={`/projects/${projectId}/check-runs`} label="검사 이력" />
               <RefreshButton isLoading={isLoading} onClick={() => void refresh()} />
             </div>
           </div>
@@ -361,7 +362,7 @@ export function ResultPageClient({
           <Notice
             tone="info"
             title="로그인 세션 확인 중"
-            description="저장된 로그인 세션이 있으면 자동으로 CheckRun 결과를 조회합니다."
+            description="저장된 로그인 세션이 있으면 자동으로 검사 결과를 조회합니다."
           />
         )}
 
@@ -372,8 +373,8 @@ export function ResultPageClient({
         {result.state === "not-found" && (
           <Notice
             tone="danger"
-            title="CheckRun을 찾을 수 없습니다"
-            description="Project ID, CheckRun ID 또는 현재 사용자 권한을 확인하세요."
+            title="검사를 찾을 수 없습니다"
+            description="프로젝트 ID, 검사 ID 또는 현재 사용자 권한을 확인하세요."
           />
         )}
 
@@ -465,13 +466,13 @@ function StatusSummary({
       </div>
       <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric
-          hint="검사를 시작한 방식입니다 — manual은 수동 실행, scheduled는 정기 스캔."
-          label="Trigger"
-          value={checkRun.trigger_source}
+          hint="검사를 시작한 방식입니다 — 수동 실행, 정기 검사 등."
+          label="트리거"
+          value={triggerSourceLabel(checkRun.trigger_source)}
         />
-        <Metric label="Polling" value={shouldPoll ? "자동 새로고침 중" : "중지됨"} />
-        <Metric label="Failure" value={checkRun.failure_reason ?? "없음"} />
-        <Metric label="Last refresh" value={lastUpdatedAt ?? "아직 없음"} />
+        <Metric label="자동 새로고침" value={shouldPoll ? "동작 중" : "중지됨"} />
+        <Metric label="실패 사유" value={checkRun.failure_reason ?? "없음"} />
+        <Metric label="마지막 갱신" value={lastUpdatedAt ?? "아직 없음"} />
       </dl>
 
       {shouldPoll && (
@@ -482,10 +483,10 @@ function StatusSummary({
             onClick={onCancel}
             type="button"
           >
-            {isCancelling ? "취소 요청 중" : "이 CheckRun 취소"}
+            {isCancelling ? "취소 요청 중" : "이 검사 취소"}
           </button>
           <p className="mt-2 text-xs text-slate-500">
-            대기·실행·분석 중인 CheckRun만 취소할 수 있습니다.
+            대기·실행·분석 중인 검사만 취소할 수 있습니다.
           </p>
         </div>
       )}
@@ -504,10 +505,10 @@ function TimelineCard({ checkRun }: { checkRun: CheckRunDetail }) {
     <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <h2 className="mb-5 text-xl font-semibold">타임라인</h2>
       <dl className="grid gap-4 text-sm text-slate-600">
-        <Metric label="Queued" value={formatDetailDateTime(checkRun.queued_at)} />
-        <Metric label="Started" value={formatDetailDateTime(checkRun.started_at)} />
-        <Metric label="Finished" value={formatDetailDateTime(checkRun.finished_at)} />
-        <Metric label="Updated" value={formatDetailDateTime(checkRun.updated_at)} />
+        <Metric label="대기 시각" value={formatDetailDateTime(checkRun.queued_at)} />
+        <Metric label="시작 시각" value={formatDetailDateTime(checkRun.started_at)} />
+        <Metric label="종료 시각" value={formatDetailDateTime(checkRun.finished_at)} />
+        <Metric label="갱신 시각" value={formatDetailDateTime(checkRun.updated_at)} />
       </dl>
     </article>
   );
@@ -515,7 +516,7 @@ function TimelineCard({ checkRun }: { checkRun: CheckRunDetail }) {
 
 export function ScoreCard({ result }: { result: ScoreResult | null }) {
   if (!result) {
-    return <EmptyResultCard title="Score" description="아직 계산된 score result가 없습니다." />;
+    return <EmptyResultCard title="점수" description="아직 계산된 점수가 없습니다." />;
   }
 
   const riskClassName = getRiskBadgeClassName(result.deployment_risk);
@@ -591,7 +592,7 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
         <div className="mt-5">
           <Notice
             tone={result.deployment_risk === "RISK" ? "danger" : "info"}
-            title="Risk gate 적용"
+            title="위험 게이트 적용"
             description={result.gate_reason}
           />
         </div>
@@ -612,7 +613,7 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
       {result.score_breakdown && <ScoreBreakdownSection breakdown={result.score_breakdown} />}
 
       <p className="mt-5 text-xs text-slate-500">
-        Updated: {formatDetailDateTime(result.updated_at)}
+        갱신 시각: {formatDetailDateTime(result.updated_at)}
       </p>
     </article>
   );
@@ -688,8 +689,8 @@ export function AIReportSummaryCard({
   if (!report) {
     return (
       <EmptyResultCard
-        title="AI diagnosis"
-        description="아직 저장된 AI 진단 요약이 없습니다. CheckRun이 terminal 상태가 된 뒤 worker가 리포트를 생성합니다."
+        title="AI 진단"
+        description="아직 저장된 AI 진단 요약이 없습니다. 검사가 종료된 뒤 리포트가 생성됩니다."
       />
     );
   }
@@ -701,7 +702,7 @@ export function AIReportSummaryCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-            AI diagnosis
+            AI 진단
             <InfoHint text="수집된 근거만을 바탕으로 AI가 작성한 진단 요약입니다." />
           </p>
           <h2 className="mt-3 text-2xl font-bold">근거 기반 진단 요약</h2>
@@ -725,20 +726,20 @@ export function AIReportSummaryCard({
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
         <Metric
           hint="종합 점수의 등급입니다 — 90점 이상 A, 80 이상 B, 70 이상 C, 50 이상 D, 그 미만 F."
-          label="Grade"
+          label="등급"
           value={report.grade}
         />
         <Metric
           hint="카테고리 점수를 가중치로 평균 낸 종합 점수입니다."
-          label="Overall score"
+          label="종합 점수"
           value={`${report.overall_score}/100`}
         />
-        <Metric label="Generated" value={formatDetailDateTime(report.generated_at)} />
-        <Metric label="Updated" value={formatDetailDateTime(report.updated_at)} />
+        <Metric label="생성 시각" value={formatDetailDateTime(report.generated_at)} />
+        <Metric label="갱신 시각" value={formatDetailDateTime(report.updated_at)} />
       </dl>
 
       <p className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-500">
-        이 요약은 AIM이 수집한 score, scanner result, scenario evidence를 바탕으로 생성됩니다.
+        이 요약은 AIM이 수집한 점수, 스캔 결과, 시나리오 근거를 바탕으로 생성됩니다.
         내부 원인이나 소스 코드 위치를 확정 사실처럼 표시하지 않습니다.
       </p>
 
@@ -761,7 +762,7 @@ export function AIReportSummaryCard({
         <div className="mt-5">
           <Notice
             tone="danger"
-            title="AIReport 인증 실패"
+            title="AI 리포트 인증 실패"
             description="토큰이 없거나 만료되었거나, 이 리포트에 접근할 권한이 없습니다."
           />
         </div>
@@ -771,8 +772,8 @@ export function AIReportSummaryCard({
         <div className="mt-5">
           <Notice
             tone="info"
-            title="AIReport 상세 없음"
-            description="요약은 있지만 전체 리포트가 아직 저장되지 않았거나, CheckRun 권한을 다시 확인해야 합니다."
+            title="AI 리포트 상세 없음"
+            description="요약은 있지만 전체 리포트가 아직 저장되지 않았거나, 검사 접근 권한을 다시 확인해야 합니다."
           />
         </div>
       )}
@@ -781,7 +782,7 @@ export function AIReportSummaryCard({
         <div className="mt-5">
           <Notice
             tone="danger"
-            title="AIReport 요청 실패"
+            title="AI 리포트 요청 실패"
             description="API 서버 상태와 네트워크 연결을 확인한 뒤 다시 시도하세요."
           />
         </div>
@@ -798,8 +799,8 @@ function ComparisonCard({ result }: { result: RunComparison | null }) {
   if (!result) {
     return (
       <EmptyResultCard
-        title="Previous run comparison"
-        description="비교 가능한 이전 run이 아직 없습니다."
+        title="직전 검사 비교"
+        description="비교 가능한 이전 검사가 아직 없습니다."
       />
     );
   }
@@ -812,9 +813,9 @@ function ComparisonCard({ result }: { result: RunComparison | null }) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-            Previous run comparison
+            직전 검사 비교
           </p>
-          <h2 className="mt-3 text-2xl font-bold">직전 run 대비 변화</h2>
+          <h2 className="mt-3 text-2xl font-bold">직전 검사 대비 변화</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600">{result.summary}</p>
         </div>
         <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
@@ -822,24 +823,24 @@ function ComparisonCard({ result }: { result: RunComparison | null }) {
         </span>
       </div>
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-        <Metric label="Overall score" value={formatDelta(result.overall_score_delta)} />
-        <Metric label="Availability" value={formatDelta(result.availability_score_delta)} />
-        <Metric label="Performance score" value={formatDelta(result.performance_score_delta)} />
+        <Metric label="종합 점수" value={formatDelta(result.overall_score_delta)} />
+        <Metric label="가용성" value={formatDelta(result.availability_score_delta)} />
+        <Metric label="성능 점수" value={formatDelta(result.performance_score_delta)} />
         <Metric
-          label="Web performance"
+          label="웹 성능"
           value={formatDelta(result.web_performance_score_delta)}
         />
-        <Metric label="Accessibility" value={formatDelta(result.accessibility_score_delta)} />
+        <Metric label="접근성" value={formatDelta(result.accessibility_score_delta)} />
         <Metric
-          label="SEO/basic quality"
+          label="SEO/기본 품질"
           value={formatDelta(result.seo_basic_quality_score_delta)}
         />
         <Metric
-          label="Response time"
+          label="응답 시간"
           value={formatMillisecondsDelta(result.response_time_delta_ms)}
         />
         <Metric
-          label="Risk changed"
+          label="위험 변화"
           value={result.deployment_risk_changed ? "예" : "아니오"}
         />
       </dl>
@@ -867,8 +868,8 @@ function BaselineComparisonCard({
   if (!project) {
     return (
       <EmptyResultCard
-        title="Baseline comparison"
-        description="프로젝트 정보를 불러온 뒤 baseline 지정과 비교를 사용할 수 있습니다."
+        title="기준점 비교"
+        description="프로젝트 정보를 불러온 뒤 기준점 지정과 비교를 사용할 수 있습니다."
       />
     );
   }
@@ -883,17 +884,17 @@ function BaselineComparisonCard({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-            Baseline comparison
+            기준점 비교
           </p>
-          <h2 className="mt-3 text-2xl font-bold">Baseline 대비 변화</h2>
+          <h2 className="mt-3 text-2xl font-bold">기준점 대비 변화</h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            프로젝트 baseline은 배포 전 마지막 정상 run 같은 기준점입니다. 직전 run 비교와 달리
+            기준점은 배포 전 마지막 정상 검사 같은 비교 기준입니다. 직전 검사 비교와 달리
             항상 같은 기준과 비교하므로 배포가 실제로 나아졌는지 판단할 수 있습니다.
           </p>
         </div>
         {isCurrentBaseline && (
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
-            현재 baseline
+            현재 기준점
           </span>
         )}
       </div>
@@ -906,7 +907,7 @@ function BaselineComparisonCard({
             onClick={onClearBaseline}
             type="button"
           >
-            {isMutating ? "baseline 해제 중" : "baseline 해제"}
+            {isMutating ? "기준점 해제 중" : "기준점 해제"}
           </button>
         ) : (
           <button
@@ -915,19 +916,19 @@ function BaselineComparisonCard({
             onClick={onSetBaseline}
             type="button"
           >
-            {isMutating ? "baseline 지정 중" : "이 run을 baseline으로 지정"}
+            {isMutating ? "기준점 지정 중" : "이 검사를 기준점으로 지정"}
           </button>
         )}
         {!isCurrentBaseline && !canPin && (
           <p className="text-xs text-slate-500">
-            terminal 상태이고 score가 계산된 run만 baseline으로 지정할 수 있습니다.
+            종료 상태이고 점수가 계산된 검사만 기준점으로 지정할 수 있습니다.
           </p>
         )}
       </div>
 
       {actionError && (
         <div className="mt-5">
-          <Notice tone="danger" title="Baseline 요청 실패" description={actionError} />
+          <Notice tone="danger" title="기준점 요청 실패" description={actionError} />
         </div>
       )}
 
@@ -958,8 +959,8 @@ function BaselineComparisonBody({
     return (
       <Notice
         tone="info"
-        title="아직 baseline이 없습니다"
-        description="terminal 상태의 run에서 baseline을 지정하면 이후 모든 run을 같은 기준과 비교할 수 있습니다."
+        title="아직 기준점이 없습니다"
+        description="종료 상태의 검사에서 기준점을 지정하면 이후 모든 검사를 같은 기준과 비교할 수 있습니다."
       />
     );
   }
@@ -968,8 +969,8 @@ function BaselineComparisonBody({
     return (
       <Notice
         tone="info"
-        title="이 run이 프로젝트 baseline입니다"
-        description="다른 CheckRun 결과 페이지에서 이 baseline 대비 변화를 확인할 수 있습니다."
+        title="이 검사가 프로젝트 기준점입니다"
+        description="다른 검사 결과 페이지에서 이 기준점 대비 변화를 확인할 수 있습니다."
       />
     );
   }
@@ -978,21 +979,21 @@ function BaselineComparisonBody({
     return (
       <Notice
         tone="info"
-        title="run이 아직 완료되지 않았습니다"
-        description="CheckRun이 terminal 상태가 되면 baseline 비교를 계산합니다."
+        title="검사가 아직 완료되지 않았습니다"
+        description="검사가 종료 상태가 되면 기준점 비교를 계산합니다."
       />
     );
   }
 
   if (!comparisonResult) {
-    return <p className="text-sm text-slate-500">baseline 비교를 불러오는 중입니다.</p>;
+    return <p className="text-sm text-slate-500">기준점 비교를 불러오는 중입니다.</p>;
   }
 
   if (comparisonResult.state === "unauthorized") {
     return (
       <Notice
         tone="danger"
-        title="baseline 비교 인증 실패"
+        title="기준점 비교 인증 실패"
         description="토큰이 만료되었거나 이 프로젝트에 접근할 권한이 없습니다."
       />
     );
@@ -1002,8 +1003,8 @@ function BaselineComparisonBody({
     return (
       <Notice
         tone="danger"
-        title="baseline run을 찾을 수 없습니다"
-        description="baseline으로 지정된 CheckRun이 더 이상 존재하지 않습니다. baseline을 다시 지정하세요."
+        title="기준점 검사를 찾을 수 없습니다"
+        description="기준점으로 지정된 검사가 더 이상 존재하지 않습니다. 기준점을 다시 지정하세요."
       />
     );
   }
@@ -1012,8 +1013,8 @@ function BaselineComparisonBody({
     return (
       <Notice
         tone="info"
-        title="baseline 비교를 계산할 수 없습니다"
-        description="baseline 또는 이 run에 score result가 없어 비교할 수 없습니다."
+        title="기준점 비교를 계산할 수 없습니다"
+        description="기준점 또는 이 검사에 점수가 없어 비교할 수 없습니다."
       />
     );
   }
@@ -1022,7 +1023,7 @@ function BaselineComparisonBody({
     return (
       <Notice
         tone="danger"
-        title="baseline 비교 요청 실패"
+        title="기준점 비교 요청 실패"
         description="API 서버 상태와 네트워크 연결을 확인한 뒤 다시 시도하세요."
       />
     );
@@ -1034,30 +1035,30 @@ function BaselineComparisonBody({
     <div>
       <p className="text-sm leading-6 text-slate-600">{comparison.summary}</p>
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-        <Metric label="Overall score" value={formatDelta(comparison.overall_score_delta)} />
-        <Metric label="Availability" value={formatDelta(comparison.availability_score_delta)} />
+        <Metric label="종합 점수" value={formatDelta(comparison.overall_score_delta)} />
+        <Metric label="가용성" value={formatDelta(comparison.availability_score_delta)} />
         <Metric
-          label="Performance score"
+          label="성능 점수"
           value={formatDelta(comparison.performance_score_delta)}
         />
         <Metric
-          label="Web performance"
+          label="웹 성능"
           value={formatDelta(comparison.web_performance_score_delta)}
         />
         <Metric
-          label="Accessibility"
+          label="접근성"
           value={formatDelta(comparison.accessibility_score_delta)}
         />
         <Metric
-          label="SEO/basic quality"
+          label="SEO/기본 품질"
           value={formatDelta(comparison.seo_basic_quality_score_delta)}
         />
         <Metric
-          label="Response time"
+          label="응답 시간"
           value={formatMillisecondsDelta(comparison.response_time_delta_ms)}
         />
         <Metric
-          label="Deployment risk"
+          label="배포 위험"
           value={`${riskLabels[comparison.baseline_deployment_risk]} → ${
             riskLabels[comparison.current_deployment_risk]
           }`}
@@ -1082,16 +1083,16 @@ function LinkedScenarioRunsCard({
         className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
         id="scenario-runs-card"
       >
-        <h2 className="text-xl font-semibold text-slate-900">Linked ScenarioRuns</h2>
+        <h2 className="text-xl font-semibold text-slate-900">연결된 시나리오 실행</h2>
         <p className="mt-3 text-sm leading-6 text-slate-500">
-          이 CheckRun에 연결된 ScenarioRun이 없습니다. Project의 Scenario 목록에서 수동 실행
+          이 검사에 연결된 시나리오 실행이 없습니다. 프로젝트의 시나리오 목록에서 수동 실행
           이력과 설정을 확인할 수 있습니다.
         </p>
         <Link
           className="mt-5 inline-flex rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100"
           href={`/projects/${projectId}/scenarios`}
         >
-          Scenario 목록 보기
+          시나리오 목록 보기
         </Link>
       </article>
     );
@@ -1105,9 +1106,9 @@ function LinkedScenarioRunsCard({
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-            Functional checks
+            기능 검사
           </p>
-          <h2 className="mt-2 text-xl font-semibold">연결된 ScenarioRun</h2>
+          <h2 className="mt-2 text-xl font-semibold">연결된 시나리오 실행</h2>
         </div>
         <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
           {scenarioRuns.length}개
@@ -1118,11 +1119,11 @@ function LinkedScenarioRunsCard({
         <p className="font-semibold">{getScenarioSummaryTitle(summary)}</p>
         <p className="mt-2 text-sm opacity-80">{getScenarioSummaryDescription(summary)}</p>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
-          <Metric label="Total" value={`${summary.total}개`} />
-          <Metric label="Failed" value={`${summary.failed}개`} />
-          <Metric label="Active" value={`${summary.active}개`} />
-          <Metric label="Completed" value={`${summary.completed}개`} />
-          <Metric label="Cancelled" value={`${summary.cancelled}개`} />
+          <Metric label="전체" value={`${summary.total}개`} />
+          <Metric label="실패" value={`${summary.failed}개`} />
+          <Metric label="진행 중" value={`${summary.active}개`} />
+          <Metric label="완료" value={`${summary.completed}개`} />
+          <Metric label="취소" value={`${summary.cancelled}개`} />
         </dl>
       </div>
 
@@ -1140,7 +1141,7 @@ function LinkedScenarioRunsCard({
               key={scenarioRun.id}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <p className="font-semibold text-slate-900">ScenarioRun</p>
+                <p className="font-semibold text-slate-900">시나리오 실행</p>
                 <ScenarioRunStatusBadge status={scenarioRun.status} />
               </div>
               {isFailed && (
@@ -1149,25 +1150,25 @@ function LinkedScenarioRunsCard({
                 </p>
               )}
               <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Metric label="Trigger" value={scenarioRun.trigger_source} />
-                <Metric label="Duration" value={formatMilliseconds(scenarioRun.duration_ms)} />
-                <Metric label="Queued" value={formatDetailDateTime(scenarioRun.queued_at)} />
-                <Metric label="Started" value={formatDetailDateTime(scenarioRun.started_at)} />
-                <Metric label="Finished" value={formatDetailDateTime(scenarioRun.finished_at)} />
-                <Metric label="Failure" value={scenarioRun.failure_reason ?? "없음"} />
+                <Metric label="트리거" value={triggerSourceLabel(scenarioRun.trigger_source)} />
+                <Metric label="소요 시간" value={formatMilliseconds(scenarioRun.duration_ms)} />
+                <Metric label="대기 시각" value={formatDetailDateTime(scenarioRun.queued_at)} />
+                <Metric label="시작 시각" value={formatDetailDateTime(scenarioRun.started_at)} />
+                <Metric label="종료 시각" value={formatDetailDateTime(scenarioRun.finished_at)} />
+                <Metric label="실패 사유" value={scenarioRun.failure_reason ?? "없음"} />
               </dl>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link
                   className="inline-flex rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100"
                   href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs/${scenarioRun.id}`}
                 >
-                  ScenarioRun 결과 보기
+                  실행 결과 보기
                 </Link>
                 <Link
                   className="inline-flex rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
                   href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs`}
                 >
-                  ScenarioRun 목록 보기
+                  실행 목록 보기
                 </Link>
               </div>
             </li>
@@ -1219,18 +1220,18 @@ function summarizeScenarioRuns(scenarioRuns: ScenarioRun[]): ScenarioRunSummary 
 
 function getScenarioSummaryTitle(summary: ScenarioRunSummary) {
   if (summary.failed > 0) {
-    return `실패한 ScenarioRun ${summary.failed}개`;
+    return `실패한 시나리오 실행 ${summary.failed}개`;
   }
 
   if (summary.active > 0) {
-    return "ScenarioRun 실행 대기 또는 진행 중";
+    return "시나리오 실행 대기 또는 진행 중";
   }
 
   if (summary.cancelled > 0) {
-    return "취소된 ScenarioRun 포함";
+    return "취소된 시나리오 실행 포함";
   }
 
-  return "연결된 ScenarioRun 모두 성공";
+  return "연결된 시나리오 실행 모두 성공";
 }
 
 function getScenarioSummaryDescription(summary: ScenarioRunSummary) {
@@ -1239,14 +1240,14 @@ function getScenarioSummaryDescription(summary: ScenarioRunSummary) {
   }
 
   if (summary.active > 0) {
-    return "아직 terminal 상태가 아닌 ScenarioRun이 있어 functional stability 판단이 확정되지 않았습니다.";
+    return "아직 종료되지 않은 시나리오 실행이 있어 기능 안정성 판단이 확정되지 않았습니다.";
   }
 
   if (summary.cancelled > 0) {
-    return "취소된 ScenarioRun은 성공 근거로 볼 수 없으므로 수동 확인 또는 재실행이 필요합니다.";
+    return "취소된 시나리오 실행은 성공 근거로 볼 수 없으므로 수동 확인 또는 재실행이 필요합니다.";
   }
 
-  return "모든 linked ScenarioRun이 완료되어 functional stability 판단 근거로 사용할 수 있습니다.";
+  return "연결된 시나리오 실행이 모두 완료되어 기능 안정성 판단 근거로 사용할 수 있습니다.";
 }
 
 function getScenarioSummaryClassName(summary: ScenarioRunSummary) {
@@ -1273,7 +1274,7 @@ export function AvailabilityCard({
   result: AvailabilityResult | null;
 }) {
   if (!result) {
-    return <EmptyResultCard title="Availability" description="아직 availability 결과가 없습니다." />;
+    return <EmptyResultCard title="가용성" description="아직 가용성 결과가 없습니다." />;
   }
 
   const responseTimeMs = result.response_time_ms;
@@ -1289,7 +1290,7 @@ export function AvailabilityCard({
       id="availability-card"
     >
       <ResultHeader
-        title="Availability"
+        title="가용성"
         isHealthy={result.is_available}
         healthyLabel="사용 가능"
         unhealthyLabel="사용 불가"
@@ -1297,19 +1298,19 @@ export function AvailabilityCard({
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric
           hint="서버가 반환한 HTTP 상태 코드입니다 — 200이면 정상 응답."
-          label="Status code"
+          label="상태 코드"
           value={formatNullable(result.status_code)}
         />
         {!showResponseTimeBar && (
           <Metric
             hint="요청 후 첫 응답을 받기까지 걸린 시간입니다."
-            label="Response time"
+            label="응답 시간"
             value={formatMilliseconds(result.response_time_ms)}
           />
         )}
         <Metric
           hint="최종 페이지에 도달할 때까지 거친 리다이렉트 횟수입니다."
-          label="Redirects"
+          label="리다이렉트"
           value={String(result.redirect_count)}
         />
         <Metric
@@ -1319,10 +1320,10 @@ export function AvailabilityCard({
         />
         <Metric
           hint="제한 시간 안에 응답하지 못했는지 여부입니다."
-          label="Timed out"
+          label="시간 초과"
           value={result.timed_out ? "예" : "아니오"}
         />
-        <Metric label="Failure" value={result.failure_reason ?? "없음"} />
+        <Metric label="실패 사유" value={result.failure_reason ?? "없음"} />
       </dl>
       {showResponseTimeBar && (
         <div className="mt-5 border-t border-slate-200 pt-4">
@@ -1332,7 +1333,7 @@ export function AvailabilityCard({
             hint={`요청 후 첫 응답을 받기까지 걸린 시간입니다. 프로젝트 임계값(${formatMilliseconds(
               thresholdMs
             )}) 이내가 목표입니다.`}
-            label="Response time"
+            label="응답 시간"
             max={Math.max(thresholdMs * 2.5, responseTimeMs * 1.15)}
             midLabel={formatMilliseconds(thresholdMs * 2)}
             midTo={thresholdMs * 2}
@@ -1343,7 +1344,7 @@ export function AvailabilityCard({
       )}
       <AdviceList items={buildAvailabilityAdvice(result, responseTimeThresholdMs)} />
       <p className="mt-5 break-all text-xs text-slate-500">
-        Final URL: {result.final_url ?? "없음"}
+        최종 URL: {result.final_url ?? "없음"}
       </p>
     </article>
   );
@@ -1351,7 +1352,7 @@ export function AvailabilityCard({
 
 function SslCard({ result }: { result: SslResult | null }) {
   if (!result) {
-    return <EmptyResultCard title="SSL" description="아직 SSL inspection 결과가 없습니다." />;
+    return <EmptyResultCard title="SSL" description="아직 SSL 인증서 검사 결과가 없습니다." />;
   }
 
   const isHealthy = result.is_applicable ? result.is_valid === true : true;
@@ -1370,27 +1371,27 @@ function SslCard({ result }: { result: SslResult | null }) {
       <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
         <Metric
           hint="HTTPS를 사용하는 서비스만 인증서 검사 대상이 됩니다."
-          label="Applicable"
+          label="검사 대상"
           value={result.is_applicable ? "예" : "아니오"}
         />
         <Metric
           hint="인증서가 신뢰할 수 있고 만료되지 않았는지 여부입니다."
-          label="Valid"
+          label="유효 여부"
           value={formatBoolean(result.is_valid)}
         />
-        <Metric label="Expires at" value={formatDetailDateTime(result.expires_at)} />
+        <Metric label="만료 시각" value={formatDetailDateTime(result.expires_at)} />
         <Metric
-          label="Days left"
+          label="남은 기간"
           value={
             result.days_until_expiration === null
               ? "알 수 없음"
               : `${result.days_until_expiration}일`
           }
         />
-        <Metric label="Failure" value={result.failure_reason ?? "없음"} />
+        <Metric label="실패 사유" value={result.failure_reason ?? "없음"} />
       </dl>
       <AdviceList items={buildSslAdvice(result)} />
-      <p className="mt-5 break-all text-xs text-slate-500">Service URL: {result.service_url}</p>
+      <p className="mt-5 break-all text-xs text-slate-500">서비스 URL: {result.service_url}</p>
     </article>
   );
 }
@@ -1433,12 +1434,12 @@ export function LighthouseCard({ result }: { result: LighthouseResult | null }) 
       <div className="mt-5 flex flex-wrap gap-x-6 gap-y-5">
         <RingGauge
           hint="로딩 속도 지표를 종합한 Lighthouse 성능 점수입니다. (100점 만점)"
-          label="Performance"
+          label="성능"
           score={result.performance_score}
         />
         <RingGauge
           hint="색 대비, 스크린 리더 지원 같은 접근성 기준 점수입니다. (100점 만점)"
-          label="Accessibility"
+          label="접근성"
           score={result.accessibility_score}
         />
         <RingGauge
@@ -1448,7 +1449,7 @@ export function LighthouseCard({ result }: { result: LighthouseResult | null }) 
         />
         <RingGauge
           hint="웹 개발 권장사항을 얼마나 지키는지에 대한 점수입니다. (100점 만점)"
-          label="Best practices"
+          label="모범 사례"
           score={result.best_practices_score}
         />
       </div>
@@ -1498,7 +1499,7 @@ export function LighthouseCard({ result }: { result: LighthouseResult | null }) 
         </p>
       )}
       <LighthouseTopAuditList audits={result.top_audits} isSuccessful={result.is_successful} />
-      <p className="mt-5 break-all text-xs text-slate-500">Service URL: {result.service_url}</p>
+      <p className="mt-5 break-all text-xs text-slate-500">서비스 URL: {result.service_url}</p>
     </article>
   );
 }
@@ -1560,13 +1561,13 @@ function ArtifactCard({
   artifacts: Artifact[];
 }) {
   if (artifacts.length === 0) {
-    return <EmptyResultCard title="Artifacts" description="아직 저장된 artifact metadata가 없습니다." />;
+    return <EmptyResultCard title="산출물" description="아직 저장된 산출물 정보가 없습니다." />;
   }
 
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">Artifacts</h2>
+        <h2 className="text-xl font-semibold">산출물</h2>
         <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
           {artifacts.length}개
         </span>
@@ -1579,8 +1580,8 @@ function ArtifactCard({
           >
             <p className="font-semibold text-slate-900">{artifact.artifact_type}</p>
             <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-              <Metric label="Size" value={formatBytes(artifact.size_bytes)} />
-              <Metric label="Created" value={formatDetailDateTime(artifact.created_at)} />
+              <Metric label="크기" value={formatBytes(artifact.size_bytes)} />
+              <Metric label="생성 시각" value={formatDetailDateTime(artifact.created_at)} />
             </dl>
             <div className="mt-4">
               <ArtifactDownloadButton artifactId={artifact.id} accessToken={accessToken} />

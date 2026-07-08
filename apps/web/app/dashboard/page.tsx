@@ -19,6 +19,7 @@ import { MiniDonut, ScoreTrendPanel } from "@/components/charts";
 import { buildScoreTrendSeries, scoredRunCount } from "@/lib/scoreTrend";
 import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
 import { formatDateTime, formatNullableDateTime } from "@/lib/format";
+import { environmentLabel, triggerSourceLabel, verifiedLabel } from "@/lib/statusLabels";
 import {
   Badge,
   CheckRunStatusBadge,
@@ -239,20 +240,20 @@ export default function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-4">
             <StatusCard health={health} />
             <MetricCard
-              label="Projects"
+              label="프로젝트"
               value={dashboardSummary?.projectCount ?? "-"}
               description="현재 세션으로 조회한 프로젝트 수"
             />
             <MetricCard
-              label="Latest failures"
+              label="최신 검사 실패"
               value={dashboardSummary?.failedCount ?? "-"}
-              description="최신 CheckRun이 실패한 프로젝트"
+              description="최신 검사가 실패한 프로젝트"
               tone={dashboardSummary && dashboardSummary.failedCount > 0 ? "danger" : "default"}
             />
             <MetricCard
-              label="Scenario failures"
+              label="시나리오 실패"
               value={dashboardSummary?.scenarioFailureCount ?? "-"}
-              description="최신 CheckRun에 연결된 실패 ScenarioRun"
+              description="최신 검사에 연결된 실패한 시나리오 실행"
               tone={
                 dashboardSummary && dashboardSummary.scenarioFailureCount > 0
                   ? "danger"
@@ -291,20 +292,20 @@ function DashboardPanel({
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Project dashboard</h2>
+          <h2 className="text-2xl font-bold text-slate-900">프로젝트 대시보드</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            로그인 세션으로 프로젝트와 최신 CheckRun을 자동 조회합니다.
+            로그인 세션으로 프로젝트와 최신 검사를 자동 조회합니다.
           </p>
           {lastUpdatedAt && <p className="mt-2 text-xs text-slate-400">마지막 갱신: {lastUpdatedAt}</p>}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {dashboard.state !== "signed-out" && (
-            <LinkButton href="/projects/new" label="새 Project" variant="primary" />
+            <LinkButton href="/projects/new" label="새 프로젝트" variant="primary" />
           )}
           <RefreshButton
             isLoading={dashboard.state === "loading"}
-            label="Dashboard 갱신"
+            label="대시보드 갱신"
             onClick={onRefresh}
           />
         </div>
@@ -335,7 +336,7 @@ function DashboardContent({
   }
 
   if (dashboard.state === "loading") {
-    return <EmptyState description="프로젝트와 최신 CheckRun을 불러오는 중입니다." title="불러오는 중" />;
+    return <EmptyState description="프로젝트와 최신 검사를 불러오는 중입니다." title="불러오는 중" />;
   }
 
   if (dashboard.state === "unauthorized") {
@@ -346,7 +347,7 @@ function DashboardContent({
     return (
       <Notice
         description="서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
-        title="Dashboard 요청 실패"
+        title="대시보드 요청 실패"
         tone="danger"
       />
     );
@@ -355,7 +356,7 @@ function DashboardContent({
   if (dashboard.projects.length === 0) {
     return (
       <EmptyState
-        description="현재 계정에 등록된 프로젝트가 없습니다. 새 Project 버튼으로 첫 서비스를 등록하세요."
+        description="현재 계정에 등록된 프로젝트가 없습니다. 새 프로젝트 버튼으로 첫 서비스를 등록하세요."
         title="등록된 프로젝트 없음"
       />
     );
@@ -391,8 +392,8 @@ function ProjectDashboardCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-3 flex flex-wrap gap-2">
-            <Badge label={project.environment} />
-            <Badge label={project.is_verified ? "verified" : "unverified"} tone={project.is_verified ? "success" : "warning"} />
+            <Badge label={environmentLabel(project.environment)} />
+            <Badge label={verifiedLabel(project.is_verified)} tone={project.is_verified ? "success" : "warning"} />
           </div>
           <h3 className="text-xl font-bold text-slate-900">{project.name}</h3>
           <a
@@ -405,10 +406,10 @@ function ProjectDashboardCard({
           </a>
         </div>
         <div className="flex flex-wrap gap-2">
-          <LinkButton href={`/projects/${project.id}/settings`} label="Settings" />
-          <LinkButton href={`/projects/${project.id}/check-runs`} label="Runs" />
-          <LinkButton href={`/projects/${project.id}/scenarios`} label="Scenarios" />
-          <LinkButton href={`/projects/${project.id}/alerts`} label="Alerts" />
+          <LinkButton href={`/projects/${project.id}/settings`} label="설정" />
+          <LinkButton href={`/projects/${project.id}/check-runs`} label="검사 이력" />
+          <LinkButton href={`/projects/${project.id}/scenarios`} label="시나리오" />
+          <LinkButton href={`/projects/${project.id}/alerts`} label="알림" />
           <button
             className="rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
             disabled={!project.is_verified || startState === "starting"}
@@ -429,9 +430,9 @@ function ProjectDashboardCard({
       <CheckRunStartNotice project={project} startState={startState} />
 
       <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
-        <Metric label="Scan interval" value={`${project.scan_interval_minutes}분`} />
-        <Metric label="Response threshold" value={`${project.response_time_threshold_ms}ms`} />
-        <Metric label="Quality threshold" value={`${project.quality_score_threshold}`} />
+        <Metric label="검사 주기" value={`${project.scan_interval_minutes}분`} />
+        <Metric label="응답 임계값" value={`${project.response_time_threshold_ms}ms`} />
+        <Metric label="품질 임계값" value={`${project.quality_score_threshold}`} />
       </dl>
 
       <div className="mt-5 border-t border-slate-200 pt-5">
@@ -478,7 +479,7 @@ function CheckRunStartNotice({
     return (
       <div className="mt-4">
         <Notice
-          description="Domain verification이 완료되어야 수동 CheckRun을 시작할 수 있습니다."
+          description="도메인 인증이 완료되어야 수동 검사를 시작할 수 있습니다."
           title="검증 필요"
         />
       </div>
@@ -493,7 +494,7 @@ function CheckRunStartNotice({
     <div className="mt-4">
       <Notice
         description={checkRunStartStateMessage[startState]}
-        title="CheckRun 생성 실패"
+        title="검사 생성 실패"
         tone="danger"
       />
     </div>
@@ -512,8 +513,8 @@ function LatestCheckRunCard({
   if (latestCheckRunState !== "success") {
     return (
       <Notice
-        description="이 프로젝트의 최신 CheckRun을 불러오지 못했습니다. 권한 또는 API 상태를 확인하세요."
-        title="최신 CheckRun 조회 실패"
+        description="이 프로젝트의 최신 검사를 불러오지 못했습니다. 권한 또는 API 상태를 확인하세요."
+        title="최신 검사 조회 실패"
         tone="danger"
       />
     );
@@ -523,8 +524,8 @@ function LatestCheckRunCard({
     return (
       <EmptyState
         compact
-        description="아직 실행된 CheckRun이 없습니다. 검사 시작 버튼으로 첫 검사를 시작할 수 있습니다."
-        title="최신 CheckRun 없음"
+        description="아직 실행된 검사가 없습니다. 검사 시작 버튼으로 첫 검사를 시작할 수 있습니다."
+        title="최신 검사 없음"
       />
     );
   }
@@ -553,12 +554,12 @@ function LatestCheckRunCard({
           )}
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-              Latest CheckRun
+              최신 검사
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <CheckRunStatusBadge status={latestCheckRun.status} />
               <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
-                {latestCheckRun.trigger_source}
+                {triggerSourceLabel(latestCheckRun.trigger_source)}
               </span>
               {latestCheckRun.score && (
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
@@ -576,8 +577,8 @@ function LatestCheckRunCard({
       </div>
 
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        <Metric label="Queued" value={formatDateTime(latestCheckRun.queued_at)} />
-        <Metric label="Finished" value={formatNullableDateTime(latestCheckRun.finished_at)} />
+        <Metric label="대기 시각" value={formatDateTime(latestCheckRun.queued_at)} />
+        <Metric label="종료 시각" value={formatNullableDateTime(latestCheckRun.finished_at)} />
       </dl>
 
       {latestCheckRun.failure_reason && (
@@ -609,9 +610,9 @@ function LatestScenarioRunAccess({
   if (scenarioRuns.length === 0) {
     return (
       <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-sm font-semibold text-slate-900">Linked ScenarioRun 없음</p>
+        <p className="text-sm font-semibold text-slate-900">연결된 시나리오 실행 없음</p>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          최신 CheckRun에 연결된 browser scenario 실행 이력이 없습니다.
+          최신 검사에 연결된 브라우저 시나리오 실행 이력이 없습니다.
         </p>
       </div>
     );
@@ -624,7 +625,7 @@ function LatestScenarioRunAccess({
     <div className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50/60 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-cyan-700">최근 linked ScenarioRun</p>
+          <p className="text-sm font-semibold text-cyan-700">최근 연결된 시나리오 실행</p>
           <p className="mt-2 text-xs text-slate-500">
             실패 {summary.failed}개 · 진행 중 {summary.active}개 · 전체 {summary.total}개
           </p>
@@ -650,7 +651,7 @@ function LatestScenarioRunAccess({
               className="rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100"
               href={`/projects/${projectId}/scenarios/${latestScenarioRun.scenario_id}/runs`}
             >
-              ScenarioRun 목록
+              시나리오 실행 목록
             </Link>
           </div>
         </>
@@ -755,7 +756,7 @@ const checkRunStartStateMessage: Record<
   string
 > = {
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
-  "not-found": "Project를 찾을 수 없습니다. Dashboard를 다시 갱신하세요.",
-  conflict: "Project가 아직 domain verification을 통과하지 못했습니다.",
+  "not-found": "프로젝트를 찾을 수 없습니다. 대시보드를 다시 갱신하세요.",
+  conflict: "프로젝트가 아직 도메인 인증을 통과하지 못했습니다.",
   unavailable: "검사 요청에 실패했습니다. 잠시 후 다시 시도하세요."
 };

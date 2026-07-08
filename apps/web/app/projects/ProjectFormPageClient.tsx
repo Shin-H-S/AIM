@@ -187,8 +187,8 @@ export function ProjectFormPageClient({
     setSubmitState("success");
     setSubmitMessage(
       mode === "create"
-        ? "Project를 생성했습니다. Domain verification 안내로 이동합니다."
-        : "Project 설정을 저장했습니다."
+        ? "프로젝트를 생성했습니다. 도메인 인증 안내로 이동합니다."
+        : "프로젝트 설정을 저장했습니다."
     );
 
     if (mode === "create") {
@@ -248,7 +248,7 @@ export function ProjectFormPageClient({
     }
 
     if (deleteConfirmName.trim() !== project.name) {
-      setDeleteError("확인을 위해 Project 이름을 정확히 입력하세요.");
+      setDeleteError("확인을 위해 프로젝트 이름을 정확히 입력하세요.");
       return;
     }
 
@@ -268,7 +268,7 @@ export function ProjectFormPageClient({
       clearStoredAccessToken();
       setDeleteError("로그인 세션이 만료되었습니다. 다시 로그인하세요.");
     } else if (result.state === "not-found") {
-      setDeleteError("Project를 찾을 수 없습니다. 이미 삭제되었을 수 있습니다.");
+      setDeleteError("프로젝트를 찾을 수 없습니다. 이미 삭제되었을 수 있습니다.");
     } else {
       setDeleteError("삭제 요청이 실패했습니다. API 서버 상태를 확인하세요.");
     }
@@ -276,18 +276,18 @@ export function ProjectFormPageClient({
     setIsDeleting(false);
   }
 
-  const title = mode === "create" ? "Project 생성" : "Project 설정";
+  const title = mode === "create" ? "프로젝트 생성" : "프로젝트 설정";
   const subtitle =
     mode === "create"
-      ? "서비스 URL과 검사 기준을 등록합니다. 생성 후 HTML meta-tag 기반 domain verification 안내로 이동합니다."
-      : "서비스 URL, 환경, 검사 기준을 수정하고 domain verification 상태를 확인합니다.";
+      ? "서비스 URL과 검사 기준을 등록합니다. 생성 후 HTML meta 태그 기반 도메인 인증 안내로 이동합니다."
+      : "서비스 URL, 환경, 검사 기준을 수정하고 도메인 인증 상태를 확인합니다.";
 
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
-            AIM Project Management
+            AIM 프로젝트 관리
           </p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-6xl">{title}</h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">{subtitle}</p>
@@ -353,15 +353,15 @@ function DangerZone({
 
   return (
     <aside className="rounded-3xl border border-rose-200 bg-rose-50/60 p-6">
-      <h2 className="text-2xl font-bold text-rose-800">Project 삭제</h2>
+      <h2 className="text-2xl font-bold text-rose-800">프로젝트 삭제</h2>
       <p className="mt-2 text-sm leading-6 text-slate-500">
-        Project와 CheckRun, Scenario, artifact metadata, alert 기록이 모두 삭제되며 되돌릴
+        프로젝트와 검사, 시나리오, 산출물 메타데이터, 알림 기록이 모두 삭제되며 되돌릴
         수 없습니다.
       </p>
 
       <label className="mt-5 block" htmlFor="delete_confirm_name">
         <span className="text-sm font-semibold text-slate-600">
-          확인을 위해 Project 이름(<span className="text-rose-700">{projectName}</span>)을
+          확인을 위해 프로젝트 이름(<span className="text-rose-700">{projectName}</span>)을
           입력하세요
         </span>
         <input
@@ -379,7 +379,7 @@ function DangerZone({
         onClick={onDelete}
         type="button"
       >
-        {isDeleting ? "삭제 중" : "이 Project를 영구 삭제"}
+        {isDeleting ? "삭제 중" : "이 프로젝트를 영구 삭제"}
       </button>
 
       {deleteError && (
@@ -413,7 +413,7 @@ function ProjectForm({
     >
       <div>
         <h2 className="text-2xl font-bold text-slate-900">
-          {mode === "create" ? "새 Project 정보" : "Project 정보"}
+          {mode === "create" ? "새 프로젝트 정보" : "프로젝트 정보"}
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
           외부에서 접근 가능한 서비스 주소를 입력하세요. localhost나 사설 IP 같은 내부
@@ -423,7 +423,7 @@ function ProjectForm({
 
       <div className="mt-6 grid gap-4">
         <TextField
-          label="Project name"
+          label="프로젝트 이름"
           name="name"
           onChange={(value) => onChange({ ...form, name: value })}
           placeholder="AIM Website"
@@ -431,7 +431,7 @@ function ProjectForm({
           value={form.name}
         />
         <TextField
-          label="Service URL"
+          label="서비스 URL"
           name="service_url"
           onChange={(value) => onChange({ ...form, serviceUrl: value })}
           placeholder="https://example.com"
@@ -440,7 +440,7 @@ function ProjectForm({
         />
 
         <label className="block" htmlFor="environment">
-          <span className="text-sm font-semibold text-slate-600">Environment</span>
+          <span className="text-sm font-semibold text-slate-600">환경</span>
           <select
             className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
             id="environment"
@@ -452,14 +452,14 @@ function ProjectForm({
             }
             value={form.environment}
           >
-            <option value="development">development</option>
-            <option value="staging">staging</option>
-            <option value="production">production</option>
+            <option value="development">개발</option>
+            <option value="staging">스테이징</option>
+            <option value="production">운영</option>
           </select>
         </label>
 
         <label className="block" htmlFor="description">
-          <span className="text-sm font-semibold text-slate-600">Description</span>
+          <span className="text-sm font-semibold text-slate-600">설명</span>
           <textarea
             className="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
             id="description"
@@ -472,16 +472,16 @@ function ProjectForm({
 
         <div className="grid gap-4 md:grid-cols-3">
           <TextField
-            label="Scan interval"
+            label="검사 주기"
             name="scan_interval_minutes"
             onChange={(value) => onChange({ ...form, scanIntervalMinutes: value })}
             placeholder="60"
-            suffix="minutes"
+            suffix="분"
             type="number"
             value={form.scanIntervalMinutes}
           />
           <TextField
-            label="Response threshold"
+            label="응답 임계값"
             name="response_time_threshold_ms"
             onChange={(value) => onChange({ ...form, responseTimeThresholdMs: value })}
             placeholder="2000"
@@ -490,11 +490,11 @@ function ProjectForm({
             value={form.responseTimeThresholdMs}
           />
           <TextField
-            label="Quality threshold"
+            label="품질 임계값"
             name="quality_score_threshold"
             onChange={(value) => onChange({ ...form, qualityScoreThreshold: value })}
             placeholder="80"
-            suffix="score"
+            suffix="점"
             type="number"
             value={form.qualityScoreThreshold}
           />
@@ -515,10 +515,10 @@ function ProjectForm({
             type="checkbox"
           />
           <span>
-            <span className="block text-sm font-semibold text-slate-700">정기 스캔 사용</span>
+            <span className="block text-sm font-semibold text-slate-700">정기 검사 사용</span>
             <span className="mt-1 block text-xs leading-5 text-slate-500">
-              체크하면 verified 상태에서 위 Scan interval 주기로 자동 스캔합니다. 기본은 수동
-              스캔 전용입니다.
+              체크하면 인증된 상태에서 위 검사 주기로 자동 검사합니다. 기본은 수동 검사
+              전용입니다.
             </span>
           </span>
         </label>
@@ -532,8 +532,8 @@ function ProjectForm({
         {submitState === "submitting"
           ? "저장 중"
           : mode === "create"
-            ? "Project 생성"
-            : "Project 저장"}
+            ? "프로젝트 생성"
+            : "프로젝트 저장"}
       </button>
 
       {submitMessage && (
@@ -563,9 +563,9 @@ function VerificationPanel({
     <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Domain verification</h2>
+          <h2 className="text-2xl font-bold text-slate-900">도메인 인증</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            recurring scan을 안전하게 실행하기 전, target service를 제어할 수 있는지 확인합니다.
+            정기 검사를 안전하게 실행하기 전, 대상 서비스를 제어할 수 있는지 확인합니다.
           </p>
         </div>
         <span
@@ -575,7 +575,7 @@ function VerificationPanel({
               : "bg-amber-50 text-amber-700 ring-amber-200"
           }`}
         >
-          {project.is_verified ? "verified" : "unverified"}
+          {project.is_verified ? "인증됨" : "미인증"}
         </span>
       </div>
 
@@ -588,7 +588,7 @@ function VerificationPanel({
           onClick={onVerify}
           type="button"
         >
-          {verifyActionState === "verifying" ? "확인 중" : "Meta tag 확인"}
+          {verifyActionState === "verifying" ? "확인 중" : "Meta 태그 확인"}
         </button>
 
         <VerifyActionNotice verifyActionState={verifyActionState} />
@@ -605,7 +605,7 @@ function VerificationContent({
   verificationState: VerificationState;
 }) {
   if (verificationState === "loading" || verificationState === "idle") {
-    return <Notice description="Verification token을 불러오는 중입니다." title="확인 준비 중" />;
+    return <Notice description="인증 토큰을 불러오는 중입니다." title="확인 준비 중" />;
   }
 
   if (verificationState === "unauthorized") {
@@ -621,8 +621,8 @@ function VerificationContent({
   if (verificationState === "not-found") {
     return (
       <Notice
-        description="Project를 찾을 수 없습니다. Dashboard에서 다시 접근하세요."
-        title="Project 없음"
+        description="프로젝트를 찾을 수 없습니다. 대시보드에서 다시 접근하세요."
+        title="프로젝트 없음"
         tone="danger"
       />
     );
@@ -631,8 +631,8 @@ function VerificationContent({
   if (verificationState === "unavailable" || !verification) {
     return (
       <Notice
-        description="Verification 정보를 불러오지 못했습니다. 잠시 후 다시 시도하세요."
-        title="Verification 요청 실패"
+        description="인증 정보를 불러오지 못했습니다. 잠시 후 다시 시도하세요."
+        title="인증 정보 요청 실패"
         tone="danger"
       />
     );
@@ -641,14 +641,14 @@ function VerificationContent({
   return (
     <div className="space-y-4">
       <Notice
-        description="아래 meta tag를 target service의 HTML head에 추가하고 배포한 뒤 확인 버튼을 누르세요."
-        title={verification.is_verified ? "Domain verified" : "Meta tag 설치 필요"}
+        description="아래 meta 태그를 대상 서비스의 HTML head에 추가하고 배포한 뒤 확인 버튼을 누르세요."
+        title={verification.is_verified ? "도메인 인증 완료" : "Meta 태그 설치 필요"}
         tone={verification.is_verified ? "success" : "info"}
       />
 
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-          Meta tag
+          Meta 태그
         </p>
         <pre className="mt-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4 text-xs leading-6 text-cyan-700">
           {verification.meta_tag}
@@ -656,7 +656,7 @@ function VerificationContent({
       </div>
 
       <dl className="grid gap-3 text-sm">
-        <Metric label="Verified at" value={formatNullableDateTime(verification.verified_at)} />
+        <Metric label="인증 시각" value={formatNullableDateTime(verification.verified_at)} />
       </dl>
     </div>
   );
@@ -667,10 +667,10 @@ function CreationGuide() {
     <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
       <h2 className="text-2xl font-bold text-slate-900">생성 후 다음 단계</h2>
       <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-6 text-slate-500">
-        <li>Project 생성이 완료되면 settings 화면으로 이동합니다.</li>
-        <li>AIM이 생성한 HTML meta tag를 target service의 head에 추가합니다.</li>
-        <li>배포 후 Meta tag 확인 버튼으로 domain ownership을 검증합니다.</li>
-        <li>검증된 Project부터 recurring scan 대상이 됩니다.</li>
+        <li>프로젝트 생성이 완료되면 설정 화면으로 이동합니다.</li>
+        <li>AIM이 생성한 HTML meta 태그를 대상 서비스의 head에 추가합니다.</li>
+        <li>배포 후 Meta 태그 확인 버튼으로 도메인 소유권을 검증합니다.</li>
+        <li>인증된 프로젝트부터 정기 검사 대상이 됩니다.</li>
       </ol>
     </aside>
   );
@@ -682,7 +682,7 @@ function LoadStateNotice({ loadState }: { loadState: LoadState }) {
   }
 
   if (loadState === "checking-auth" || loadState === "loading") {
-    return <Notice description="로그인 세션과 Project 정보를 확인하는 중입니다." title="불러오는 중" />;
+    return <Notice description="로그인 세션과 프로젝트 정보를 확인하는 중입니다." title="불러오는 중" />;
   }
 
   if (loadState === "unauthorized") {
@@ -692,8 +692,8 @@ function LoadStateNotice({ loadState }: { loadState: LoadState }) {
   if (loadState === "not-found") {
     return (
       <Notice
-        description="요청한 Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요."
-        title="Project 없음"
+        description="요청한 프로젝트를 찾을 수 없습니다. 대시보드에서 다시 선택하세요."
+        title="프로젝트 없음"
         tone="danger"
       />
     );
@@ -702,7 +702,7 @@ function LoadStateNotice({ loadState }: { loadState: LoadState }) {
   return (
     <Notice
       description="서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
-      title="Project 요청 실패"
+      title="프로젝트 요청 실패"
       tone="danger"
     />
   );
@@ -879,9 +879,9 @@ function parseIntegerInRange(value: string, min: number, max: number): number | 
 
 const projectMutationMessage: Record<Exclude<SubmitState, "idle" | "submitting" | "success">, string> = {
   invalid:
-    "Project 정보를 저장하지 못했습니다. URL이 허용되지 않았거나 입력값이 범위를 벗어났습니다.",
+    "프로젝트 정보를 저장하지 못했습니다. URL이 허용되지 않았거나 입력값이 범위를 벗어났습니다.",
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인하세요.",
-  "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
+  "not-found": "프로젝트를 찾을 수 없습니다. 대시보드에서 다시 선택하세요.",
   unavailable: "저장에 실패했습니다. 잠시 후 다시 시도하세요."
 };
 
@@ -890,6 +890,6 @@ const verificationActionMessage: Record<
   string
 > = {
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인하세요.",
-  "not-found": "Project를 찾을 수 없습니다. Dashboard에서 다시 선택하세요.",
-  unavailable: "Verification 요청에 실패했습니다. 잠시 후 다시 시도하세요."
+  "not-found": "프로젝트를 찾을 수 없습니다. 대시보드에서 다시 선택하세요.",
+  unavailable: "인증 요청에 실패했습니다. 잠시 후 다시 시도하세요."
 };

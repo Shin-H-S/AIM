@@ -44,6 +44,7 @@ type AlertSettingsSubmitState =
 type AlertSettingsFormState = {
   alertEmailEnabled: boolean;
   alertRecipientEmail: string;
+  alertWebhookUrl: string;
 };
 
 type RetryAlertFeedback = {
@@ -61,8 +62,9 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const [incidentResult, setIncidentResult] = useState<IncidentListResult | null>(null);
   const [alertResult, setAlertResult] = useState<AlertListResult | null>(null);
   const [settingsForm, setSettingsForm] = useState<AlertSettingsFormState>({
-    alertEmailEnabled: true,
-    alertRecipientEmail: ""
+    alertEmailEnabled: false,
+    alertRecipientEmail: "",
+    alertWebhookUrl: ""
   });
   const [settingsSubmitState, setSettingsSubmitState] =
     useState<AlertSettingsSubmitState>("idle");
@@ -208,6 +210,13 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
       return;
     }
 
+    const webhookUrl = normalizeOptionalUrl(settingsForm.alertWebhookUrl);
+    if (webhookUrl !== null && !isValidWebhookUrl(webhookUrl)) {
+      setSettingsSubmitState("invalid");
+      setSettingsSubmitMessage("Webhook URL은 http(s)://로 시작하는 주소여야 합니다.");
+      return;
+    }
+
     setSettingsSubmitState("submitting");
     const result = await updateProject({
       projectId: project.id,
@@ -221,7 +230,8 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
         response_time_threshold_ms: project.response_time_threshold_ms,
         quality_score_threshold: project.quality_score_threshold,
         alert_email_enabled: settingsForm.alertEmailEnabled,
-        alert_recipient_email: recipientEmail
+        alert_recipient_email: recipientEmail,
+        alert_webhook_url: webhookUrl
       }
     });
 
@@ -241,7 +251,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     });
     setSettingsForm(formFromProjectAlertSettings(result.project));
     setSettingsSubmitState("success");
-    setSettingsSubmitMessage("Email alert 설정을 저장했습니다. 이후 생성되는 alert부터 반영됩니다.");
+    setSettingsSubmitMessage("Alert 채널 설정을 저장했습니다. 이후 생성되는 alert부터 반영됩니다.");
   }
 
   async function handleRetryAlert(alert: Alert) {
@@ -429,6 +439,10 @@ function ProjectAlertSettingsCard({
           label="Recipient"
           value={project.alert_recipient_email ?? "Project owner email fallback"}
         />
+        <Metric
+          label="Webhook alert"
+          value={project.alert_webhook_url ? "enabled" : "disabled"}
+        />
       </dl>
 
       <form
@@ -437,10 +451,11 @@ function ProjectAlertSettingsCard({
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Email alert 설정</h3>
+            <h3 className="text-lg font-bold text-slate-900">Alert 채널 설정</h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              비활성화하면 새 incident open/recovery 시 pending email alert를 만들지 않습니다.
-              수신자를 비워두면 Project owner email을 사용합니다.
+              incident open/recovery 시 활성화된 채널로 alert를 발송합니다. Email은 체크한
+              경우에만, webhook은 URL을 등록한 경우에만 사용합니다. 수신자를 비워두면 Project
+              owner email을 사용합니다.
             </p>
           </div>
           <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
@@ -475,6 +490,30 @@ function ProjectAlertSettingsCard({
             type="email"
             value={form.alertRecipientEmail}
           />
+        </label>
+
+        <label className="mt-5 block" htmlFor="alert-webhook-url">
+          <span className="text-sm font-semibold text-slate-600">
+            Webhook URL (Slack/Discord)
+          </span>
+          <input
+            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+            id="alert-webhook-url"
+            maxLength={1024}
+            onChange={(event) =>
+              onChange({
+                ...form,
+                alertWebhookUrl: event.target.value
+              })
+            }
+            placeholder="https://hooks.slack.com/services/..."
+            type="url"
+            value={form.alertWebhookUrl}
+          />
+          <span className="mt-2 block text-xs leading-5 text-slate-500">
+            Slack 또는 Discord incoming webhook URL을 붙여넣으세요. 비워두면 webhook 알림을
+            보내지 않습니다.
+          </span>
         </label>
 
         <button
@@ -720,7 +759,8 @@ function AlertCard({
           </div>
           <h3 className="mt-4 text-lg font-bold text-slate-900">{alert.subject}</h3>
           <p className="mt-2 text-sm text-slate-500">
-            수신자: {alert.recipient_email ?? "미설정"} · 시도 횟수: {alert.delivery_attempts}
+            수신자: {alert.channel === "WEBHOOK" ? "Webhook" : (alert.recipient_email ?? "미설정")}{" "}
+            · 시도 횟수: {alert.delivery_attempts}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -874,8 +914,18 @@ function formatAlertType(value: string): string {
 function formFromProjectAlertSettings(project: Project): AlertSettingsFormState {
   return {
     alertEmailEnabled: project.alert_email_enabled,
-    alertRecipientEmail: project.alert_recipient_email ?? ""
+    alertRecipientEmail: project.alert_recipient_email ?? "",
+    alertWebhookUrl: project.alert_webhook_url ?? ""
   };
+}
+
+function normalizeOptionalUrl(value: string): string | null {
+  const normalized = value.trim();
+  return normalized ? normalized : null;
+}
+
+function isValidWebhookUrl(value: string): boolean {
+  return /^https?:\/\/\S+$/.test(value);
 }
 
 function normalizeOptionalText(value: string): string | null {

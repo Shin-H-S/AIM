@@ -80,6 +80,7 @@ Invoke-RestMethod http://localhost:8000/health/database
 - 품질 점수 임계값
 - email alert 사용 여부 (기본 비활성, 프로젝트별 opt-in)
 - email alert 수신자 주소
+- Slack/Discord webhook URL (설정하면 webhook alert 채널 활성화, SSRF-safe 검증 적용)
 
 서비스 URL은 HTTP/HTTPS 형식만 허용하며, 저장 전에 SSRF-safe 검증을 수행합니다.
 
@@ -229,11 +230,11 @@ Artifact 파일은 `GET /artifacts/{artifact_id}/download`에서 다운로드할
 
 세 엔드포인트 모두 Bearer token 인증과 프로젝트 소유권 검사를 요구하며, 현재 사용자 소유 프로젝트의 Incident/Alert만 반환하거나 변경합니다. 목록 조회는 `limit`과 `offset` query parameter로 범위를 제한할 수 있습니다.
 
-Project의 `alert_email_enabled`가 `false`이면 incident open/recovery 시 pending email alert를 만들지 않습니다. `alert_recipient_email`이 설정되어 있으면 해당 주소로 발송하고, 비어 있으면 Project owner email을 사용합니다.
+incident open/recovery 시 alert는 채널별로 생성됩니다. email 채널은 `alert_email_enabled`가 `true`인 경우에만 만들고, `alert_recipient_email`이 설정되어 있으면 해당 주소로 발송하며 비어 있으면 Project owner email을 사용합니다. webhook 채널은 `alert_webhook_url`이 설정된 경우에만 만듭니다. 두 채널이 모두 켜져 있으면 같은 incident에 대해 alert가 채널별로 1건씩 생성됩니다.
 
-FAILED 상태의 email alert는 retry API로 다시 `PENDING` 상태로 되돌리고 email delivery task에 재등록할 수 있습니다. `PENDING` 또는 `SENT` alert 재시도는 `409`로 거부합니다. Queue 등록에 실패하면 alert를 다시 `FAILED`로 복구해 나중에 다시 재시도할 수 있게 합니다.
+FAILED 상태의 alert(email/webhook)는 retry API로 다시 `PENDING` 상태로 되돌리고 delivery task에 재등록할 수 있습니다. `PENDING` 또는 `SENT` alert 재시도는 `409`로 거부합니다. Queue 등록에 실패하면 alert를 다시 `FAILED`로 복구해 나중에 다시 재시도할 수 있게 합니다.
 
-Worker는 incident sync 결과 새 alert가 생성되거나 retry API가 호출되면 별도 `deliver_pending_email_alerts` task를 queue에 등록합니다. 이 task는 `SMTP_HOST`와 `SMTP_FROM_EMAIL`이 설정되어 있으면 pending email alert를 SMTP로 발송하고 `SENT`로 기록합니다. SMTP 설정이 없으면 pending alert를 실패 처리하지 않고 건너뜁니다. 수신자 email이 없거나 SMTP 발송 오류가 발생하면 해당 alert를 `FAILED`로 기록합니다.
+Worker는 incident sync 결과 새 alert가 생성되거나 retry API가 호출되면 별도 alert delivery task를 queue에 등록합니다. email alert는 `SMTP_HOST`와 `SMTP_FROM_EMAIL`이 설정되어 있으면 SMTP로 발송하고 `SENT`로 기록하며, SMTP 설정이 없으면 실패 처리하지 않고 건너뜁니다. webhook alert는 발송 시점의 프로젝트 webhook URL로 SSRF-safe 검증 후 HTTP POST합니다. 수신자 누락, URL 미설정·검증 실패, 발송 오류는 해당 alert를 `FAILED`로 기록합니다.
 
 ## AI diagnosis schemas
 

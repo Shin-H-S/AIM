@@ -58,8 +58,8 @@ scanner는 다음 항목을 측정하거나 판단합니다.
 - failure screenshot artifact storage
 - AIReport generation and update
 - AIReport retryable task scheduling
-- incident open/recovery sync and pending email alert records
-- SMTP email alert delivery
+- incident open/recovery sync and pending alert records
+- SMTP email and Slack/Discord webhook alert delivery
 
 최종 HTTP 상태가 2xx 또는 3xx이고 HTTPS 인증서가 유효하며 Lighthouse 실행이 성공하면 CheckRun을 `COMPLETED`, timeout·connection failure·차단된 redirect·4xx·5xx·인증서 검증 실패·인증서 만료·Lighthouse 실행 실패는 `FAILED`로 기록합니다. HTTP availability, SSL inspection, Lighthouse metric 결과는 각각 `availability_results`, `ssl_results`, `lighthouse_results`에 정규화해 저장합니다. Lighthouse raw JSON은 `ARTIFACT_LOCAL_ROOT` 아래 로컬 파일로 저장하고 `artifacts` 테이블에는 metadata와 storage path만 기록합니다. scanner 결과와 해당 CheckRun에 연결된 terminal ScenarioRun 결과 기준의 score와 risk gate 결과는 `score_results`에 저장하고, 같은 프로젝트의 직전 terminal check run이 있으면 `run_comparisons`에 score, performance, response time delta를 저장합니다. CheckRun이 `COMPLETED` 또는 `FAILED` 상태가 되면 worker는 incident open/recovery 상태와 pending email alert를 동기화한 뒤 별도 `deliver_pending_email_alerts` task와 `generate_ai_report` task를 queue에 등록합니다. AIReport task는 저장된 결과와 evidence를 기준으로 report를 생성하며 실패 시 Celery retry 대상이 됩니다. AIReport enqueue 실패나 generation 실패는 CheckRun 상태를 바꾸지 않습니다.
 
@@ -75,7 +75,7 @@ AI_REPORT_LLM_MAX_RETRIES=1
 AI_REPORT_LLM_MAX_TOKENS=16000
 ```
 
-Email alert delivery task는 `SMTP_HOST`와 `SMTP_FROM_EMAIL`이 설정된 경우 pending email alert를 SMTP로 발송하고 `SENT`로 기록합니다. SMTP 설정이 없으면 pending 상태를 유지하고 건너뜁니다. 수신자 email이 없거나 SMTP 발송 오류가 발생한 alert는 `FAILED`로 기록합니다.
+Alert delivery task(`deliver_pending_email_alerts` — 이름은 큐 호환을 위해 유지)는 pending alert를 채널별로 발송합니다. Email alert는 `SMTP_HOST`와 `SMTP_FROM_EMAIL`이 설정된 경우 SMTP로 발송하고 `SENT`로 기록하며, SMTP 설정이 없으면 pending 상태를 유지하고 건너뜁니다. 수신자 email이 없거나 SMTP 발송 오류가 발생한 alert는 `FAILED`로 기록합니다. Webhook alert는 발송 시점에 프로젝트의 webhook URL을 읽어 SSRF-safe 검증을 통과한 경우에만 HTTP POST하고, URL 호스트가 Discord면 `{"content": ...}`, 그 외에는 Slack 호환 `{"text": ...}` payload를 사용합니다. URL 미설정·검증 실패·2xx 외 응답은 `FAILED`로 기록합니다. 전송 timeout은 `ALERT_WEBHOOK_TIMEOUT_SECONDS`(기본 10초)로 조정합니다.
 
 Lighthouse CLI는 루트 Node 의존성으로 설치되며, 기본 실행 명령은 `corepack pnpm exec lighthouse`입니다. 필요한 경우 `LIGHTHOUSE_COMMAND`로 실행 명령을 바꿀 수 있습니다.
 

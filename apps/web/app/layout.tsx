@@ -4,7 +4,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AIM",
-  description: "AI-powered web service quality assessment and monitoring platform"
+  description: "AI-powered web service quality assessment and monitoring platform",
+  other: {
+    // AIM이 AIM 자신을 모니터링하기 위한 도메인 소유권 검증 태그 (dogfooding)
+    "aim-verification": "aim_verify_Xi_8qytEY4nOmPZ2VOoRaf7_ptWBc-Bo"
+  }
 };
 
 export default function RootLayout({

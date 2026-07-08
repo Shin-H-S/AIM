@@ -19,6 +19,7 @@ def validated_webhook_url(url: HttpUrl | None) -> str | None:
     validate_service_url(normalized)
     return normalized
 
+
 BASELINE_ELIGIBLE_STATUSES = (
     CheckRunStatus.COMPLETED.value,
     CheckRunStatus.FAILED.value,

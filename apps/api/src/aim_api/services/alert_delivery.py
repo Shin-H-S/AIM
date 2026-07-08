@@ -82,9 +82,7 @@ class HttpxWebhookSender:
             follow_redirects=False,
         )
         if response.status_code < 200 or response.status_code >= 300:
-            raise WebhookDeliveryError(
-                f"Webhook endpoint returned HTTP {response.status_code}."
-            )
+            raise WebhookDeliveryError(f"Webhook endpoint returned HTTP {response.status_code}.")
 
 
 def deliver_pending_alerts(

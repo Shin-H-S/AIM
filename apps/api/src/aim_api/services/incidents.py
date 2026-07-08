@@ -88,15 +88,15 @@ def sync_incidents_for_check_run(
         session.add(incident)
         session.flush()
         opened_incidents.append(incident)
-        alert = create_pending_email_alert(
-            session,
-            project=project,
-            incident=incident,
-            check_run_id=check_run.id,
-            alert_type=AlertType.INCIDENT_OPENED,
+        alerts.extend(
+            create_pending_alerts(
+                session,
+                project=project,
+                incident=incident,
+                check_run_id=check_run.id,
+                alert_type=AlertType.INCIDENT_OPENED,
+            )
         )
-        if alert is not None:
-            alerts.append(alert)
 
     for incident in open_incidents:
         if incident.trigger_type in active_triggers_by_type:
@@ -106,15 +106,15 @@ def sync_incidents_for_check_run(
         incident.resolved_check_run_id = check_run.id
         incident.resolved_at = check_run.finished_at or now
         resolved_incidents.append(incident)
-        alert = create_pending_email_alert(
-            session,
-            project=project,
-            incident=incident,
-            check_run_id=check_run.id,
-            alert_type=AlertType.INCIDENT_RECOVERED,
+        alerts.extend(
+            create_pending_alerts(
+                session,
+                project=project,
+                incident=incident,
+                check_run_id=check_run.id,
+                alert_type=AlertType.INCIDENT_RECOVERED,
+            )
         )
-        if alert is not None:
-            alerts.append(alert)
 
     session.commit()
     for incident in [*opened_incidents, *resolved_incidents]:
@@ -368,33 +368,75 @@ def list_alerts(
     )
 
 
-def create_pending_email_alert(
+def create_pending_alerts(
     session: Session,
     *,
     project: Project,
     incident: Incident,
     check_run_id: UUID,
     alert_type: AlertType,
-) -> Alert | None:
-    if not project.alert_email_enabled:
-        return None
+) -> list[Alert]:
+    subject = build_alert_subject(project=project, incident=incident, alert_type=alert_type)
+    body = build_alert_body(project=project, incident=incident, alert_type=alert_type)
+    alerts: list[Alert] = []
 
-    owner_email = get_project_owner_email(session, project=project)
-    alert = Alert(
+    if project.alert_email_enabled:
+        owner_email = get_project_owner_email(session, project=project)
+        alerts.append(
+            build_pending_alert(
+                project=project,
+                incident=incident,
+                check_run_id=check_run_id,
+                alert_type=alert_type,
+                channel=AlertChannel.EMAIL,
+                recipient_email=project.alert_recipient_email or owner_email,
+                subject=subject,
+                body=body,
+            )
+        )
+
+    if project.alert_webhook_url:
+        alerts.append(
+            build_pending_alert(
+                project=project,
+                incident=incident,
+                check_run_id=check_run_id,
+                alert_type=alert_type,
+                channel=AlertChannel.WEBHOOK,
+                recipient_email=None,
+                subject=subject,
+                body=body,
+            )
+        )
+
+    session.add_all(alerts)
+    return alerts
+
+
+def build_pending_alert(
+    *,
+    project: Project,
+    incident: Incident,
+    check_run_id: UUID,
+    alert_type: AlertType,
+    channel: AlertChannel,
+    recipient_email: str | None,
+    subject: str,
+    body: str,
+) -> Alert:
+    return Alert(
         project_id=project.id,
         incident_id=incident.id,
         check_run_id=check_run_id,
         alert_type=alert_type.value,
         trigger_type=incident.trigger_type,
-        channel=AlertChannel.EMAIL.value,
+        channel=channel.value,
         status=AlertStatus.PENDING.value,
-        recipient_email=project.alert_recipient_email or owner_email,
-        subject=build_alert_subject(project=project, incident=incident, alert_type=alert_type),
-        body=build_alert_body(project=project, incident=incident, alert_type=alert_type),
+        recipient_email=recipient_email,
+        subject=subject,
+        body=body,
         delivery_attempts=0,
     )
-    session.add(alert)
-    return alert
 
 
 def get_project_owner_email(session: Session, *, project: Project) -> str | None:

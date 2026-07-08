@@ -48,6 +48,7 @@ class AlertType(StrEnum):
 
 class AlertChannel(StrEnum):
     EMAIL = "EMAIL"
+    WEBHOOK = "WEBHOOK"
 
 
 class AlertStatus(StrEnum):
@@ -148,7 +149,7 @@ class Alert(Base):
             ),
             name="ck_alerts_trigger_type",
         ),
-        CheckConstraint("channel IN ('EMAIL')", name="ck_alerts_channel"),
+        CheckConstraint("channel IN ('EMAIL', 'WEBHOOK')", name="ck_alerts_channel"),
         CheckConstraint("status IN ('PENDING', 'SENT', 'FAILED')", name="ck_alerts_status"),
         CheckConstraint(
             "delivery_attempts >= 0",

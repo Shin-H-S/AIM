@@ -24,6 +24,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/T000/B000/XXXX"
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1234567890/abcdefg"
+
 
 class FakeEmailSender:
     def __init__(self) -> None:
@@ -37,6 +40,20 @@ class FailingEmailSender:
     def send_message(self, message: EmailMessage) -> None:
         _ = message
         raise RuntimeError("SMTP server unavailable")
+
+
+class FakeWebhookSender:
+    def __init__(self) -> None:
+        self.deliveries: list[tuple[str, dict[str, str]]] = []
+
+    def send(self, *, url: str, payload: dict[str, str]) -> None:
+        self.deliveries.append((url, payload))
+
+
+class FailingWebhookSender:
+    def send(self, *, url: str, payload: dict[str, str]) -> None:
+        _ = (url, payload)
+        raise alert_delivery.WebhookDeliveryError("Webhook endpoint returned HTTP 404.")
 
 
 @pytest.fixture()
@@ -61,6 +78,8 @@ def create_pending_alert(
     *,
     recipient_email: str | None = "owner@example.com",
     status: AlertStatus = AlertStatus.PENDING,
+    channel: AlertChannel = AlertChannel.EMAIL,
+    project_webhook_url: str | None = None,
 ) -> Alert:
     user = User(email=f"{uuid4()}@example.com", password_hash="hashed-password")
     session.add(user)
@@ -71,6 +90,7 @@ def create_pending_alert(
         service_url="https://example.com",
         verified_at=datetime.now(UTC),
         environment="production",
+        alert_webhook_url=project_webhook_url,
     )
     session.add(project)
     session.flush()
@@ -104,9 +124,9 @@ def create_pending_alert(
         check_run_id=check_run.id,
         alert_type=AlertType.INCIDENT_OPENED.value,
         trigger_type=IncidentTriggerType.SERVICE_CONNECTION_FAILURE.value,
-        channel=AlertChannel.EMAIL.value,
+        channel=channel.value,
         status=status.value,
-        recipient_email=recipient_email,
+        recipient_email=recipient_email if channel == AlertChannel.EMAIL else None,
         subject="[AIM] AIM Website: Service connection failed",
         body="Project: AIM Website\nSummary: Connection timed out.",
         delivery_attempts=0,
@@ -127,14 +147,14 @@ def smtp_settings() -> Settings:
     )
 
 
-def test_deliver_pending_email_alerts_sends_email_and_marks_sent(session: Session) -> None:
+def test_deliver_pending_alerts_sends_email_and_marks_sent(session: Session) -> None:
     alert = create_pending_alert(session)
     sender = FakeEmailSender()
 
-    result = alert_delivery.deliver_pending_email_alerts(
+    result = alert_delivery.deliver_pending_alerts(
         session,
         settings=smtp_settings(),
-        sender=sender,
+        email_sender=sender,
     )
 
     session.refresh(alert)
@@ -151,12 +171,12 @@ def test_deliver_pending_email_alerts_sends_email_and_marks_sent(session: Sessio
     assert sender.messages[0]["Subject"] == "[AIM] AIM Website: Service connection failed"
 
 
-def test_deliver_pending_email_alerts_keeps_pending_when_smtp_is_not_configured(
+def test_deliver_pending_alerts_keeps_email_pending_when_smtp_is_not_configured(
     session: Session,
 ) -> None:
     alert = create_pending_alert(session)
 
-    result = alert_delivery.deliver_pending_email_alerts(session, settings=Settings())
+    result = alert_delivery.deliver_pending_alerts(session, settings=Settings())
 
     session.refresh(alert)
     assert result.sent_count == 0
@@ -168,16 +188,16 @@ def test_deliver_pending_email_alerts_keeps_pending_when_smtp_is_not_configured(
     assert alert.last_error is None
 
 
-def test_deliver_pending_email_alerts_marks_missing_recipient_failed(
+def test_deliver_pending_alerts_marks_missing_recipient_failed(
     session: Session,
 ) -> None:
     alert = create_pending_alert(session, recipient_email=None)
     sender = FakeEmailSender()
 
-    result = alert_delivery.deliver_pending_email_alerts(
+    result = alert_delivery.deliver_pending_alerts(
         session,
         settings=smtp_settings(),
-        sender=sender,
+        email_sender=sender,
     )
 
     session.refresh(alert)
@@ -190,15 +210,15 @@ def test_deliver_pending_email_alerts_marks_missing_recipient_failed(
     assert sender.messages == []
 
 
-def test_deliver_pending_email_alerts_marks_sender_failure_failed(
+def test_deliver_pending_alerts_marks_email_sender_failure_failed(
     session: Session,
 ) -> None:
     alert = create_pending_alert(session)
 
-    result = alert_delivery.deliver_pending_email_alerts(
+    result = alert_delivery.deliver_pending_alerts(
         session,
         settings=smtp_settings(),
-        sender=FailingEmailSender(),
+        email_sender=FailingEmailSender(),
     )
 
     session.refresh(alert)
@@ -211,24 +231,166 @@ def test_deliver_pending_email_alerts_marks_sender_failure_failed(
     assert alert.last_error == "SMTP server unavailable"
 
 
-def test_list_pending_email_alerts_ignores_non_pending_alerts(session: Session) -> None:
+def test_deliver_pending_alerts_sends_webhook_and_marks_sent(session: Session) -> None:
+    alert = create_pending_alert(
+        session,
+        channel=AlertChannel.WEBHOOK,
+        project_webhook_url=SLACK_WEBHOOK_URL,
+    )
+    sender = FakeWebhookSender()
+
+    result = alert_delivery.deliver_pending_alerts(
+        session,
+        settings=Settings(),
+        webhook_sender=sender,
+    )
+
+    session.refresh(alert)
+    assert result.sent_count == 1
+    assert result.failed_count == 0
+    assert alert.status == AlertStatus.SENT.value
+    assert alert.delivery_attempts == 1
+    assert alert.sent_at is not None
+    assert len(sender.deliveries) == 1
+    url, payload = sender.deliveries[0]
+    assert url == SLACK_WEBHOOK_URL
+    assert payload == {
+        "text": (
+            "[AIM] AIM Website: Service connection failed\n"
+            "Project: AIM Website\nSummary: Connection timed out."
+        )
+    }
+
+
+def test_deliver_pending_alerts_marks_missing_webhook_url_failed(session: Session) -> None:
+    alert = create_pending_alert(
+        session,
+        channel=AlertChannel.WEBHOOK,
+        project_webhook_url=None,
+    )
+    sender = FakeWebhookSender()
+
+    result = alert_delivery.deliver_pending_alerts(
+        session,
+        settings=Settings(),
+        webhook_sender=sender,
+    )
+
+    session.refresh(alert)
+    assert result.failed_count == 1
+    assert alert.status == AlertStatus.FAILED.value
+    assert alert.last_error == "Project webhook URL is not configured."
+    assert sender.deliveries == []
+
+
+def test_deliver_pending_alerts_rejects_unsafe_webhook_url(session: Session) -> None:
+    alert = create_pending_alert(
+        session,
+        channel=AlertChannel.WEBHOOK,
+        project_webhook_url="https://127.0.0.1/hook",
+    )
+    sender = FakeWebhookSender()
+
+    result = alert_delivery.deliver_pending_alerts(
+        session,
+        settings=Settings(),
+        webhook_sender=sender,
+    )
+
+    session.refresh(alert)
+    assert result.failed_count == 1
+    assert alert.status == AlertStatus.FAILED.value
+    assert alert.last_error is not None
+    assert sender.deliveries == []
+
+
+def test_deliver_pending_alerts_marks_webhook_sender_failure_failed(session: Session) -> None:
+    alert = create_pending_alert(
+        session,
+        channel=AlertChannel.WEBHOOK,
+        project_webhook_url=SLACK_WEBHOOK_URL,
+    )
+
+    result = alert_delivery.deliver_pending_alerts(
+        session,
+        settings=Settings(),
+        webhook_sender=FailingWebhookSender(),
+    )
+
+    session.refresh(alert)
+    assert result.failed_count == 1
+    assert alert.status == AlertStatus.FAILED.value
+    assert alert.last_error == "Webhook endpoint returned HTTP 404."
+
+
+def test_deliver_pending_alerts_handles_mixed_channels(session: Session) -> None:
+    email_alert = create_pending_alert(session)
+    webhook_alert = create_pending_alert(
+        session,
+        channel=AlertChannel.WEBHOOK,
+        project_webhook_url=SLACK_WEBHOOK_URL,
+    )
+    webhook_sender = FakeWebhookSender()
+
+    # SMTP 미설정: email은 PENDING 유지, webhook은 발송된다.
+    result = alert_delivery.deliver_pending_alerts(
+        session,
+        settings=Settings(),
+        webhook_sender=webhook_sender,
+    )
+
+    session.refresh(email_alert)
+    session.refresh(webhook_alert)
+    assert result.sent_count == 1
+    assert result.skipped_count == 1
+    assert email_alert.status == AlertStatus.PENDING.value
+    assert webhook_alert.status == AlertStatus.SENT.value
+
+
+def test_build_webhook_payload_targets_discord_content() -> None:
+    payload = alert_delivery.build_webhook_payload(
+        url=DISCORD_WEBHOOK_URL,
+        subject="subject",
+        body="body",
+    )
+
+    assert payload == {"content": "subject\nbody"}
+
+
+def test_build_webhook_payload_truncates_discord_content() -> None:
+    payload = alert_delivery.build_webhook_payload(
+        url=DISCORD_WEBHOOK_URL,
+        subject="s",
+        body="b" * 3000,
+    )
+
+    assert len(payload["content"]) == alert_delivery.DISCORD_CONTENT_MAX_LENGTH
+
+
+def test_build_webhook_payload_defaults_to_slack_text() -> None:
+    for url in (SLACK_WEBHOOK_URL, "https://example.com/custom-hook"):
+        payload = alert_delivery.build_webhook_payload(url=url, subject="s", body="b")
+        assert payload == {"text": "s\nb"}
+
+
+def test_list_pending_alerts_ignores_non_pending_alerts(session: Session) -> None:
     pending_alert = create_pending_alert(session)
     _ = create_pending_alert(session, status=AlertStatus.SENT)
 
-    alerts = alert_delivery.list_pending_email_alerts(session, limit=10)
+    alerts = alert_delivery.list_pending_alerts(session, limit=10)
 
     assert [alert.id for alert in alerts] == [pending_alert.id]
 
 
-def test_deliver_pending_email_alerts_respects_batch_limit(session: Session) -> None:
+def test_deliver_pending_alerts_respects_batch_limit(session: Session) -> None:
     first_alert = create_pending_alert(session, recipient_email="first@example.com")
     second_alert = create_pending_alert(session, recipient_email="second@example.com")
     sender = FakeEmailSender()
 
-    result = alert_delivery.deliver_pending_email_alerts(
+    result = alert_delivery.deliver_pending_alerts(
         session,
         settings=smtp_settings(),
-        sender=sender,
+        email_sender=sender,
         limit=1,
     )
 
@@ -240,13 +402,13 @@ def test_deliver_pending_email_alerts_respects_batch_limit(session: Session) -> 
     assert sender.messages[0]["To"] == "first@example.com"
 
 
-def test_retry_failed_email_alert_resets_delivery_error(session: Session) -> None:
+def test_retry_failed_alert_resets_delivery_error(session: Session) -> None:
     alert = create_pending_alert(session, status=AlertStatus.FAILED)
     alert.delivery_attempts = 2
     alert.last_error = "SMTP server unavailable"
     session.commit()
 
-    retried_alert = alert_delivery.retry_failed_email_alert(
+    retried_alert = alert_delivery.retry_failed_alert(
         session,
         project_id=alert.project_id,
         alert_id=alert.id,
@@ -258,22 +420,39 @@ def test_retry_failed_email_alert_resets_delivery_error(session: Session) -> Non
     assert retried_alert.sent_at is None
 
 
-def test_retry_failed_email_alert_rejects_non_failed_alert(session: Session) -> None:
+def test_retry_failed_alert_allows_webhook_channel(session: Session) -> None:
+    alert = create_pending_alert(
+        session,
+        status=AlertStatus.FAILED,
+        channel=AlertChannel.WEBHOOK,
+        project_webhook_url=SLACK_WEBHOOK_URL,
+    )
+
+    retried_alert = alert_delivery.retry_failed_alert(
+        session,
+        project_id=alert.project_id,
+        alert_id=alert.id,
+    )
+
+    assert retried_alert.status == AlertStatus.PENDING.value
+
+
+def test_retry_failed_alert_rejects_non_failed_alert(session: Session) -> None:
     alert = create_pending_alert(session)
 
     with pytest.raises(alert_delivery.AlertRetryNotAllowedError):
-        alert_delivery.retry_failed_email_alert(
+        alert_delivery.retry_failed_alert(
             session,
             project_id=alert.project_id,
             alert_id=alert.id,
         )
 
 
-def test_retry_failed_email_alert_requires_matching_project(session: Session) -> None:
+def test_retry_failed_alert_requires_matching_project(session: Session) -> None:
     alert = create_pending_alert(session, status=AlertStatus.FAILED)
 
     with pytest.raises(alert_delivery.AlertNotFoundError):
-        alert_delivery.retry_failed_email_alert(
+        alert_delivery.retry_failed_alert(
             session,
             project_id=uuid4(),
             alert_id=alert.id,

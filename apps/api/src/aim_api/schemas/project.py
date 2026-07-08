@@ -20,6 +20,24 @@ class ProjectEnvironment(StrEnum):
     PRODUCTION = "production"
 
 
+MAX_WEBHOOK_URL_LENGTH = 1024
+
+
+def normalize_webhook_url_input(value: Any) -> Any:
+    if value is None:
+        return None
+
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        if len(normalized) > MAX_WEBHOOK_URL_LENGTH:
+            raise ValueError("Webhook URL is too long.")
+        return normalized
+
+    return value
+
+
 class ProjectBase(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     service_url: HttpUrl
@@ -31,6 +49,7 @@ class ProjectBase(BaseModel):
     quality_score_threshold: int = Field(default=80, ge=0, le=100)
     alert_email_enabled: bool = False
     alert_recipient_email: EmailStr | None = None
+    alert_webhook_url: HttpUrl | None = None
 
     @field_validator("name")
     @classmethod
@@ -39,6 +58,11 @@ class ProjectBase(BaseModel):
         if not normalized:
             raise ValueError("Project name must not be blank.")
         return normalized
+
+    @field_validator("alert_webhook_url", mode="before")
+    @classmethod
+    def normalize_alert_webhook_url(cls, value: Any) -> Any:
+        return normalize_webhook_url_input(value)
 
     @field_validator("description")
     @classmethod
@@ -77,6 +101,7 @@ class ProjectUpdate(BaseModel):
     quality_score_threshold: int | None = Field(default=None, ge=0, le=100)
     alert_email_enabled: bool | None = None
     alert_recipient_email: EmailStr | None = None
+    alert_webhook_url: HttpUrl | None = None
 
     @field_validator("name")
     @classmethod
@@ -88,6 +113,11 @@ class ProjectUpdate(BaseModel):
         if not normalized:
             raise ValueError("Project name must not be blank.")
         return normalized
+
+    @field_validator("alert_webhook_url", mode="before")
+    @classmethod
+    def normalize_alert_webhook_url(cls, value: Any) -> Any:
+        return normalize_webhook_url_input(value)
 
     @field_validator("description")
     @classmethod

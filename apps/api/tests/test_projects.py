@@ -104,6 +104,7 @@ def test_create_project(client: TestClient) -> None:
     assert body["quality_score_threshold"] == 80
     assert body["alert_email_enabled"] is False
     assert body["alert_recipient_email"] is None
+    assert body["alert_webhook_url"] is None
     assert body["is_verified"] is False
     assert body["created_at"]
     assert body["updated_at"]
@@ -165,6 +166,57 @@ def test_update_project(client: TestClient) -> None:
     assert body["quality_score_threshold"] == 90
     assert body["alert_email_enabled"] is True
     assert body["alert_recipient_email"] == "alerts@example.com"
+
+
+def test_create_project_stores_alert_webhook_url(client: TestClient) -> None:
+    webhook_url = "https://hooks.slack.com/services/T000/B000/XXXX"
+
+    project = create_project(client, alert_webhook_url=webhook_url)
+
+    assert project["alert_webhook_url"] == webhook_url
+
+
+def test_create_project_rejects_unsafe_alert_webhook_url(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def reject_loopback_url(url: str) -> None:
+        if "127.0.0.1" in url:
+            raise UrlValidationError("Service URL host is not allowed.")
+
+    monkeypatch.setattr(project_service, "validate_service_url", reject_loopback_url)
+
+    response = client.post(
+        "/projects",
+        json=project_payload(alert_webhook_url="https://127.0.0.1/hook"),
+        headers=authenticated_headers(client),
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_project_sets_and_clears_alert_webhook_url(client: TestClient) -> None:
+    headers = authenticated_headers(client)
+    project = create_project(client, headers=headers)
+    webhook_url = "https://hooks.slack.com/services/T000/B000/XXXX"
+
+    set_response = client.patch(
+        f"/projects/{project['id']}",
+        json={"alert_webhook_url": webhook_url},
+        headers=headers,
+    )
+
+    assert set_response.status_code == 200
+    assert set_response.json()["alert_webhook_url"] == webhook_url
+
+    clear_response = client.patch(
+        f"/projects/{project['id']}",
+        json={"alert_webhook_url": None},
+        headers=headers,
+    )
+
+    assert clear_response.status_code == 200
+    assert clear_response.json()["alert_webhook_url"] is None
 
 
 def test_update_project_requires_at_least_one_field(client: TestClient) -> None:

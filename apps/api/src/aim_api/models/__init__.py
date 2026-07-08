@@ -2,6 +2,7 @@ from aim_api.models.ai_report import AIReport
 from aim_api.models.alert import Alert, Incident
 from aim_api.models.check_run import CheckRun
 from aim_api.models.project import Project
+from aim_api.models.project_api_token import ProjectApiToken
 from aim_api.models.scanner_result import (
     Artifact,
     AvailabilityResult,
@@ -31,6 +32,7 @@ __all__ = [
     "LighthouseResult",
     "NetworkFailure",
     "Project",
+    "ProjectApiToken",
     "RunComparison",
     "ScoreResult",
     "ScenarioRun",

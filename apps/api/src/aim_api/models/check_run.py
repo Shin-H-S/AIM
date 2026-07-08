@@ -49,6 +49,8 @@ class CheckRun(Base):
         default=CheckRunStatus.QUEUED.value,
     )
     trigger_source: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
+    # 배포 훅으로 생성된 검사가 어떤 배포(커밋 SHA·버전 등)의 결과인지 추적한다.
+    deploy_ref: Mapped[str | None] = mapped_column(String(255))
     failure_reason: Mapped[str | None] = mapped_column(Text)
     queued_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

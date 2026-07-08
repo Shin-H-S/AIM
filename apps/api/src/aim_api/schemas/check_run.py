@@ -165,6 +165,7 @@ class CheckRunRead(BaseModel):
     requested_by_id: UUID
     status: CheckRunStatus
     trigger_source: str
+    deploy_ref: str | None = None
     failure_reason: str | None
     queued_at: datetime
     started_at: datetime | None

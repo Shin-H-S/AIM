@@ -16,7 +16,14 @@ class ProjectNotVerifiedError(Exception):
     """Raised when a check run is requested for an unverified project."""
 
 
-def create_check_run(session: Session, *, project: Project, requested_by_id: UUID) -> CheckRun:
+def create_check_run(
+    session: Session,
+    *,
+    project: Project,
+    requested_by_id: UUID,
+    trigger_source: str = "manual",
+    deploy_ref: str | None = None,
+) -> CheckRun:
     if not project.is_verified:
         raise ProjectNotVerifiedError
 
@@ -24,12 +31,32 @@ def create_check_run(session: Session, *, project: Project, requested_by_id: UUI
         project_id=project.id,
         requested_by_id=requested_by_id,
         status=CheckRunStatus.QUEUED.value,
-        trigger_source="manual",
+        trigger_source=trigger_source,
+        deploy_ref=deploy_ref,
     )
     session.add(check_run)
     session.commit()
     session.refresh(check_run)
     return check_run
+
+
+ACTIVE_CHECK_RUN_STATUSES = (
+    CheckRunStatus.QUEUED.value,
+    CheckRunStatus.RUNNING.value,
+    CheckRunStatus.ANALYZING.value,
+)
+
+
+def has_active_check_run(session: Session, *, project_id: UUID) -> bool:
+    statement = (
+        select(CheckRun.id)
+        .where(
+            CheckRun.project_id == project_id,
+            CheckRun.status.in_(ACTIVE_CHECK_RUN_STATUSES),
+        )
+        .limit(1)
+    )
+    return session.scalar(statement) is not None
 
 
 def list_check_runs(

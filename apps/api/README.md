@@ -109,6 +109,41 @@ MVP는 HTML meta-tag 방식의 소유권 확인을 지원합니다.
 
 검증 요청은 redirect destination마다 URL을 다시 검증하며, timeout과 response size 제한을 적용합니다. 검증 실패 시 내부 네트워크 정보나 원격 응답 본문을 사용자 응답에 노출하지 않습니다.
 
+## 프로젝트 API 토큰과 배포 훅
+
+CI가 배포 직후 검사를 자동 시작할 수 있도록 프로젝트 스코프 장수명 토큰과 배포 훅을 제공합니다.
+
+토큰 관리 (Bearer JWT, 프로젝트 소유자):
+
+- `POST /projects/{project_id}/tokens` — 토큰 발급. 원문(`aim_` 접두사)은 **생성 응답에서 1회만** 반환되고 DB에는 sha256 해시만 저장됩니다.
+- `GET /projects/{project_id}/tokens` — 목록 조회(이름·생성/마지막 사용/폐기 시각, 원문·해시 미노출)
+- `DELETE /projects/{project_id}/tokens/{token_id}` — 폐기(revoke). 폐기된 토큰은 즉시 거부됩니다.
+
+배포 훅 (Bearer 프로젝트 토큰):
+
+- `POST /hooks/projects/{project_id}/check-runs` — `trigger_source="deploy"`인 CheckRun을 생성하고 linked ScenarioRun과 함께 scan queue에 등록합니다. body의 `deploy_ref`(선택, 최대 255자)에 커밋 SHA 등 배포 식별자를 저장할 수 있습니다.
+- 거부 규칙: 토큰 누락·무효·폐기·타 프로젝트 `401`, 미인증(도메인) 프로젝트 `409`, 활성 CheckRun 존재 `409`(큐 적체 방지), 큐 등록 실패 `503`(CheckRun은 `FAILED`로 기록).
+
+호출 예시:
+
+```bash
+curl -sf -X POST https://api.qaaimsync.com/hooks/projects/<PROJECT_ID>/check-runs \
+  -H "Authorization: Bearer <AIM_DEPLOY_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"deploy_ref": "<커밋 SHA>"}'
+```
+
+GitHub Actions 배포 워크플로의 마지막 단계 예시:
+
+```yaml
+- name: AIM 배포 검사 트리거
+  run: |
+    curl -sf -X POST https://api.qaaimsync.com/hooks/projects/${{ vars.AIM_PROJECT_ID }}/check-runs \
+      -H "Authorization: Bearer ${{ secrets.AIM_DEPLOY_TOKEN }}" \
+      -H "Content-Type: application/json" \
+      -d '{"deploy_ref": "${{ github.sha }}"}'
+```
+
 ## CheckRun API
 
 검증된 프로젝트에 대해 수동 check run을 생성하고 조회할 수 있습니다.

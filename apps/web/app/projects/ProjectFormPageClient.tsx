@@ -4,12 +4,17 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   createProject,
+  createProjectApiToken,
   deleteProject,
   fetchProject,
+  fetchProjectApiTokens,
   fetchProjectVerification,
+  revokeProjectApiToken,
   updateProject,
   verifyProjectDomain,
+  type IssuedProjectApiToken,
   type Project,
+  type ProjectApiToken,
   type ProjectEnvironment,
   type ProjectPayload,
   type ProjectVerification
@@ -315,6 +320,7 @@ export function ProjectFormPageClient({
                   verificationState={verificationState}
                   verifyActionState={verifyActionState}
                 />
+                <DeployTokenPanel projectId={project.id} />
                 <DangerZone
                   onDelete={() => void handleDeleteProject()}
                   deleteConfirmName={deleteConfirmName}
@@ -673,6 +679,248 @@ function CreationGuide() {
         <li>인증된 프로젝트부터 정기 검사 대상이 됩니다.</li>
       </ol>
     </aside>
+  );
+}
+
+type DeployTokenListState = "loading" | "ready" | "unauthorized" | "unavailable";
+
+const deployTokenErrorMessage: Record<"unauthorized" | "not-found" | "unavailable", string> = {
+  unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
+  "not-found": "프로젝트 또는 토큰을 찾을 수 없습니다. 목록을 다시 조회하세요.",
+  unavailable: "토큰 요청에 실패했습니다. 잠시 후 다시 시도하세요."
+};
+
+function DeployTokenPanel({ projectId }: { projectId: string }) {
+  const [listState, setListState] = useState<DeployTokenListState>("loading");
+  const [tokens, setTokens] = useState<ProjectApiToken[]>([]);
+  const [tokenName, setTokenName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [issuedToken, setIssuedToken] = useState<IssuedProjectApiToken | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [revokingTokenId, setRevokingTokenId] = useState<string | null>(null);
+
+  const loadTokens = useCallback(async () => {
+    const accessToken = getStoredAccessToken();
+
+    if (!accessToken) {
+      setListState("unauthorized");
+      return;
+    }
+
+    const result = await fetchProjectApiTokens({ projectId, accessToken });
+
+    if (result.state === "success") {
+      setTokens(result.tokens);
+      setListState("ready");
+      return;
+    }
+
+    setListState(result.state === "unauthorized" ? "unauthorized" : "unavailable");
+  }, [projectId]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void loadTokens();
+    });
+  }, [loadTokens]);
+
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const accessToken = getStoredAccessToken();
+    const name = tokenName.trim();
+
+    if (!accessToken || !name || isCreating) {
+      return;
+    }
+
+    setIsCreating(true);
+    setActionError(null);
+    setCopied(false);
+    const result = await createProjectApiToken({ projectId, name, accessToken });
+
+    if (result.state === "success") {
+      setIssuedToken(result.token);
+      setTokenName("");
+      await loadTokens();
+    } else {
+      setActionError(deployTokenErrorMessage[result.state]);
+    }
+
+    setIsCreating(false);
+  }
+
+  async function handleRevoke(tokenId: string) {
+    const accessToken = getStoredAccessToken();
+
+    if (!accessToken || revokingTokenId !== null) {
+      return;
+    }
+
+    setRevokingTokenId(tokenId);
+    setActionError(null);
+    const result = await revokeProjectApiToken({ projectId, tokenId, accessToken });
+
+    if (result.state === "success") {
+      if (issuedToken?.id === tokenId) {
+        setIssuedToken(null);
+      }
+      await loadTokens();
+    } else {
+      setActionError(deployTokenErrorMessage[result.state]);
+    }
+
+    setRevokingTokenId(null);
+  }
+
+  async function handleCopyIssuedToken() {
+    if (!issuedToken) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(issuedToken.token);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
+      <h2 className="text-2xl font-bold text-slate-900">배포 훅 토큰</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        CI가 배포 직후 검사를 자동 시작할 때 사용하는 프로젝트 전용 토큰입니다. 발급된
+        토큰으로 배포 훅(<span className="font-mono text-xs">/hooks/…/check-runs</span>)만
+        호출할 수 있습니다.
+      </p>
+
+      <form className="mt-5 flex flex-wrap items-center gap-2" onSubmit={handleCreate}>
+        <input
+          className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+          maxLength={80}
+          onChange={(event) => setTokenName(event.target.value)}
+          placeholder="토큰 이름 (예: github-actions)"
+          value={tokenName}
+        />
+        <button
+          className="rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isCreating || !tokenName.trim()}
+          type="submit"
+        >
+          {isCreating ? "발급 중" : "토큰 발급"}
+        </button>
+      </form>
+
+      {issuedToken && (
+        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-sm font-semibold text-emerald-800">
+            토큰이 발급되었습니다 — 지금만 표시됩니다
+          </p>
+          <p className="mt-2 break-all rounded-xl bg-white p-3 font-mono text-xs text-slate-800 ring-1 ring-emerald-200">
+            {issuedToken.token}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-500"
+              onClick={() => void handleCopyIssuedToken()}
+              type="button"
+            >
+              {copied ? "복사됨" : "복사"}
+            </button>
+            <p className="text-xs text-emerald-800 opacity-80">
+              CI 시크릿에 저장하세요. 이 화면을 벗어나면 다시 볼 수 없습니다.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {actionError && (
+        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+          {actionError}
+        </p>
+      )}
+
+      <div className="mt-5">
+        <DeployTokenList
+          listState={listState}
+          onRevoke={(tokenId) => void handleRevoke(tokenId)}
+          revokingTokenId={revokingTokenId}
+          tokens={tokens}
+        />
+      </div>
+    </aside>
+  );
+}
+
+function DeployTokenList({
+  listState,
+  onRevoke,
+  revokingTokenId,
+  tokens
+}: {
+  listState: DeployTokenListState;
+  onRevoke: (tokenId: string) => void;
+  revokingTokenId: string | null;
+  tokens: ProjectApiToken[];
+}) {
+  if (listState === "loading") {
+    return <p className="text-sm text-slate-500">토큰 목록을 불러오는 중입니다.</p>;
+  }
+
+  if (listState === "unauthorized") {
+    return (
+      <p className="text-sm text-slate-500">
+        로그인 세션이 만료되어 토큰 목록을 불러올 수 없습니다.
+      </p>
+    );
+  }
+
+  if (listState === "unavailable") {
+    return (
+      <p className="text-sm text-rose-800">토큰 목록을 불러오지 못했습니다. 잠시 후 다시 시도하세요.</p>
+    );
+  }
+
+  if (tokens.length === 0) {
+    return <p className="text-sm text-slate-500">발급된 토큰이 없습니다.</p>;
+  }
+
+  return (
+    <ul className="grid gap-3">
+      {tokens.map((token) => {
+        const isRevoked = token.revoked_at !== null;
+
+        return (
+          <li
+            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"
+            key={token.id}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold text-slate-900">{token.name}</p>
+              {isRevoked ? (
+                <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
+                  폐기됨
+                </span>
+              ) : (
+                <button
+                  className="rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-800 transition hover:border-rose-400 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={revokingTokenId !== null}
+                  onClick={() => onRevoke(token.id)}
+                  type="button"
+                >
+                  {revokingTokenId === token.id ? "폐기 중" : "폐기"}
+                </button>
+              )}
+            </div>
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Metric label="생성 시각" value={formatNullableDateTime(token.created_at)} />
+              <Metric label="마지막 사용" value={formatNullableDateTime(token.last_used_at)} />
+            </dl>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

@@ -2647,3 +2647,208 @@ export async function createScenarioRun({
     return { state: "unavailable" };
   }
 }
+
+export type ProjectApiToken = {
+  id: string;
+  project_id: string;
+  name: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+};
+
+export type IssuedProjectApiToken = ProjectApiToken & {
+  token: string;
+};
+
+export type CreateProjectApiTokenResult =
+  | {
+      state: "success";
+      token: IssuedProjectApiToken;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type ProjectApiTokenListResult =
+  | {
+      state: "success";
+      tokens: ProjectApiToken[];
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type RevokeProjectApiTokenResult =
+  | {
+      state: "success";
+      token: ProjectApiToken;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export function getProjectApiTokensUrl(projectId: string, apiBaseUrl = getApiBaseUrl()): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/tokens`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export function getProjectApiTokenUrl(
+  projectId: string,
+  tokenId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/tokens/${encodeURIComponent(tokenId)}`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export async function createProjectApiToken({
+  projectId,
+  name,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  name: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<CreateProjectApiTokenResult> {
+  try {
+    const response = await fetcher(getProjectApiTokensUrl(projectId, apiBaseUrl), {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ name })
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      token: (await response.json()) as IssuedProjectApiToken
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function fetchProjectApiTokens({
+  projectId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<ProjectApiTokenListResult> {
+  try {
+    const response = await fetcher(getProjectApiTokensUrl(projectId, apiBaseUrl), {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      tokens: (await response.json()) as ProjectApiToken[]
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function revokeProjectApiToken({
+  projectId,
+  tokenId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  tokenId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<RevokeProjectApiTokenResult> {
+  try {
+    const response = await fetcher(getProjectApiTokenUrl(projectId, tokenId, apiBaseUrl), {
+      method: "DELETE",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      token: (await response.json()) as ProjectApiToken
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}

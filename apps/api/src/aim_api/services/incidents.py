@@ -146,9 +146,8 @@ def evaluate_incident_triggers(
                 IncidentTrigger(
                     trigger_type=IncidentTriggerType.SERVICE_CONNECTION_FAILURE,
                     severity=IncidentSeverity.RISK,
-                    title="Service connection failed",
-                    summary=availability_result.failure_reason
-                    or "The service could not be reached.",
+                    title="서비스 연결 실패",
+                    summary=availability_result.failure_reason or "서비스에 연결할 수 없습니다.",
                     evidence={
                         "check_run_id": str(check_run.id),
                         "availability_result_id": str(availability_result.id),
@@ -167,8 +166,8 @@ def evaluate_incident_triggers(
                 IncidentTrigger(
                     trigger_type=IncidentTriggerType.REPEATED_5XX_RESPONSE,
                     severity=IncidentSeverity.RISK,
-                    title="Repeated 5xx response detected",
-                    summary="The current run and the previous comparable run both returned 5xx.",
+                    title="5xx 응답 반복 감지",
+                    summary="이번 검사와 직전 검사가 연속으로 5xx 응답을 반환했습니다.",
                     evidence={
                         "check_run_id": str(check_run.id),
                         "availability_result_id": str(availability_result.id),
@@ -186,10 +185,10 @@ def evaluate_incident_triggers(
                 IncidentTrigger(
                     trigger_type=IncidentTriggerType.RESPONSE_TIME_ABOVE_THRESHOLD,
                     severity=IncidentSeverity.WARNING,
-                    title="Response time is above threshold",
+                    title="응답 시간 임계값 초과",
                     summary=(
-                        f"Response time {availability_result.response_time_ms}ms is above "
-                        f"the configured {project.response_time_threshold_ms}ms threshold."
+                        f"응답 시간 {availability_result.response_time_ms}ms가 설정된 임계값 "
+                        f"{project.response_time_threshold_ms}ms를 초과했습니다."
                     ),
                     evidence={
                         "check_run_id": str(check_run.id),
@@ -210,10 +209,10 @@ def evaluate_incident_triggers(
             IncidentTrigger(
                 trigger_type=IncidentTriggerType.PERFORMANCE_SCORE_BELOW_THRESHOLD,
                 severity=IncidentSeverity.WARNING,
-                title="Performance score is below threshold",
+                title="성능 점수 임계값 미달",
                 summary=(
-                    f"Performance score {lighthouse_result.performance_score} is below "
-                    f"the configured {project.quality_score_threshold} threshold."
+                    f"성능 점수 {lighthouse_result.performance_score}점이 설정된 임계값 "
+                    f"{project.quality_score_threshold}점에 미치지 못했습니다."
                 ),
                 evidence={
                     "check_run_id": str(check_run.id),
@@ -233,8 +232,9 @@ def evaluate_incident_triggers(
             IncidentTrigger(
                 trigger_type=IncidentTriggerType.CRITICAL_SCENARIO_FAILURE,
                 severity=IncidentSeverity.RISK,
-                title="Critical scenario failed",
-                summary=failed_scenario_run.failure_reason or "A linked critical scenario failed.",
+                title="핵심 시나리오 실패",
+                summary=failed_scenario_run.failure_reason
+                or "연결된 핵심 시나리오 실행이 실패했습니다.",
                 evidence={
                     "check_run_id": str(check_run.id),
                     "scenario_run_id": str(failed_scenario_run.id),
@@ -454,9 +454,15 @@ def build_alert_subject(
     alert_type: AlertType,
 ) -> str:
     if alert_type == AlertType.INCIDENT_RECOVERED:
-        return f"[AIM] {project.name}: recovered from {incident.title}"
+        return f"[AIM] {project.name}: 복구 — {incident.title}"
 
-    return f"[AIM] {project.name}: {incident.title}"
+    return f"[AIM] {project.name}: 장애 발생 — {incident.title}"
+
+
+SEVERITY_KO = {
+    IncidentSeverity.WARNING.value: "주의",
+    IncidentSeverity.RISK.value: "위험",
+}
 
 
 def build_alert_body(
@@ -466,20 +472,21 @@ def build_alert_body(
     alert_type: AlertType,
 ) -> str:
     if alert_type == AlertType.INCIDENT_RECOVERED:
-        resolved_at = incident.resolved_at.isoformat() if incident.resolved_at else "unknown"
+        resolved_at = incident.resolved_at.isoformat() if incident.resolved_at else "알 수 없음"
         return (
-            f"Project: {project.name}\n"
-            f"Incident: {incident.title}\n"
-            f"Status: {IncidentStatus.RESOLVED.value}\n"
-            f"Resolved at: {resolved_at}\n"
-            f"Summary: The incident trigger is no longer active."
+            f"프로젝트: {project.name}\n"
+            f"장애: {incident.title}\n"
+            f"상태: 해소됨\n"
+            f"해소 시각: {resolved_at}\n"
+            f"요약: 장애 조건이 더 이상 감지되지 않습니다."
         )
 
+    severity_label = SEVERITY_KO.get(incident.severity, incident.severity)
     return (
-        f"Project: {project.name}\n"
-        f"Incident: {incident.title}\n"
-        f"Severity: {incident.severity}\n"
-        f"Status: {incident.status}\n"
-        f"Started at: {incident.started_at.isoformat()}\n"
-        f"Summary: {incident.summary}"
+        f"프로젝트: {project.name}\n"
+        f"장애: {incident.title}\n"
+        f"심각도: {severity_label}\n"
+        f"상태: 진행 중\n"
+        f"시작 시각: {incident.started_at.isoformat()}\n"
+        f"요약: {incident.summary}"
     )

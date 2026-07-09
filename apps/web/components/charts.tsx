@@ -145,6 +145,52 @@ export function MiniDonut({
   );
 }
 
+// 대시보드 카드용 초소형 점수 추이. 점수가 좁은 구간에 몰려도 변화가 보이도록 구간을 정규화한다.
+export function Sparkline({ scores }: { scores: number[] }) {
+  if (scores.length < 2) {
+    return null;
+  }
+
+  const width = 96;
+  const height = 28;
+  const paddingX = 3;
+  const paddingY = 4;
+  const low = Math.max(0, Math.min(...scores) - 2);
+  const high = Math.min(100, Math.max(...scores) + 2);
+  const span = high - low || 1;
+  const pointX = (index: number) =>
+    paddingX + (index / (scores.length - 1)) * (width - paddingX * 2);
+  const pointY = (score: number) =>
+    paddingY + (1 - (score - low) / span) * (height - paddingY * 2);
+  const linePoints = scores
+    .map((score, index) => `${pointX(index).toFixed(1)},${pointY(score).toFixed(1)}`)
+    .join(" ");
+  const latest = scores[scores.length - 1];
+
+  return (
+    <svg
+      aria-hidden="true"
+      className={`h-7 w-24 shrink-0 ${bandTextClassName[scoreBand(latest)]}`}
+      viewBox={`0 0 ${width} ${height}`}
+    >
+      <polyline
+        fill="none"
+        points={linePoints}
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+      <circle
+        cx={pointX(scores.length - 1).toFixed(1)}
+        cy={pointY(latest).toFixed(1)}
+        fill="currentColor"
+        r="2.5"
+      />
+    </svg>
+  );
+}
+
 export type ScoreTrendPoint = {
   label: string;
   score: number;

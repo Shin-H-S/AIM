@@ -363,6 +363,8 @@ export type CheckRunDetail = {
   requested_by_id: string;
   status: CheckRunStatus;
   trigger_source: string;
+  // API가 배포 커밋 참조를 아직 배포하지 않은 경우를 대비해 optional로 둔다.
+  deploy_ref?: string | null;
   failure_reason: string | null;
   queued_at: string;
   started_at: string | null;
@@ -397,6 +399,8 @@ export type CheckRunSummary = {
   requested_by_id: string;
   status: CheckRunStatus;
   trigger_source: string;
+  // API가 배포 커밋 참조를 아직 배포하지 않은 경우를 대비해 optional로 둔다.
+  deploy_ref?: string | null;
   failure_reason: string | null;
   queued_at: string;
   started_at: string | null;

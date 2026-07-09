@@ -1,19 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   fetchCheckRuns,
   type CheckRunListResult,
+  type CheckRunStatus,
   type CheckRunSummary
 } from "@/lib/api";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
-import { formatDateTime, formatNullableDateTime } from "@/lib/format";
-import { triggerSourceLabel } from "@/lib/statusLabels";
+import { formatDateWithWeekday, formatDuration, formatTimeOfDay } from "@/lib/format";
+import { deploymentRiskLabel, triggerSourceLabel } from "@/lib/statusLabels";
 import { ScoreTrendPanel } from "@/components/charts";
 import { buildScoreTrendSeries, scoredRunCount } from "@/lib/scoreTrend";
 import {
-  Badge,
-  CheckRunStatusBadge,
+  checkRunStatusCopy,
   LinkButton,
   LoginRequiredNotice,
   Metric,
@@ -274,6 +275,8 @@ function CheckRunList({
   onLoadMore: () => void;
   projectId: string;
 }) {
+  const [expandedStreaks, setExpandedStreaks] = useState<ReadonlySet<string>>(new Set());
+
   if (checkRuns.length === 0) {
     return (
       <section className="rounded-3xl border border-dashed border-slate-200 bg-white/60 p-6">
@@ -286,6 +289,20 @@ function CheckRunList({
     );
   }
 
+  const dateGroups = buildDateGroups(checkRuns);
+
+  const toggleStreak = (key: string) => {
+    setExpandedStreaks((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -294,11 +311,34 @@ function CheckRunList({
           {checkRuns.length}개
         </span>
       </div>
-      <ul className="grid gap-4">
-        {checkRuns.map((checkRun) => (
-          <CheckRunCard checkRun={checkRun} key={checkRun.id} projectId={projectId} />
+      <div className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200">
+        {dateGroups.map((group) => (
+          <div key={group.dateLabel}>
+            <p className="border-b border-slate-200 bg-slate-50 px-4 py-1.5 text-xs font-semibold text-slate-500">
+              {group.dateLabel}
+            </p>
+            <ul className="divide-y divide-slate-100">
+              {group.entries.map((entry) =>
+                entry.kind === "run" ? (
+                  <CheckRunRow
+                    checkRun={entry.checkRun}
+                    key={entry.checkRun.id}
+                    projectId={projectId}
+                  />
+                ) : (
+                  <CollapsedStreakRows
+                    entry={entry}
+                    isExpanded={expandedStreaks.has(entry.key)}
+                    key={entry.key}
+                    onToggle={() => toggleStreak(entry.key)}
+                    projectId={projectId}
+                  />
+                )
+              )}
+            </ul>
+          </div>
         ))}
-      </ul>
+      </div>
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
@@ -325,38 +365,218 @@ function CheckRunList({
   );
 }
 
-function CheckRunCard({
+type CheckRunListEntry =
+  | { kind: "run"; checkRun: CheckRunSummary }
+  | { kind: "collapsed"; key: string; checkRuns: CheckRunSummary[] };
+
+type CheckRunDateGroup = {
+  dateLabel: string;
+  entries: CheckRunListEntry[];
+};
+
+// 하루 안에서 연속된 정기 검사(완료)가 4건 이상이면 앞 2건만 남기고 접는다.
+const SCHEDULED_STREAK_VISIBLE = 2;
+const SCHEDULED_STREAK_COLLAPSE_MIN = 4;
+
+function isCollapsibleScheduledRun(checkRun: CheckRunSummary): boolean {
+  return checkRun.trigger_source === "scheduled" && checkRun.status === "COMPLETED";
+}
+
+function collapseScheduledStreaks(
+  checkRuns: CheckRunSummary[],
+  dateLabel: string
+): CheckRunListEntry[] {
+  const entries: CheckRunListEntry[] = [];
+  let streak: CheckRunSummary[] = [];
+
+  const flushStreak = () => {
+    if (streak.length >= SCHEDULED_STREAK_COLLAPSE_MIN) {
+      for (const checkRun of streak.slice(0, SCHEDULED_STREAK_VISIBLE)) {
+        entries.push({ kind: "run", checkRun });
+      }
+      const hidden = streak.slice(SCHEDULED_STREAK_VISIBLE);
+      entries.push({
+        kind: "collapsed",
+        key: `${dateLabel}:${hidden[0].id}`,
+        checkRuns: hidden
+      });
+    } else {
+      for (const checkRun of streak) {
+        entries.push({ kind: "run", checkRun });
+      }
+    }
+    streak = [];
+  };
+
+  for (const checkRun of checkRuns) {
+    if (isCollapsibleScheduledRun(checkRun)) {
+      streak.push(checkRun);
+    } else {
+      flushStreak();
+      entries.push({ kind: "run", checkRun });
+    }
+  }
+  flushStreak();
+
+  return entries;
+}
+
+function buildDateGroups(checkRuns: CheckRunSummary[]): CheckRunDateGroup[] {
+  const grouped: { dateLabel: string; checkRuns: CheckRunSummary[] }[] = [];
+
+  for (const checkRun of checkRuns) {
+    const dateLabel = formatDateWithWeekday(checkRun.queued_at);
+    const lastGroup = grouped[grouped.length - 1];
+
+    if (lastGroup && lastGroup.dateLabel === dateLabel) {
+      lastGroup.checkRuns.push(checkRun);
+    } else {
+      grouped.push({ dateLabel, checkRuns: [checkRun] });
+    }
+  }
+
+  return grouped.map((group) => ({
+    dateLabel: group.dateLabel,
+    entries: collapseScheduledStreaks(group.checkRuns, group.dateLabel)
+  }));
+}
+
+function CollapsedStreakRows({
+  entry,
+  isExpanded,
+  onToggle,
+  projectId
+}: {
+  entry: Extract<CheckRunListEntry, { kind: "collapsed" }>;
+  isExpanded: boolean;
+  onToggle: () => void;
+  projectId: string;
+}) {
+  return (
+    <>
+      {isExpanded &&
+        entry.checkRuns.map((checkRun) => (
+          <CheckRunRow checkRun={checkRun} key={checkRun.id} projectId={projectId} />
+        ))}
+      <li>
+        <button
+          className="w-full px-4 py-2 text-left text-xs font-bold text-cyan-700 transition hover:bg-cyan-50"
+          onClick={onToggle}
+          type="button"
+        >
+          {isExpanded ? "정기 검사 접기" : `같은 정기 검사 ${entry.checkRuns.length}건 더 보기`}
+        </button>
+      </li>
+    </>
+  );
+}
+
+const ACTIVE_ROW_STATUSES = new Set<CheckRunStatus>(["QUEUED", "RUNNING", "ANALYZING"]);
+
+function getStatusDotClassName(status: CheckRunStatus): string {
+  if (status === "COMPLETED") {
+    return "bg-emerald-500";
+  }
+
+  if (status === "FAILED") {
+    return "bg-rose-500";
+  }
+
+  if (status === "CANCELLED") {
+    return "bg-slate-400";
+  }
+
+  return "animate-pulse bg-cyan-500";
+}
+
+function getStatusTextClassName(status: CheckRunStatus): string {
+  if (status === "COMPLETED") {
+    return "text-emerald-700";
+  }
+
+  if (status === "FAILED") {
+    return "text-rose-700";
+  }
+
+  if (status === "CANCELLED") {
+    return "text-slate-500";
+  }
+
+  return "text-cyan-700";
+}
+
+const riskChipClassName: Record<"STABLE" | "WARNING" | "RISK", string> = {
+  STABLE: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  WARNING: "bg-amber-50 text-amber-700 ring-amber-200",
+  RISK: "bg-rose-50 text-rose-700 ring-rose-200"
+};
+
+function CheckRunRow({
   checkRun,
   projectId
 }: {
   checkRun: CheckRunSummary;
   projectId: string;
 }) {
+  const score = checkRun.score ?? null;
+  const isActive = ACTIVE_ROW_STATUSES.has(checkRun.status);
+
   return (
-    <li className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-wrap gap-2">
-          <CheckRunStatusBadge status={checkRun.status} />
-          <Badge label={triggerSourceLabel(checkRun.trigger_source)} />
-        </div>
-        <LinkButton
-          href={`/projects/${projectId}/check-runs/${checkRun.id}`}
-          label="결과 보기"
-          variant="dark"
-        />
-      </div>
-
-      <dl className="mt-5 grid gap-3 md:grid-cols-3">
-        <Metric label="대기 시각" value={formatDateTime(checkRun.queued_at)} />
-        <Metric label="시작 시각" value={formatNullableDateTime(checkRun.started_at)} />
-        <Metric label="종료 시각" value={formatNullableDateTime(checkRun.finished_at)} />
-      </dl>
-
-      {checkRun.failure_reason && (
-        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-          {checkRun.failure_reason}
-        </p>
-      )}
+    <li>
+      <Link
+        className="grid grid-cols-[76px_58px_minmax(0,1fr)_auto_14px] items-center gap-3 px-4 py-2.5 transition hover:bg-slate-50 sm:grid-cols-[76px_58px_60px_minmax(0,1fr)_auto_14px]"
+        href={`/projects/${projectId}/check-runs/${checkRun.id}`}
+      >
+        <span
+          className={`flex items-center gap-1.5 text-xs font-bold ${getStatusTextClassName(checkRun.status)}`}
+        >
+          <span
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${getStatusDotClassName(checkRun.status)}`}
+          />
+          {checkRunStatusCopy[checkRun.status]}
+        </span>
+        <span className="whitespace-nowrap text-sm text-slate-700">
+          {formatTimeOfDay(checkRun.queued_at)}
+        </span>
+        <span className="hidden whitespace-nowrap text-xs text-slate-500 sm:block">
+          {isActive ? "진행 중" : formatDuration(checkRun.started_at, checkRun.finished_at)}
+        </span>
+        <span className="min-w-0">
+          {score ? (
+            <span
+              className={`inline-flex max-w-full items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${riskChipClassName[score.deployment_risk]}`}
+            >
+              {score.overall_score}점 · {score.grade} ·{" "}
+              {deploymentRiskLabel(score.deployment_risk)}
+            </span>
+          ) : checkRun.failure_reason ? (
+            <span className="block truncate text-xs text-rose-700">
+              {checkRun.failure_reason}
+            </span>
+          ) : (
+            <span className="text-xs text-slate-400">—</span>
+          )}
+        </span>
+        <span className="flex items-center justify-end gap-1.5">
+          <span className="whitespace-nowrap rounded-full border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+            {triggerSourceLabel(checkRun.trigger_source)}
+          </span>
+          {checkRun.deploy_ref && (
+            <span className="hidden whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] text-slate-500 sm:block">
+              {checkRun.deploy_ref.slice(0, 7)}
+            </span>
+          )}
+        </span>
+        <svg className="h-3.5 w-3.5 text-slate-300" fill="none" viewBox="0 0 16 16">
+          <path
+            d="M6 4l4 4-4 4"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.5"
+          />
+        </svg>
+      </Link>
     </li>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import { AIReportDetailPanel } from "./AIReportDetailPanel";
 import {
@@ -40,7 +40,12 @@ import {
   ThresholdBar
 } from "@/components/charts";
 import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
-import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
+import {
+  formatDateTime,
+  formatDetailDateTime,
+  formatDuration,
+  formatMilliseconds
+} from "@/lib/format";
 import {
   buildBreakdownSummary,
   scoreCategoryLabel,
@@ -51,7 +56,6 @@ import {
   Badge,
   CheckRunStatusBadge,
   InfoHint,
-  LinkButton,
   LoginRequiredNotice,
   Metric,
   Notice,
@@ -348,25 +352,46 @@ export function ResultPageClient({
 
   return (
     <main>
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
-        <header className="flex flex-col gap-6 rounded-3xl border border-slate-200 bg-white p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
-                AIM 검사 결과
-              </p>
-              <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-                검사 결과
-              </h1>
-              <p className="mt-4 text-sm leading-6 text-slate-600">
-                검사 상태와 수집된 결과를 보여줍니다. 검사가 진행 중이면 자동으로
-                새로고침됩니다.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <LinkButton href={`/projects/${projectId}/check-runs`} label="검사 이력" />
-              <RefreshButton isLoading={isLoading} onClick={() => void refresh()} />
-            </div>
+      <section className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-8">
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            <Link
+              className="whitespace-nowrap text-sm font-bold text-cyan-700 transition hover:text-cyan-500"
+              href={`/projects/${projectId}/check-runs`}
+            >
+              ← 검사 이력
+            </Link>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">검사 결과</h1>
+            {checkRun && (
+              <>
+                <CheckRunStatusBadge status={checkRun.status} />
+                <span className="text-xs text-slate-500">
+                  {triggerSourceLabel(checkRun.trigger_source)}
+                  {checkRun.deploy_ref ? ` (${checkRun.deploy_ref.slice(0, 7)})` : ""} ·{" "}
+                  {formatDateTime(checkRun.queued_at)} · 소요{" "}
+                  {formatDuration(checkRun.started_at, checkRun.finished_at)}
+                </span>
+                {shouldPoll && (
+                  <span className="text-xs font-bold text-cyan-600">자동 새로고침 중</span>
+                )}
+                {lastUpdatedAt && (
+                  <span className="text-xs text-slate-400">갱신 {lastUpdatedAt}</span>
+                )}
+              </>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {checkRun && ACTIVE_STATUSES.has(checkRun.status) && (
+              <button
+                className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-bold text-rose-800 transition hover:border-rose-500 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isCancelling}
+                onClick={() => void handleCancelCheckRun()}
+                type="button"
+              >
+                {isCancelling ? "취소 요청 중" : "검사 취소"}
+              </button>
+            )}
+            <RefreshButton isLoading={isLoading} onClick={() => void refresh()} />
           </div>
         </header>
 
@@ -400,51 +425,45 @@ export function ResultPageClient({
 
         {checkRun && (
           <>
-            <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-              <StatusSummary
-                cancelError={cancelError}
-                checkRun={checkRun}
-                isCancelling={isCancelling}
-                lastUpdatedAt={lastUpdatedAt}
-                onCancel={() => void handleCancelCheckRun()}
-                shouldPoll={shouldPoll}
+            {checkRun.failure_reason && (
+              <Notice
+                description={checkRun.failure_reason}
+                title="검사 실패 사유"
+                tone="danger"
               />
-              <TimelineCard checkRun={checkRun} />
-            </section>
+            )}
+            {cancelError && (
+              <Notice description={cancelError} title="취소 요청 실패" tone="danger" />
+            )}
 
-            <ScoreCard result={checkRun.score_result} />
-            <ComparisonCard result={checkRun.comparison_result} />
-            <BaselineComparisonCard
+            <VerdictCard
+              aiReport={checkRun.ai_report}
+              detailResult={visibleAIReportDetailResult}
+              isGeneratingReport={isAwaitingAIReport}
+              isLoadingDetail={isAIReportDetailLoading}
+              onLoadDetail={loadAIReportDetail}
+              result={checkRun.score_result}
+              status={checkRun.status}
+              topAudits={checkRun.lighthouse_result?.top_audits ?? null}
+            />
+
+            <DeltaStripCard
               actionError={baselineActionError}
+              baselineComparisonResult={baselineComparisonResult}
               checkRun={checkRun}
-              comparisonResult={baselineComparisonResult}
+              comparison={checkRun.comparison_result}
               isMutating={isBaselineMutating}
               onClearBaseline={handleClearBaseline}
               onSetBaseline={handleSetBaseline}
               project={project}
             />
-            <LinkedScenarioRunsCard
+
+            <DetailSections
+              accessToken={sessionToken}
+              checkRun={checkRun}
               projectId={projectId}
-              scenarioRuns={checkRun.linked_scenario_runs}
-            />
-
-            <section className="grid gap-4 lg:grid-cols-2">
-              <AvailabilityCard
-                responseTimeThresholdMs={project?.response_time_threshold_ms ?? null}
-                result={checkRun.availability_result}
-              />
-              <SslCard result={checkRun.ssl_result} />
-              <LighthouseCard result={checkRun.lighthouse_result} />
-              <ArtifactCard accessToken={sessionToken} artifacts={checkRun.artifacts} />
-            </section>
-
-            <AIReportSummaryCard
-              detailResult={visibleAIReportDetailResult}
-              isGenerating={isAwaitingAIReport}
-              isLoadingDetail={isAIReportDetailLoading}
-              onLoadDetail={loadAIReportDetail}
-              report={checkRun.ai_report}
-              topAudits={checkRun.lighthouse_result?.top_audits ?? null}
+              qualityScoreThreshold={project?.quality_score_threshold ?? null}
+              responseTimeThresholdMs={project?.response_time_threshold_ms ?? null}
             />
           </>
         )}
@@ -453,78 +472,451 @@ export function ResultPageClient({
   );
 }
 
-function StatusSummary({
-  cancelError,
-  checkRun,
-  isCancelling,
-  lastUpdatedAt,
-  onCancel,
-  shouldPoll
-}: {
-  cancelError: string | null;
-  checkRun: CheckRunDetail;
-  isCancelling: boolean;
-  lastUpdatedAt: string | null;
-  onCancel: () => void;
-  shouldPoll: boolean;
-}) {
-  const isCancellable = ACTIVE_STATUSES.has(checkRun.status);
+const verdictCategoryKeys = [
+  "availability",
+  "functional_stability",
+  "web_performance",
+  "accessibility",
+  "seo_basic_quality"
+] as const;
 
+function getVerdictCategoryScore(
+  result: ScoreResult,
+  key: (typeof verdictCategoryKeys)[number]
+): number | null {
+  if (key === "availability") {
+    return result.availability_score;
+  }
+
+  if (key === "functional_stability") {
+    return result.functional_stability_score;
+  }
+
+  if (key === "web_performance") {
+    return result.web_performance_score;
+  }
+
+  if (key === "accessibility") {
+    return result.accessibility_score;
+  }
+
+  return result.seo_basic_quality_score;
+}
+
+function CategoryBar({ label, score }: { label: string; score: number | null }) {
   return (
-    <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
-      id="run-status-card"
-    >
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">실행 상태</h2>
-        <CheckRunStatusBadge status={checkRun.status} />
+    <div className="flex items-center gap-2 py-1">
+      <span className="w-24 shrink-0 break-keep text-xs text-slate-500">{label}</span>
+      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+        {score !== null && score > 0 && (
+          <div
+            className={`h-full rounded-full ${scoreBarClassName(score)}`}
+            style={{ width: `${score}%` }}
+          />
+        )}
       </div>
-      <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
-        <Metric
-          hint="검사를 시작한 방식입니다 — 수동 실행, 정기 검사 등."
-          label="트리거"
-          value={triggerSourceLabel(checkRun.trigger_source)}
-        />
-        <Metric label="자동 새로고침" value={shouldPoll ? "동작 중" : "중지됨"} />
-        <Metric label="실패 사유" value={checkRun.failure_reason ?? "없음"} />
-        <Metric label="마지막 갱신" value={lastUpdatedAt ?? "아직 없음"} />
-      </dl>
+      <span className="w-8 shrink-0 text-right text-xs font-bold text-slate-700">
+        {score === null ? "–" : Math.round(score)}
+      </span>
+    </div>
+  );
+}
 
-      {isCancellable && (
-        <div className="mt-5">
-          <button
-            className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-bold text-rose-800 transition hover:border-rose-500 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isCancelling}
-            onClick={onCancel}
-            type="button"
-          >
-            {isCancelling ? "취소 요청 중" : "이 검사 취소"}
-          </button>
-          <p className="mt-2 text-xs text-slate-500">
-            대기·실행·분석 중인 검사만 취소할 수 있습니다.
-          </p>
+function VerdictCard({
+  aiReport,
+  detailResult,
+  isGeneratingReport,
+  isLoadingDetail,
+  onLoadDetail,
+  result,
+  status,
+  topAudits
+}: {
+  aiReport: AIReportSummary | null;
+  detailResult: AIReportDetailResult | null;
+  isGeneratingReport: boolean;
+  isLoadingDetail: boolean;
+  onLoadDetail: () => void;
+  result: ScoreResult | null;
+  status: CheckRunStatus;
+  topAudits: LighthouseTopAudit[] | null;
+}) {
+  return (
+    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+      {result ? (
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-5">
+          <div className="flex items-center gap-5">
+            <ScoreDonut
+              grade={result.grade}
+              risk={result.deployment_risk}
+              score={result.overall_score}
+            />
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-3xl font-black tracking-tight text-slate-900">
+                  {result.overall_score}점
+                </span>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${getRiskBadgeClassName(result.deployment_risk)}`}
+                >
+                  {riskLabels[result.deployment_risk]}
+                </span>
+              </div>
+              {result.gate_reason && (
+                <p className="mt-2 max-w-60 break-keep text-xs leading-5 text-amber-700">
+                  {result.gate_reason}
+                </p>
+              )}
+              <p className="mt-2 text-[11px] font-semibold text-slate-400">
+                평가 항목 반영 {result.evaluated_weight}%
+              </p>
+            </div>
+          </div>
+          <div className="min-w-56 flex-1">
+            {verdictCategoryKeys.map((key) => (
+              <CategoryBar
+                key={key}
+                label={scoreCategoryLabel(key)}
+                score={getVerdictCategoryScore(result, key)}
+              />
+            ))}
+          </div>
         </div>
-      )}
-
-      {cancelError && (
-        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
-          {cancelError}
+      ) : (
+        <p className="text-sm leading-6 text-slate-500">
+          {ACTIVE_STATUSES.has(status)
+            ? "검사가 진행 중입니다. 완료되면 점수와 AI 진단이 여기에 표시됩니다."
+            : "이 검사에는 계산된 점수가 없습니다. 실패한 검사는 점수 대신 실패 사유를 확인하세요."}
         </p>
       )}
+
+      <div className="mt-5 border-t border-slate-200 pt-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+          AI 진단
+          <InfoHint text="수집된 근거만을 바탕으로 AI가 작성한 진단 요약입니다. 점수와 이슈 목록은 결정론 규칙이 계산하며 AI는 서술만 작성합니다." />
+        </p>
+        {aiReport ? (
+          <>
+            <p className="mt-2 break-keep text-sm leading-6 text-slate-700">
+              {aiReport.summary}
+            </p>
+            <div className="mt-3">
+              <button
+                className="rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isLoadingDetail}
+                onClick={onLoadDetail}
+                type="button"
+              >
+                {isLoadingDetail
+                  ? "상세 진단 불러오는 중"
+                  : detailResult?.state === "success"
+                    ? "상세 진단 새로고침"
+                    : "이슈별 영향·조치 보기"}
+              </button>
+            </div>
+            {detailResult?.state === "unauthorized" && (
+              <p className="mt-3 text-xs font-semibold text-rose-600">
+                토큰이 없거나 만료되었거나, 이 리포트에 접근할 권한이 없습니다.
+              </p>
+            )}
+            {detailResult?.state === "not-found" && (
+              <p className="mt-3 text-xs text-slate-500">
+                요약은 있지만 전체 리포트가 아직 저장되지 않았습니다.
+              </p>
+            )}
+            {detailResult?.state === "unavailable" && (
+              <p className="mt-3 text-xs font-semibold text-rose-600">
+                AI 리포트 요청이 실패했습니다. API 서버 상태를 확인한 뒤 다시 시도하세요.
+              </p>
+            )}
+            {detailResult?.state === "success" && (
+              <AIReportDetailPanel report={detailResult.report} topAudits={topAudits} />
+            )}
+          </>
+        ) : isGeneratingReport ? (
+          <p className="mt-2 text-sm leading-6 text-cyan-700">
+            AI 진단 리포트를 생성하고 있습니다. 준비되는 대로 자동으로 표시됩니다.
+          </p>
+        ) : (
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            아직 저장된 AI 진단 요약이 없습니다. 검사가 종료된 뒤 리포트가 생성됩니다.
+          </p>
+        )}
+      </div>
     </article>
   );
 }
 
-function TimelineCard({ checkRun }: { checkRun: CheckRunDetail }) {
+function DeltaChip({
+  label,
+  unit = "",
+  invert = false,
+  value
+}: {
+  label: string;
+  unit?: string;
+  invert?: boolean;
+  value: number;
+}) {
+  const isImprovement = invert ? value < 0 : value > 0;
+  const chipClassName = isImprovement
+    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+    : "bg-rose-50 text-rose-700 ring-rose-200";
+  const formatted = value > 0 ? `+${value}` : `${value}`;
+
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
-      <h2 className="mb-5 text-xl font-semibold">타임라인</h2>
-      <dl className="grid gap-4 text-sm text-slate-600">
-        <Metric label="대기 시각" value={formatDetailDateTime(checkRun.queued_at)} />
-        <Metric label="시작 시각" value={formatDetailDateTime(checkRun.started_at)} />
-        <Metric label="종료 시각" value={formatDetailDateTime(checkRun.finished_at)} />
-        <Metric label="갱신 시각" value={formatDetailDateTime(checkRun.updated_at)} />
-      </dl>
+    <span
+      className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${chipClassName}`}
+    >
+      {label} {formatted}
+      {unit}
+    </span>
+  );
+}
+
+type DeltaEntry = {
+  key: string;
+  label: string;
+  value: number | null;
+};
+
+function buildScoreDeltaEntries(deltas: {
+  overall_score_delta: number | null;
+  availability_score_delta: number | null;
+  performance_score_delta: number | null;
+  web_performance_score_delta: number | null;
+  accessibility_score_delta: number | null;
+  seo_basic_quality_score_delta: number | null;
+}): DeltaEntry[] {
+  return [
+    { key: "overall", label: "종합", value: deltas.overall_score_delta },
+    { key: "availability", label: "가용성", value: deltas.availability_score_delta },
+    { key: "performance", label: "성능", value: deltas.performance_score_delta },
+    { key: "web_performance", label: "웹 성능", value: deltas.web_performance_score_delta },
+    { key: "accessibility", label: "접근성", value: deltas.accessibility_score_delta },
+    { key: "seo", label: "SEO/품질", value: deltas.seo_basic_quality_score_delta }
+  ].filter((entry) => entry.value !== null && entry.value !== 0);
+}
+
+function DeltaChipRow({
+  entries,
+  responseTimeDeltaMs,
+  riskChanged
+}: {
+  entries: DeltaEntry[];
+  responseTimeDeltaMs: number | null;
+  riskChanged: boolean;
+}) {
+  const hasResponseChip = responseTimeDeltaMs !== null && responseTimeDeltaMs !== 0;
+
+  if (entries.length === 0 && !hasResponseChip && !riskChanged) {
+    return <span className="text-xs text-slate-400">변화 없음</span>;
+  }
+
+  return (
+    <>
+      {entries.map((entry) => (
+        <DeltaChip key={entry.key} label={entry.label} value={entry.value ?? 0} />
+      ))}
+      {hasResponseChip && (
+        <DeltaChip invert label="응답" unit="ms" value={responseTimeDeltaMs} />
+      )}
+      {riskChanged && (
+        <span className="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
+          위험 단계 변화
+        </span>
+      )}
+    </>
+  );
+}
+
+function BaselineActionButton({
+  disabled,
+  label,
+  onClick,
+  tone = "default"
+}: {
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+  tone?: "default" | "danger";
+}) {
+  const toneClassName =
+    tone === "danger"
+      ? "border-rose-300 bg-rose-50 text-rose-800 hover:border-rose-500 hover:bg-rose-100"
+      : "border-cyan-300 bg-cyan-50 text-cyan-700 hover:border-cyan-500 hover:bg-cyan-100";
+
+  return (
+    <button
+      className={`whitespace-nowrap rounded-xl border px-2.5 py-1 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${toneClassName}`}
+      disabled={disabled}
+      onClick={onClick}
+      type="button"
+    >
+      {label}
+    </button>
+  );
+}
+
+const baselineErrorMessages: Record<
+  Exclude<BaselineComparisonResult["state"], "success">,
+  string
+> = {
+  unauthorized: "기준점 비교 인증이 실패했습니다. 다시 로그인한 뒤 시도하세요.",
+  "not-found": "기준점 검사가 더 이상 존재하지 않습니다. 기준점을 다시 지정하세요.",
+  conflict: "기준점 또는 이 검사에 점수가 없어 비교할 수 없습니다.",
+  unavailable: "기준점 비교 요청이 실패했습니다. 잠시 후 다시 시도하세요."
+};
+
+function BaselineRow({
+  baselineComparisonResult,
+  checkRun,
+  isMutating,
+  onClearBaseline,
+  onSetBaseline,
+  project
+}: {
+  baselineComparisonResult: BaselineComparisonResult | null;
+  checkRun: CheckRunDetail;
+  isMutating: boolean;
+  onClearBaseline: () => void;
+  onSetBaseline: () => void;
+  project: Project | null;
+}) {
+  if (!project) {
+    return <span className="text-xs text-slate-400">프로젝트 정보를 불러오는 중입니다</span>;
+  }
+
+  const baselineCheckRunId = project.baseline_check_run_id;
+  const isCurrentBaseline = baselineCheckRunId === checkRun.id;
+  const isTerminal = !ACTIVE_STATUSES.has(checkRun.status);
+  const canPin = isTerminal && checkRun.score_result !== null;
+
+  if (isCurrentBaseline) {
+    return (
+      <>
+        <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
+          이 검사가 현재 기준점
+        </span>
+        <BaselineActionButton
+          disabled={isMutating}
+          label={isMutating ? "해제 중" : "기준점 해제"}
+          onClick={onClearBaseline}
+          tone="danger"
+        />
+      </>
+    );
+  }
+
+  if (!baselineCheckRunId) {
+    return (
+      <>
+        <span className="text-xs text-slate-400">기준점이 지정되지 않았습니다</span>
+        <BaselineActionButton
+          disabled={!canPin || isMutating}
+          label={isMutating ? "지정 중" : "이 검사를 기준점으로 지정"}
+          onClick={onSetBaseline}
+        />
+        {!canPin && (
+          <span className="text-[11px] text-slate-400">
+            점수가 있는 종료된 검사만 지정할 수 있습니다
+          </span>
+        )}
+      </>
+    );
+  }
+
+  if (!isTerminal) {
+    return (
+      <span className="text-xs text-slate-400">검사가 종료되면 기준점 비교를 계산합니다</span>
+    );
+  }
+
+  if (!baselineComparisonResult) {
+    return <span className="text-xs text-slate-400">기준점 비교를 불러오는 중입니다</span>;
+  }
+
+  if (baselineComparisonResult.state !== "success") {
+    return (
+      <span className="text-xs font-semibold text-rose-600">
+        {baselineErrorMessages[baselineComparisonResult.state]}
+      </span>
+    );
+  }
+
+  const comparison = baselineComparisonResult.comparison;
+  const riskChanged =
+    comparison.baseline_deployment_risk !== comparison.current_deployment_risk;
+
+  return (
+    <>
+      <DeltaChipRow
+        entries={buildScoreDeltaEntries(comparison)}
+        responseTimeDeltaMs={comparison.response_time_delta_ms}
+        riskChanged={false}
+      />
+      {riskChanged && (
+        <span className="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
+          위험 {riskLabels[comparison.baseline_deployment_risk]} →{" "}
+          {riskLabels[comparison.current_deployment_risk]}
+        </span>
+      )}
+      <BaselineActionButton
+        disabled={!canPin || isMutating}
+        label={isMutating ? "지정 중" : "이 검사를 기준점으로 지정"}
+        onClick={onSetBaseline}
+      />
+    </>
+  );
+}
+
+function DeltaStripCard({
+  actionError,
+  baselineComparisonResult,
+  checkRun,
+  comparison,
+  isMutating,
+  onClearBaseline,
+  onSetBaseline,
+  project
+}: {
+  actionError: string | null;
+  baselineComparisonResult: BaselineComparisonResult | null;
+  checkRun: CheckRunDetail;
+  comparison: RunComparison | null;
+  isMutating: boolean;
+  onClearBaseline: () => void;
+  onSetBaseline: () => void;
+  project: Project | null;
+}) {
+  return (
+    <article className="rounded-3xl border border-slate-200 bg-white p-5">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+        <span className="w-20 shrink-0 text-xs font-semibold text-slate-400">직전 대비</span>
+        {comparison ? (
+          <DeltaChipRow
+            entries={buildScoreDeltaEntries(comparison)}
+            responseTimeDeltaMs={comparison.response_time_delta_ms}
+            riskChanged={comparison.deployment_risk_changed}
+          />
+        ) : (
+          <span className="text-xs text-slate-400">비교 가능한 이전 검사가 없습니다</span>
+        )}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2 border-t border-slate-100 pt-3">
+        <span className="w-20 shrink-0 text-xs font-semibold text-slate-400">기준점 대비</span>
+        <BaselineRow
+          baselineComparisonResult={baselineComparisonResult}
+          checkRun={checkRun}
+          isMutating={isMutating}
+          onClearBaseline={onClearBaseline}
+          onSetBaseline={onSetBaseline}
+          project={project}
+        />
+      </div>
+      {actionError && (
+        <p className="mt-3 text-xs font-semibold text-rose-600">{actionError}</p>
+      )}
     </article>
   );
 }
@@ -816,276 +1208,288 @@ export function AIReportSummaryCard({
   );
 }
 
-function ComparisonCard({ result }: { result: RunComparison | null }) {
-  if (!result) {
-    return (
-      <EmptyResultCard
-        title="직전 검사 비교"
-        description="비교 가능한 이전 검사가 아직 없습니다."
-      />
-    );
-  }
+type DetailTone = "ok" | "warn" | "danger" | "neutral";
 
-  return (
-    <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
-      id="comparison-card"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-            직전 검사 비교
-          </p>
-          <h2 className="mt-3 text-2xl font-bold">직전 검사 대비 변화</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">{result.summary}</p>
-        </div>
-        <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
-          {result.comparison_type}
-        </span>
-      </div>
-      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-        <Metric label="종합 점수" value={formatDelta(result.overall_score_delta)} />
-        <Metric label="가용성" value={formatDelta(result.availability_score_delta)} />
-        <Metric label="성능 점수" value={formatDelta(result.performance_score_delta)} />
-        <Metric
-          label="웹 성능"
-          value={formatDelta(result.web_performance_score_delta)}
-        />
-        <Metric label="접근성" value={formatDelta(result.accessibility_score_delta)} />
-        <Metric
-          label="SEO/기본 품질"
-          value={formatDelta(result.seo_basic_quality_score_delta)}
-        />
-        <Metric
-          label="응답 시간"
-          value={formatMillisecondsDelta(result.response_time_delta_ms)}
-        />
-        <Metric
-          label="위험 변화"
-          value={result.deployment_risk_changed ? "예" : "아니오"}
-        />
-      </dl>
-    </article>
-  );
-}
+const detailToneDotClassName: Record<DetailTone, string> = {
+  ok: "bg-emerald-500",
+  warn: "bg-amber-500",
+  danger: "bg-rose-500",
+  neutral: "bg-slate-300"
+};
 
-function BaselineComparisonCard({
-  actionError,
-  checkRun,
-  comparisonResult,
-  isMutating,
-  onClearBaseline,
-  onSetBaseline,
-  project
+// 요약 한 줄 + 펼침 패널. 데이터가 늦게 도착해도 문제가 있는 섹션은 자동으로 열리되,
+// 사용자가 직접 여닫은 뒤에는 그 선택을 우선한다.
+function DetailSection({
+  children,
+  defaultOpen = false,
+  summary,
+  title,
+  tone = "neutral"
 }: {
-  actionError: string | null;
-  checkRun: CheckRunDetail;
-  comparisonResult: BaselineComparisonResult | null;
-  isMutating: boolean;
-  onClearBaseline: () => void;
-  onSetBaseline: () => void;
-  project: Project | null;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  summary: string;
+  title: string;
+  tone?: DetailTone;
 }) {
-  if (!project) {
-    return (
-      <EmptyResultCard
-        title="기준점 비교"
-        description="프로젝트 정보를 불러온 뒤 기준점 지정과 비교를 사용할 수 있습니다."
-      />
-    );
-  }
-
-  const baselineCheckRunId = project.baseline_check_run_id;
-  const isCurrentBaseline = baselineCheckRunId === checkRun.id;
-  const isTerminal = !ACTIVE_STATUSES.has(checkRun.status);
-  const canPin = isTerminal && checkRun.score_result !== null;
-
-  return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-            기준점 비교
-          </p>
-          <h2 className="mt-3 text-2xl font-bold">기준점 대비 변화</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            기준점은 배포 전 마지막 정상 검사 같은 비교 기준입니다. 직전 검사 비교와 달리
-            항상 같은 기준과 비교하므로 배포가 실제로 나아졌는지 판단할 수 있습니다.
-          </p>
-        </div>
-        {isCurrentBaseline && (
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
-            현재 기준점
-          </span>
-        )}
-      </div>
-
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        {isCurrentBaseline ? (
-          <button
-            className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800 transition hover:border-rose-500 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isMutating}
-            onClick={onClearBaseline}
-            type="button"
-          >
-            {isMutating ? "기준점 해제 중" : "기준점 해제"}
-          </button>
-        ) : (
-          <button
-            className="rounded-2xl border border-cyan-300 bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!canPin || isMutating}
-            onClick={onSetBaseline}
-            type="button"
-          >
-            {isMutating ? "기준점 지정 중" : "이 검사를 기준점으로 지정"}
-          </button>
-        )}
-        {!isCurrentBaseline && !canPin && (
-          <p className="text-xs text-slate-500">
-            종료 상태이고 점수가 계산된 검사만 기준점으로 지정할 수 있습니다.
-          </p>
-        )}
-      </div>
-
-      {actionError && (
-        <div className="mt-5">
-          <Notice tone="danger" title="기준점 요청 실패" description={actionError} />
-        </div>
-      )}
-
-      <div className="mt-5">
-        <BaselineComparisonBody
-          baselineCheckRunId={baselineCheckRunId}
-          comparisonResult={comparisonResult}
-          isCurrentBaseline={isCurrentBaseline}
-          isTerminal={isTerminal}
-        />
-      </div>
-    </article>
-  );
-}
-
-function BaselineComparisonBody({
-  baselineCheckRunId,
-  comparisonResult,
-  isCurrentBaseline,
-  isTerminal
-}: {
-  baselineCheckRunId: string | null;
-  comparisonResult: BaselineComparisonResult | null;
-  isCurrentBaseline: boolean;
-  isTerminal: boolean;
-}) {
-  if (!baselineCheckRunId) {
-    return (
-      <Notice
-        tone="info"
-        title="아직 기준점이 없습니다"
-        description="종료 상태의 검사에서 기준점을 지정하면 이후 모든 검사를 같은 기준과 비교할 수 있습니다."
-      />
-    );
-  }
-
-  if (isCurrentBaseline) {
-    return (
-      <Notice
-        tone="info"
-        title="이 검사가 프로젝트 기준점입니다"
-        description="다른 검사 결과 페이지에서 이 기준점 대비 변화를 확인할 수 있습니다."
-      />
-    );
-  }
-
-  if (!isTerminal) {
-    return (
-      <Notice
-        tone="info"
-        title="검사가 아직 완료되지 않았습니다"
-        description="검사가 종료 상태가 되면 기준점 비교를 계산합니다."
-      />
-    );
-  }
-
-  if (!comparisonResult) {
-    return <p className="text-sm text-slate-500">기준점 비교를 불러오는 중입니다.</p>;
-  }
-
-  if (comparisonResult.state === "unauthorized") {
-    return (
-      <Notice
-        tone="danger"
-        title="기준점 비교 인증 실패"
-        description="토큰이 만료되었거나 이 프로젝트에 접근할 권한이 없습니다."
-      />
-    );
-  }
-
-  if (comparisonResult.state === "not-found") {
-    return (
-      <Notice
-        tone="danger"
-        title="기준점 검사를 찾을 수 없습니다"
-        description="기준점으로 지정된 검사가 더 이상 존재하지 않습니다. 기준점을 다시 지정하세요."
-      />
-    );
-  }
-
-  if (comparisonResult.state === "conflict") {
-    return (
-      <Notice
-        tone="info"
-        title="기준점 비교를 계산할 수 없습니다"
-        description="기준점 또는 이 검사에 점수가 없어 비교할 수 없습니다."
-      />
-    );
-  }
-
-  if (comparisonResult.state === "unavailable") {
-    return (
-      <Notice
-        tone="danger"
-        title="기준점 비교 요청 실패"
-        description="API 서버 상태와 네트워크 연결을 확인한 뒤 다시 시도하세요."
-      />
-    );
-  }
-
-  const comparison = comparisonResult.comparison;
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
+  const isOpen = manualOpen ?? defaultOpen;
 
   return (
     <div>
-      <p className="text-sm leading-6 text-slate-600">{comparison.summary}</p>
-      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
-        <Metric label="종합 점수" value={formatDelta(comparison.overall_score_delta)} />
-        <Metric label="가용성" value={formatDelta(comparison.availability_score_delta)} />
-        <Metric
-          label="성능 점수"
-          value={formatDelta(comparison.performance_score_delta)}
-        />
-        <Metric
-          label="웹 성능"
-          value={formatDelta(comparison.web_performance_score_delta)}
-        />
-        <Metric
-          label="접근성"
-          value={formatDelta(comparison.accessibility_score_delta)}
-        />
-        <Metric
-          label="SEO/기본 품질"
-          value={formatDelta(comparison.seo_basic_quality_score_delta)}
-        />
-        <Metric
-          label="응답 시간"
-          value={formatMillisecondsDelta(comparison.response_time_delta_ms)}
-        />
-        <Metric
-          label="배포 위험"
-          value={`${riskLabels[comparison.baseline_deployment_risk]} → ${
-            riskLabels[comparison.current_deployment_risk]
-          }`}
-        />
-      </dl>
+      <button
+        className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-slate-50"
+        onClick={() => setManualOpen(!isOpen)}
+        type="button"
+      >
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${detailToneDotClassName[tone]}`} />
+        <span className="w-24 shrink-0 text-sm font-bold text-slate-900">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{summary}</span>
+        <svg
+          className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition ${isOpen ? "rotate-180" : ""}`}
+          fill="none"
+          viewBox="0 0 16 16"
+        >
+          <path
+            d="M4 6l4 4 4-4"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.5"
+          />
+        </svg>
+      </button>
+      {isOpen && <div className="border-t border-slate-100 bg-slate-50/60 p-4">{children}</div>}
     </div>
+  );
+}
+
+function getAvailabilitySummary(
+  result: AvailabilityResult | null,
+  responseTimeThresholdMs: number | null
+): { summary: string; tone: DetailTone } {
+  if (!result) {
+    return { summary: "아직 결과가 없습니다", tone: "neutral" };
+  }
+
+  if (!result.is_available) {
+    return {
+      summary: result.failure_reason ?? "서비스에 연결할 수 없습니다",
+      tone: "danger"
+    };
+  }
+
+  const parts: string[] = [];
+  if (result.status_code !== null) {
+    parts.push(String(result.status_code));
+  }
+  if (result.response_time_ms !== null) {
+    parts.push(`${result.response_time_ms}ms`);
+  }
+  parts.push(result.uses_https ? "HTTPS" : "HTTP");
+  if (result.redirect_count > 0) {
+    parts.push(`리다이렉트 ${result.redirect_count}회`);
+  }
+
+  const isSlow =
+    result.response_time_ms !== null &&
+    responseTimeThresholdMs !== null &&
+    responseTimeThresholdMs > 0 &&
+    result.response_time_ms > responseTimeThresholdMs;
+
+  return { summary: parts.join(" · "), tone: isSlow ? "warn" : "ok" };
+}
+
+function getSslSummary(result: SslResult | null): { summary: string; tone: DetailTone } {
+  if (!result) {
+    return { summary: "아직 결과가 없습니다", tone: "neutral" };
+  }
+
+  if (!result.is_applicable) {
+    return { summary: "HTTP 서비스 — 검사 대상 아님", tone: "neutral" };
+  }
+
+  if (result.is_valid === true) {
+    const expiry =
+      result.days_until_expiration === null
+        ? "유효"
+        : `유효 · 만료까지 ${result.days_until_expiration}일`;
+    const isExpiringSoon =
+      result.days_until_expiration !== null && result.days_until_expiration < 14;
+    return { summary: expiry, tone: isExpiringSoon ? "warn" : "ok" };
+  }
+
+  return {
+    summary: result.failure_reason ?? "인증서에 문제가 있습니다",
+    tone: "danger"
+  };
+}
+
+function getLighthouseSummary(
+  result: LighthouseResult | null,
+  qualityScoreThreshold: number | null
+): { summary: string; tone: DetailTone } {
+  if (!result) {
+    return { summary: "아직 결과가 없습니다", tone: "neutral" };
+  }
+
+  if (!result.is_successful) {
+    return { summary: result.failure_reason ?? "실행 실패", tone: "danger" };
+  }
+
+  const parts = [
+    `성능 ${result.performance_score ?? "–"}`,
+    `접근성 ${result.accessibility_score ?? "–"}`,
+    `SEO ${result.seo_score ?? "–"}`,
+    `권장사항 ${result.best_practices_score ?? "–"}`
+  ];
+  const isBelowThreshold =
+    result.performance_score !== null &&
+    qualityScoreThreshold !== null &&
+    result.performance_score < qualityScoreThreshold;
+
+  return { summary: parts.join(" · "), tone: isBelowThreshold ? "warn" : "ok" };
+}
+
+function getScenarioSummaryLine(scenarioRuns: ScenarioRun[]): {
+  summary: string;
+  tone: DetailTone;
+} {
+  const summary = summarizeScenarioRuns(scenarioRuns);
+
+  if (summary.total === 0) {
+    return { summary: "연결된 시나리오 실행 없음", tone: "neutral" };
+  }
+
+  if (summary.failed > 0) {
+    return { summary: `${summary.total}개 실행 · 실패 ${summary.failed}건`, tone: "danger" };
+  }
+
+  if (summary.active > 0) {
+    return { summary: `${summary.total}개 실행 · 진행 중 ${summary.active}건`, tone: "warn" };
+  }
+
+  if (summary.cancelled > 0) {
+    return { summary: `${summary.total}개 실행 · 취소 ${summary.cancelled}건`, tone: "warn" };
+  }
+
+  return { summary: `${summary.total}개 실행 · 전부 성공`, tone: "ok" };
+}
+
+function DetailSections({
+  accessToken,
+  checkRun,
+  projectId,
+  qualityScoreThreshold,
+  responseTimeThresholdMs
+}: {
+  accessToken: string;
+  checkRun: CheckRunDetail;
+  projectId: string;
+  qualityScoreThreshold: number | null;
+  responseTimeThresholdMs: number | null;
+}) {
+  const availability = getAvailabilitySummary(
+    checkRun.availability_result,
+    responseTimeThresholdMs
+  );
+  const ssl = getSslSummary(checkRun.ssl_result);
+  const lighthouse = getLighthouseSummary(checkRun.lighthouse_result, qualityScoreThreshold);
+  const scenario = getScenarioSummaryLine(checkRun.linked_scenario_runs);
+  const score = checkRun.score_result;
+  const breakdownSummary = score
+    ? `가중 평균 · 반영 ${score.evaluated_weight}%${
+        score.score_breakdown?.gate ? " · 등급 상한 적용" : ""
+      }`
+    : "아직 계산된 점수가 없습니다";
+
+  return (
+    <section className="divide-y divide-slate-100 overflow-hidden rounded-3xl border border-slate-200 bg-white">
+      <DetailSection
+        defaultOpen={availability.tone === "danger"}
+        summary={availability.summary}
+        title="가용성"
+        tone={availability.tone}
+      >
+        <AvailabilityCard
+          responseTimeThresholdMs={responseTimeThresholdMs}
+          result={checkRun.availability_result}
+        />
+      </DetailSection>
+      <DetailSection
+        defaultOpen={ssl.tone === "danger"}
+        summary={ssl.summary}
+        title="SSL"
+        tone={ssl.tone}
+      >
+        <SslCard result={checkRun.ssl_result} />
+      </DetailSection>
+      <DetailSection
+        defaultOpen={lighthouse.tone === "danger" || lighthouse.tone === "warn"}
+        summary={lighthouse.summary}
+        title="Lighthouse"
+        tone={lighthouse.tone}
+      >
+        <LighthouseCard result={checkRun.lighthouse_result} />
+      </DetailSection>
+      <DetailSection
+        defaultOpen={scenario.tone === "danger"}
+        summary={scenario.summary}
+        title="시나리오"
+        tone={scenario.tone}
+      >
+        <LinkedScenarioRunsCard
+          projectId={projectId}
+          scenarioRuns={checkRun.linked_scenario_runs}
+        />
+      </DetailSection>
+      <DetailSection
+        summary={
+          checkRun.artifacts.length === 0
+            ? "저장된 산출물 없음"
+            : `${checkRun.artifacts.length}개`
+        }
+        title="산출물"
+        tone="neutral"
+      >
+        <ArtifactCard accessToken={accessToken} artifacts={checkRun.artifacts} />
+      </DetailSection>
+      <DetailSection
+        summary={breakdownSummary}
+        title="산출 근거"
+        tone={score?.score_breakdown?.gate ? "warn" : "neutral"}
+      >
+        {score?.score_breakdown ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <ScoreBreakdownSection breakdown={score.score_breakdown} />
+            <ScoreBandLegend showExcluded />
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">아직 계산된 점수가 없습니다.</p>
+        )}
+      </DetailSection>
+      <DetailSection
+        summary={`대기 ${formatDetailDateTime(checkRun.queued_at)}`}
+        title="실행 정보"
+        tone="neutral"
+      >
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
+            <Metric label="대기 시각" value={formatDetailDateTime(checkRun.queued_at)} />
+            <Metric label="시작 시각" value={formatDetailDateTime(checkRun.started_at)} />
+            <Metric label="종료 시각" value={formatDetailDateTime(checkRun.finished_at)} />
+            <Metric label="갱신 시각" value={formatDetailDateTime(checkRun.updated_at)} />
+            <Metric
+              label="트리거"
+              value={`${triggerSourceLabel(checkRun.trigger_source)}${
+                checkRun.deploy_ref ? ` (${checkRun.deploy_ref})` : ""
+              }`}
+            />
+            <Metric label="검사 ID" value={checkRun.id} />
+          </dl>
+        </div>
+      </DetailSection>
+    </section>
   );
 }
 
@@ -1695,34 +2099,6 @@ function formatAuditImpact(audit: LighthouseTopAudit) {
 
 function formatDecimal(value: number | null) {
   return value === null ? "알 수 없음" : String(value);
-}
-
-function formatDelta(value: number | null) {
-  if (value === null) {
-    return "알 수 없음";
-  }
-
-  if (value > 0) {
-    return `+${value}`;
-  }
-
-  return String(value);
-}
-
-function formatMillisecondsDelta(value: number | null) {
-  if (value === null) {
-    return "알 수 없음";
-  }
-
-  if (value > 0) {
-    return `+${value}ms 느려짐`;
-  }
-
-  if (value < 0) {
-    return `${value}ms 개선`;
-  }
-
-  return "0ms";
 }
 
 function formatBytes(value: number) {

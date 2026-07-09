@@ -12,28 +12,23 @@ import {
   type CheckRunStatus,
   type CheckRunSummary,
   type HealthCheckResult,
-  type Project,
-  type ScenarioRun
+  type Project
 } from "@/lib/api";
-import { MiniDonut, ScoreTrendPanel } from "@/components/charts";
-import { buildScoreTrendSeries, scoredRunCount } from "@/lib/scoreTrend";
+import { MiniDonut, Sparkline } from "@/components/charts";
 import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
-import { formatDateTime, formatNullableDateTime } from "@/lib/format";
-import { environmentLabel, triggerSourceLabel, verifiedLabel } from "@/lib/statusLabels";
+import { formatRelativeTime } from "@/lib/format";
+import { deploymentRiskLabel, environmentLabel, triggerSourceLabel } from "@/lib/statusLabels";
 import {
-  Badge,
-  CheckRunStatusBadge,
+  checkRunStatusCopy,
   EmptyState,
   LinkButton,
   LoginRequiredNotice,
-  Metric,
   Notice,
-  RefreshButton,
-  ScenarioRunStatusBadge
+  RefreshButton
 } from "@/components/ui";
 
 const PROJECT_DASHBOARD_LIMIT = 20;
-// 프로젝트 카드의 점수 추이에 쓸 최근 CheckRun 수.
+// 프로젝트 카드의 점수 스파크라인에 쓸 최근 CheckRun 수.
 const PROJECT_TREND_RUN_LIMIT = 10;
 const ACTIVE_CHECK_RUN_STATUSES: CheckRunStatus[] = ["QUEUED", "RUNNING", "ANALYZING"];
 
@@ -177,7 +172,6 @@ export default function DashboardPage() {
 
     return {
       projectCount: dashboard.projects.length,
-      latestRunCount: latestRuns.length,
       activeCount,
       failedCount,
       scenarioFailureCount
@@ -226,48 +220,32 @@ export default function DashboardPage() {
 
   return (
     <main>
-      <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-12">
-        <div className="max-w-4xl">
-          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
-            AI Manager
-          </p>
-          <h1 className="break-keep text-balance text-4xl font-bold tracking-tight sm:text-5xl">
-            프로젝트 현황을 한눈에 확인하세요
-          </h1>
-        </div>
-
-        {dashboard.state !== "signed-out" && dashboard.state !== "unauthorized" && (
-          <div className="grid gap-4 md:grid-cols-4">
-            <StatusCard health={health} />
-            <MetricCard
-              label="프로젝트"
-              value={dashboardSummary?.projectCount ?? "-"}
-              description="현재 세션으로 조회한 프로젝트 수"
-            />
-            <MetricCard
-              label="최신 검사 실패"
-              value={dashboardSummary?.failedCount ?? "-"}
-              description="최신 검사가 실패한 프로젝트"
-              tone={dashboardSummary && dashboardSummary.failedCount > 0 ? "danger" : "default"}
-            />
-            <MetricCard
-              label="시나리오 실패"
-              value={dashboardSummary?.scenarioFailureCount ?? "-"}
-              description="최신 검사에 연결된 실패한 시나리오 실행"
-              tone={
-                dashboardSummary && dashboardSummary.scenarioFailureCount > 0
-                  ? "danger"
-                  : "default"
-              }
+      <section className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-8">
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">대시보드</h1>
+            <HealthInline health={health} />
+            {lastUpdatedAt && (
+              <span className="text-xs text-slate-400">갱신 {lastUpdatedAt}</span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {dashboard.state !== "signed-out" && (
+              <LinkButton href="/projects/new" label="새 프로젝트" variant="primary" />
+            )}
+            <RefreshButton
+              isLoading={dashboard.state === "loading"}
+              label="갱신"
+              onClick={() => void loadDashboard()}
             />
           </div>
-        )}
+        </header>
 
-        <DashboardPanel
+        {dashboardSummary && <StatStrip summary={dashboardSummary} />}
+
+        <DashboardContent
           checkRunStartStates={checkRunStartStates}
           dashboard={dashboard}
-          lastUpdatedAt={lastUpdatedAt}
-          onRefresh={() => void loadDashboard()}
           onStartCheckRun={handleStartCheckRun}
         />
       </section>
@@ -275,50 +253,78 @@ export default function DashboardPage() {
   );
 }
 
-function DashboardPanel({
-  checkRunStartStates,
-  dashboard,
-  lastUpdatedAt,
-  onRefresh,
-  onStartCheckRun
-}: {
-  checkRunStartStates: Record<string, CheckRunStartState>;
-  dashboard: DashboardState;
-  lastUpdatedAt: string | null;
-  onRefresh: () => void;
-  onStartCheckRun: (project: Project) => void;
-}) {
+function HealthInline({ health }: { health: HealthCheckResult }) {
+  const isAvailable = health.state === "available";
+  const dotClassName = isAvailable
+    ? "bg-emerald-500"
+    : health.state === "loading"
+      ? "animate-pulse bg-cyan-500"
+      : "bg-rose-500";
+  const textClassName = isAvailable
+    ? "text-emerald-600"
+    : health.state === "loading"
+      ? "text-cyan-700"
+      : "text-rose-600";
+
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">프로젝트 대시보드</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            로그인 세션으로 프로젝트와 최신 검사를 자동 조회합니다.
-          </p>
-          {lastUpdatedAt && <p className="mt-2 text-xs text-slate-400">마지막 갱신: {lastUpdatedAt}</p>}
-        </div>
+    <span className={`flex items-center gap-1.5 text-xs font-semibold ${textClassName}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dotClassName}`} />
+      서비스 {healthStatusCopy[health.state]}
+    </span>
+  );
+}
 
-        <div className="flex flex-wrap items-center gap-2">
-          {dashboard.state !== "signed-out" && (
-            <LinkButton href="/projects/new" label="새 프로젝트" variant="primary" />
-          )}
-          <RefreshButton
-            isLoading={dashboard.state === "loading"}
-            label="대시보드 갱신"
-            onClick={onRefresh}
-          />
-        </div>
-      </div>
+type DashboardSummary = {
+  projectCount: number;
+  activeCount: number;
+  failedCount: number;
+  scenarioFailureCount: number;
+};
 
-      <div className="mt-6">
-        <DashboardContent
-          checkRunStartStates={checkRunStartStates}
-          dashboard={dashboard}
-          onStartCheckRun={onStartCheckRun}
-        />
-      </div>
-    </section>
+function StatStrip({ summary }: { summary: DashboardSummary }) {
+  return (
+    <div className="grid grid-cols-2 rounded-2xl border border-slate-200 bg-white sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+      <StatCell label="프로젝트" value={summary.projectCount} />
+      <StatCell
+        label="진행 중"
+        tone={summary.activeCount > 0 ? "active" : "default"}
+        value={summary.activeCount}
+      />
+      <StatCell
+        label="최신 검사 실패"
+        tone={summary.failedCount > 0 ? "danger" : "default"}
+        value={summary.failedCount}
+      />
+      <StatCell
+        label="시나리오 실패"
+        tone={summary.scenarioFailureCount > 0 ? "danger" : "default"}
+        value={summary.scenarioFailureCount}
+      />
+    </div>
+  );
+}
+
+function StatCell({
+  label,
+  tone = "default",
+  value
+}: {
+  label: string;
+  tone?: "default" | "danger" | "active";
+  value: number;
+}) {
+  const valueClassName =
+    tone === "danger" && value > 0
+      ? "text-rose-600"
+      : tone === "active"
+        ? "text-cyan-700"
+        : "text-slate-900";
+
+  return (
+    <div className="px-4 py-3 text-center">
+      <p className="text-xs font-semibold text-slate-400">{label}</p>
+      <p className={`mt-0.5 text-xl font-bold ${valueClassName}`}>{value}</p>
+    </div>
   );
 }
 
@@ -363,7 +369,7 @@ function DashboardContent({
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="grid gap-3 xl:grid-cols-2">
       {dashboard.projects.map((dashboardProject) => (
         <ProjectDashboardCard
           dashboardProject={dashboardProject}
@@ -385,19 +391,35 @@ function ProjectDashboardCard({
   onStartCheckRun: (project: Project) => void;
   startState: CheckRunStartState;
 }) {
-  const { latestCheckRun, latestCheckRunState, project } = dashboardProject;
+  const { checkRuns, latestCheckRun, latestCheckRunState, project } = dashboardProject;
+  const failedScenarioCount =
+    latestCheckRun?.linked_scenario_runs?.filter(
+      (scenarioRun) => scenarioRun.status === "FAILED"
+    ).length ?? 0;
+  const trendScores = checkRuns
+    .map((checkRun) => checkRun.score?.overall_score)
+    .filter((score): score is number => typeof score === "number")
+    .reverse();
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="mb-3 flex flex-wrap gap-2">
-            <Badge label={environmentLabel(project.environment)} />
-            <Badge label={verifiedLabel(project.is_verified)} tone={project.is_verified ? "success" : "warning"} />
+    <article className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h3 className="text-base font-bold text-slate-900">{project.name}</h3>
+            <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+              {environmentLabel(project.environment)}
+            </span>
+            {project.is_verified ? (
+              <span className="text-[11px] font-semibold text-emerald-600">인증됨</span>
+            ) : (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                미인증
+              </span>
+            )}
           </div>
-          <h3 className="text-xl font-bold text-slate-900">{project.name}</h3>
           <a
-            className="mt-2 block break-all text-sm text-cyan-700 hover:text-cyan-700"
+            className="mt-0.5 block truncate text-xs text-slate-400 transition hover:text-cyan-700"
             href={project.service_url}
             rel="noreferrer"
             target="_blank"
@@ -405,350 +427,177 @@ function ProjectDashboardCard({
             {project.service_url}
           </a>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <LinkButton href={`/projects/${project.id}/settings`} label="설정" />
-          <LinkButton href={`/projects/${project.id}/check-runs`} label="검사 이력" />
-          <LinkButton href={`/projects/${project.id}/scenarios`} label="시나리오" />
-          <LinkButton href={`/projects/${project.id}/alerts`} label="알림" />
-          <button
-            className="rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
-            disabled={!project.is_verified || startState === "starting"}
-            onClick={() => onStartCheckRun(project)}
-            type="button"
-          >
-            {startState === "starting"
-              ? "검사 요청 중"
-              : project.is_verified
-                ? "검사 시작"
-                : "검증 필요"}
-          </button>
-        </div>
+        <button
+          className="shrink-0 rounded-xl bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+          disabled={!project.is_verified || startState === "starting"}
+          onClick={() => onStartCheckRun(project)}
+          type="button"
+        >
+          {startState === "starting" ? "요청 중" : project.is_verified ? "검사 시작" : "검증 필요"}
+        </button>
       </div>
 
-      {project.description && <p className="mt-4 text-sm leading-6 text-slate-500">{project.description}</p>}
+      {startState !== "idle" && startState !== "starting" && (
+        <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">
+          {checkRunStartStateMessage[startState]}
+        </p>
+      )}
 
-      <CheckRunStartNotice project={project} startState={startState} />
+      <LatestRunLine
+        latestCheckRun={latestCheckRun}
+        latestCheckRunState={latestCheckRunState}
+        projectId={project.id}
+        trendScores={trendScores}
+      />
 
-      <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
-        <Metric label="검사 주기" value={`${project.scan_interval_minutes}분`} />
-        <Metric label="응답 임계값" value={`${project.response_time_threshold_ms}ms`} />
-        <Metric label="품질 임계값" value={`${project.quality_score_threshold}`} />
-      </dl>
+      {latestCheckRun?.failure_reason && (
+        <p className="mt-2 truncate rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700 ring-1 ring-rose-200">
+          {latestCheckRun.failure_reason}
+        </p>
+      )}
 
-      <div className="mt-5 border-t border-slate-200 pt-5">
-        <LatestCheckRunCard
-          latestCheckRun={latestCheckRun}
-          latestCheckRunState={latestCheckRunState}
-          projectId={project.id}
-        />
+      {failedScenarioCount > 0 && (
+        <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">
+          시나리오 실패 {failedScenarioCount}건 — 결과 페이지에서 step·스크린샷 근거를 확인하세요.
+        </p>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-3">
+        <FooterLink href={`/projects/${project.id}/check-runs`} label="검사 이력" />
+        <FooterLink href={`/projects/${project.id}/scenarios`} label="시나리오" />
+        <FooterLink href={`/projects/${project.id}/alerts`} label="알림" />
+        <FooterLink href={`/projects/${project.id}/settings`} label="설정" />
       </div>
-
-      <ProjectTrendSection checkRuns={dashboardProject.checkRuns} />
     </article>
   );
 }
 
-function ProjectTrendSection({ checkRuns }: { checkRuns: CheckRunSummary[] }) {
-  const series = buildScoreTrendSeries(checkRuns);
-  const runCount = scoredRunCount(series);
-
-  if (runCount < 2) {
-    return null;
+function getRunStatusDotClassName(status: CheckRunStatus): string {
+  if (status === "COMPLETED") {
+    return "bg-emerald-500";
   }
 
-  return (
-    <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-        점수 추이 · 최근 {runCount}회
-      </p>
-      <div className="mt-3">
-        <ScoreTrendPanel series={series} />
-      </div>
-    </div>
-  );
+  if (status === "FAILED") {
+    return "bg-rose-500";
+  }
+
+  if (status === "CANCELLED") {
+    return "bg-slate-400";
+  }
+
+  return "animate-pulse bg-cyan-500";
 }
 
-function CheckRunStartNotice({
-  project,
-  startState
-}: {
-  project: Project;
-  startState: CheckRunStartState;
-}) {
-  if (!project.is_verified) {
-    return (
-      <div className="mt-4">
-        <Notice
-          description="도메인 인증이 완료되어야 수동 검사를 시작할 수 있습니다."
-          title="검증 필요"
-        />
-      </div>
-    );
+function getRunStatusTextClassName(status: CheckRunStatus): string {
+  if (status === "COMPLETED") {
+    return "text-emerald-700";
   }
 
-  if (startState === "idle" || startState === "starting") {
-    return null;
+  if (status === "FAILED") {
+    return "text-rose-700";
   }
 
-  return (
-    <div className="mt-4">
-      <Notice
-        description={checkRunStartStateMessage[startState]}
-        title="검사 생성 실패"
-        tone="danger"
-      />
-    </div>
-  );
+  if (status === "CANCELLED") {
+    return "text-slate-500";
+  }
+
+  return "text-cyan-700";
 }
 
-function LatestCheckRunCard({
+const riskChipClassName: Record<"STABLE" | "WARNING" | "RISK", string> = {
+  STABLE: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  WARNING: "bg-amber-50 text-amber-700 ring-amber-200",
+  RISK: "bg-rose-50 text-rose-700 ring-rose-200"
+};
+
+function LatestRunLine({
   latestCheckRun,
   latestCheckRunState,
-  projectId
+  projectId,
+  trendScores
 }: {
   latestCheckRun: CheckRunSummary | null;
   latestCheckRunState: CheckRunListResult["state"];
   projectId: string;
+  trendScores: number[];
 }) {
   if (latestCheckRunState !== "success") {
     return (
-      <Notice
-        description="이 프로젝트의 최신 검사를 불러오지 못했습니다. 권한 또는 API 상태를 확인하세요."
-        title="최신 검사 조회 실패"
-        tone="danger"
-      />
+      <p className="mt-3 text-xs font-semibold text-rose-600">
+        최신 검사를 불러오지 못했습니다 — 권한 또는 API 상태를 확인하세요.
+      </p>
     );
   }
 
   if (!latestCheckRun) {
     return (
-      <EmptyState
-        compact
-        description="아직 실행된 검사가 없습니다. 검사 시작 버튼으로 첫 검사를 시작할 수 있습니다."
-        title="최신 검사 없음"
-      />
-    );
-  }
-
-  const isFailed = latestCheckRun.status === "FAILED";
-  const isActive = ACTIVE_CHECK_RUN_STATUSES.includes(latestCheckRun.status);
-
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        isFailed
-          ? "border-rose-300 bg-rose-50"
-          : isActive
-            ? "border-cyan-300 bg-cyan-50"
-            : "border-slate-200 bg-white"
-      }`}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-4">
-          {latestCheckRun.score && (
-            <MiniDonut
-              grade={latestCheckRun.score.grade}
-              risk={latestCheckRun.score.deployment_risk}
-              score={latestCheckRun.score.overall_score}
-            />
-          )}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-              최신 검사
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <CheckRunStatusBadge status={latestCheckRun.status} />
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
-                {triggerSourceLabel(latestCheckRun.trigger_source)}
-              </span>
-              {latestCheckRun.score && (
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
-                  {latestCheckRun.score.overall_score}점
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-        <LinkButton
-          href={`/projects/${projectId}/check-runs/${latestCheckRun.id}`}
-          label="결과 보기"
-          variant="dark"
-        />
-      </div>
-
-      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        <Metric label="대기 시각" value={formatDateTime(latestCheckRun.queued_at)} />
-        <Metric label="종료 시각" value={formatNullableDateTime(latestCheckRun.finished_at)} />
-      </dl>
-
-      {latestCheckRun.failure_reason && (
-        <p className="mt-4 rounded-2xl bg-rose-100 p-3 text-sm leading-6 text-rose-800">
-          {latestCheckRun.failure_reason}
-        </p>
-      )}
-
-      <LatestScenarioRunAccess
-        projectId={projectId}
-        scenarioRuns={latestCheckRun.linked_scenario_runs}
-      />
-    </div>
-  );
-}
-
-function LatestScenarioRunAccess({
-  projectId,
-  scenarioRuns
-}: {
-  projectId: string;
-  // 구버전 API 응답에는 필드가 없어 undefined일 수 있다.
-  scenarioRuns: ScenarioRun[] | undefined;
-}) {
-  if (scenarioRuns === undefined) {
-    return null;
-  }
-
-  if (scenarioRuns.length === 0) {
-    return (
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-sm font-semibold text-slate-900">연결된 시나리오 실행 없음</p>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
-          최신 검사에 연결된 브라우저 시나리오 실행 이력이 없습니다.
-        </p>
-      </div>
-    );
-  }
-
-  const latestScenarioRun = getLatestScenarioRun(scenarioRuns);
-  const summary = summarizeDashboardScenarioRuns(scenarioRuns);
-
-  return (
-    <div className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50/60 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-cyan-700">최근 연결된 시나리오 실행</p>
-          <p className="mt-2 text-xs text-slate-500">
-            실패 {summary.failed}개 · 진행 중 {summary.active}개 · 전체 {summary.total}개
-          </p>
-        </div>
-        {latestScenarioRun && <ScenarioRunStatusBadge status={latestScenarioRun.status} />}
-      </div>
-
-      {latestScenarioRun && (
-        <>
-          {latestScenarioRun.failure_reason && (
-            <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-100 p-3 text-sm text-rose-800">
-              {latestScenarioRun.failure_reason}
-            </p>
-          )}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              className="rounded-xl bg-cyan-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-cyan-500"
-              href={`/projects/${projectId}/scenarios/${latestScenarioRun.scenario_id}/runs/${latestScenarioRun.id}`}
-            >
-              최근 결과 보기
-            </Link>
-            <Link
-              className="rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100"
-              href={`/projects/${projectId}/scenarios/${latestScenarioRun.scenario_id}/runs`}
-            >
-              시나리오 실행 목록
-            </Link>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function StatusCard({ health }: { health: HealthCheckResult }) {
-  const isAvailable = health.state === "available";
-  const badgeClassName = isAvailable
-    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-    : health.state === "loading"
-      ? "bg-cyan-50 text-cyan-700 ring-cyan-200"
-      : "bg-rose-50 text-rose-700 ring-rose-200";
-
-  return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
-      <div className="mb-5 flex items-center justify-between gap-4">
-        <h2 className="text-lg font-semibold">서비스 상태</h2>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${badgeClassName}`}>
-          {healthStatusCopy[health.state]}
-        </span>
-      </div>
-      <p className="text-sm leading-6 text-slate-600">
-        {health.state === "available" && "모든 기능을 정상적으로 사용할 수 있습니다."}
-        {health.state === "loading" && "서버 상태를 확인하는 중입니다."}
-        {health.state === "unavailable" &&
-          "서버에 연결할 수 없습니다. 잠시 후 다시 시도하세요."}
+      <p className="mt-3 text-xs text-slate-400">
+        아직 실행된 검사가 없습니다. 검사 시작 버튼으로 첫 검사를 실행하세요.
       </p>
-    </article>
-  );
-}
+    );
+  }
 
-function MetricCard({
-  description,
-  label,
-  tone = "default",
-  value
-}: {
-  description: string;
-  label: string;
-  tone?: "default" | "danger";
-  value: number | string;
-}) {
+  const score = latestCheckRun.score ?? null;
+
   return (
-    <article
-      className={`rounded-3xl border p-6 ${
-        tone === "danger" ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-white"
-      }`}
+    <Link
+      className="-mx-1 mt-2 flex items-center gap-3 rounded-xl px-1 py-1.5 transition hover:bg-slate-50"
+      href={`/projects/${projectId}/check-runs/${latestCheckRun.id}`}
     >
-      <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">{label}</p>
-      <p className="mt-3 text-4xl font-bold text-slate-900">{value}</p>
-      <p className="mt-3 text-sm leading-6 text-slate-500">{description}</p>
-    </article>
+      {score && (
+        <MiniDonut
+          grade={score.grade}
+          risk={score.deployment_risk}
+          score={score.overall_score}
+        />
+      )}
+      <span
+        className={`flex shrink-0 items-center gap-1.5 text-xs font-bold ${getRunStatusTextClassName(latestCheckRun.status)}`}
+      >
+        <span
+          className={`h-1.5 w-1.5 rounded-full ${getRunStatusDotClassName(latestCheckRun.status)}`}
+        />
+        {checkRunStatusCopy[latestCheckRun.status]}
+      </span>
+      <span className="min-w-0 truncate text-xs text-slate-500">
+        {triggerSourceLabel(latestCheckRun.trigger_source)} ·{" "}
+        {formatRelativeTime(latestCheckRun.queued_at)}
+      </span>
+      {score && (
+        <span
+          className={`hidden whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 sm:inline-flex ${riskChipClassName[score.deployment_risk]}`}
+        >
+          {score.overall_score}점 · {score.grade} · {deploymentRiskLabel(score.deployment_risk)}
+        </span>
+      )}
+      <span className="flex-1" />
+      {trendScores.length >= 2 ? (
+        <Sparkline scores={trendScores} />
+      ) : (
+        <span className="hidden text-[11px] text-slate-300 sm:block">추이 데이터 부족</span>
+      )}
+      <svg className="h-3.5 w-3.5 shrink-0 text-slate-300" fill="none" viewBox="0 0 16 16">
+        <path
+          d="M6 4l4 4-4 4"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.5"
+        />
+      </svg>
+    </Link>
   );
 }
 
-type DashboardScenarioRunSummary = {
-  total: number;
-  failed: number;
-  active: number;
-};
-
-function summarizeDashboardScenarioRuns(
-  scenarioRuns: ScenarioRun[]
-): DashboardScenarioRunSummary {
-  return scenarioRuns.reduce<DashboardScenarioRunSummary>(
-    (summary, scenarioRun) => {
-      if (scenarioRun.status === "FAILED") {
-        summary.failed += 1;
-      }
-
-      if (scenarioRun.status === "QUEUED" || scenarioRun.status === "RUNNING") {
-        summary.active += 1;
-      }
-
-      return summary;
-    },
-    {
-      total: scenarioRuns.length,
-      failed: 0,
-      active: 0
-    }
+function FooterLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      className="text-xs font-semibold text-slate-500 transition hover:text-cyan-700"
+      href={href}
+    >
+      {label}
+    </Link>
   );
-}
-
-function getLatestScenarioRun(scenarioRuns: ScenarioRun[]): ScenarioRun | null {
-  return scenarioRuns.reduce<ScenarioRun | null>((latest, scenarioRun) => {
-    if (!latest) {
-      return scenarioRun;
-    }
-
-    return new Date(scenarioRun.queued_at).getTime() > new Date(latest.queued_at).getTime()
-      ? scenarioRun
-      : latest;
-  }, null);
 }
 
 const checkRunStartStateMessage: Record<
@@ -757,6 +606,6 @@ const checkRunStartStateMessage: Record<
 > = {
   unauthorized: "로그인 세션이 만료되었습니다. 다시 로그인한 뒤 시도하세요.",
   "not-found": "프로젝트를 찾을 수 없습니다. 대시보드를 다시 갱신하세요.",
-  conflict: "프로젝트가 아직 도메인 인증을 통과하지 못했습니다.",
+  conflict: "이미 진행 중인 검사가 있거나 도메인 인증이 필요합니다.",
   unavailable: "검사 요청에 실패했습니다. 잠시 후 다시 시도하세요."
 };

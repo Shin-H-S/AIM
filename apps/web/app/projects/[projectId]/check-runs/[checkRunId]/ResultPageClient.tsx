@@ -61,6 +61,7 @@ import {
 
 const POLLING_INTERVAL_MS = 3_000;
 const ACTIVE_STATUSES = new Set<CheckRunStatus>(["QUEUED", "RUNNING", "ANALYZING"]);
+const MAX_AI_REPORT_WAIT_POLLS = 60;
 
 const riskLabels: Record<ScoreResult["deployment_risk"], string> = {
   STABLE: "안정",
@@ -94,8 +95,13 @@ export function ResultPageClient({
   const [baselineActionError, setBaselineActionError] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [reportWaitPolls, setReportWaitPolls] = useState(0);
   const checkRun = result.state === "success" ? result.checkRun : null;
-  const shouldPoll = checkRun ? ACTIVE_STATUSES.has(checkRun.status) : false;
+  const isAIReportPending = checkRun?.status === "COMPLETED" && checkRun.ai_report === null;
+  const isAwaitingAIReport = isAIReportPending && reportWaitPolls < MAX_AI_REPORT_WAIT_POLLS;
+  const shouldPoll = checkRun
+    ? ACTIVE_STATUSES.has(checkRun.status) || isAwaitingAIReport
+    : false;
   const project = projectResult?.state === "success" ? projectResult.project : null;
   const baselineCheckRunId = project?.baseline_check_run_id ?? null;
   const isCheckRunTerminal = checkRun ? !ACTIVE_STATUSES.has(checkRun.status) : false;
@@ -130,6 +136,9 @@ export function ResultPageClient({
     setSessionToken(accessToken);
     if (nextResult.state !== "success" || nextResult.checkRun.ai_report === null) {
       setAIReportDetailResult(null);
+    }
+    if (nextResult.state === "success" && nextResult.checkRun.ai_report !== null) {
+      setReportWaitPolls(0);
     }
     setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
     setIsLoading(false);
@@ -300,10 +309,13 @@ export function ResultPageClient({
 
     const intervalId = window.setInterval(() => {
       void refresh();
+      if (isAIReportPending) {
+        setReportWaitPolls((count) => count + 1);
+      }
     }, POLLING_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [refresh, shouldPoll]);
+  }, [isAIReportPending, refresh, shouldPoll]);
 
   const handleCancelCheckRun = useCallback(async () => {
     const accessToken = getStoredAccessToken();
@@ -428,6 +440,7 @@ export function ResultPageClient({
 
             <AIReportSummaryCard
               detailResult={visibleAIReportDetailResult}
+              isGenerating={isAwaitingAIReport}
               isLoadingDetail={isAIReportDetailLoading}
               onLoadDetail={loadAIReportDetail}
               report={checkRun.ai_report}
@@ -455,6 +468,8 @@ function StatusSummary({
   onCancel: () => void;
   shouldPoll: boolean;
 }) {
+  const isCancellable = ACTIVE_STATUSES.has(checkRun.status);
+
   return (
     <article
       className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
@@ -475,7 +490,7 @@ function StatusSummary({
         <Metric label="마지막 갱신" value={lastUpdatedAt ?? "아직 없음"} />
       </dl>
 
-      {shouldPoll && (
+      {isCancellable && (
         <div className="mt-5">
           <button
             className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-bold text-rose-800 transition hover:border-rose-500 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
@@ -675,12 +690,14 @@ function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
 
 export function AIReportSummaryCard({
   detailResult,
+  isGenerating = false,
   isLoadingDetail,
   onLoadDetail,
   report,
   topAudits
 }: {
   detailResult: AIReportDetailResult | null;
+  isGenerating?: boolean;
   isLoadingDetail: boolean;
   onLoadDetail: () => void;
   report: AIReportSummary | null;
@@ -690,7 +707,11 @@ export function AIReportSummaryCard({
     return (
       <EmptyResultCard
         title="AI 진단"
-        description="아직 저장된 AI 진단 요약이 없습니다. 검사가 종료된 뒤 리포트가 생성됩니다."
+        description={
+          isGenerating
+            ? "AI 진단 리포트를 생성하고 있습니다. 준비되는 대로 자동으로 표시됩니다."
+            : "아직 저장된 AI 진단 요약이 없습니다. 검사가 종료된 뒤 리포트가 생성됩니다."
+        }
       />
     );
   }

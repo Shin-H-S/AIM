@@ -354,31 +354,41 @@ export function ResultPageClient({
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-8">
         <header className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="flex min-w-0 items-center gap-3">
             <Link
-              className="whitespace-nowrap text-sm font-bold text-cyan-700 transition hover:text-cyan-500"
+              aria-label="검사 이력으로 돌아가기"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:border-cyan-400 hover:text-cyan-700"
               href={`/projects/${projectId}/check-runs`}
+              title="검사 이력으로 돌아가기"
             >
-              ← 검사 이력
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 16 16">
+                <path
+                  d="M10 4L6 8l4 4"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.75"
+                />
+              </svg>
             </Link>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">검사 결과</h1>
-            {checkRun && (
-              <>
-                <CheckRunStatusBadge status={checkRun.status} />
-                <span className="text-xs text-slate-500">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">검사 결과</h1>
+                {checkRun && <CheckRunStatusBadge status={checkRun.status} />}
+                {shouldPoll && (
+                  <span className="text-xs font-bold text-cyan-600">자동 새로고침 중</span>
+                )}
+              </div>
+              {checkRun && (
+                <p className="mt-0.5 truncate text-xs text-slate-500">
                   {triggerSourceLabel(checkRun.trigger_source)}
                   {checkRun.deploy_ref ? ` (${checkRun.deploy_ref.slice(0, 7)})` : ""} ·{" "}
                   {formatDateTime(checkRun.queued_at)} · 소요{" "}
                   {formatDuration(checkRun.started_at, checkRun.finished_at)}
-                </span>
-                {shouldPoll && (
-                  <span className="text-xs font-bold text-cyan-600">자동 새로고침 중</span>
-                )}
-                {lastUpdatedAt && (
-                  <span className="text-xs text-slate-400">갱신 {lastUpdatedAt}</span>
-                )}
-              </>
-            )}
+                  {lastUpdatedAt ? ` · 갱신 ${lastUpdatedAt}` : ""}
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {checkRun && ACTIVE_STATUSES.has(checkRun.status) && (

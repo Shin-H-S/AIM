@@ -151,10 +151,10 @@ export function Sparkline({ scores }: { scores: number[] }) {
     return null;
   }
 
-  const width = 96;
-  const height = 28;
-  const paddingX = 3;
-  const paddingY = 4;
+  const width = 136;
+  const height = 36;
+  const paddingX = 4;
+  const paddingY = 5;
   const low = Math.max(0, Math.min(...scores) - 2);
   const high = Math.min(100, Math.max(...scores) + 2);
   const span = high - low || 1;
@@ -170,7 +170,7 @@ export function Sparkline({ scores }: { scores: number[] }) {
   return (
     <svg
       aria-hidden="true"
-      className={`h-7 w-24 shrink-0 ${bandTextClassName[scoreBand(latest)]}`}
+      className={`h-9 w-34 shrink-0 ${bandTextClassName[scoreBand(latest)]}`}
       viewBox={`0 0 ${width} ${height}`}
     >
       <polyline
@@ -179,13 +179,13 @@ export function Sparkline({ scores }: { scores: number[] }) {
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.5"
+        strokeWidth="1.75"
       />
       <circle
         cx={pointX(scores.length - 1).toFixed(1)}
         cy={pointY(latest).toFixed(1)}
         fill="currentColor"
-        r="2.5"
+        r="3"
       />
     </svg>
   );

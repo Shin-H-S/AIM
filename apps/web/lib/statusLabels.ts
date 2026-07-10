@@ -24,7 +24,8 @@ const ALERT_CHANNEL_LABELS: Record<string, string> = {
 
 const ALERT_TYPE_LABELS: Record<string, string> = {
   INCIDENT_OPENED: "장애 발생",
-  INCIDENT_RECOVERED: "장애 복구"
+  INCIDENT_RECOVERED: "장애 복구",
+  DEPLOY_SUMMARY: "배포 요약"
 };
 
 const INCIDENT_STATUS_LABELS: Record<string, string> = {
@@ -66,7 +67,8 @@ const INCIDENT_TRIGGER_LABELS: Record<string, string> = {
   REPEATED_5XX_RESPONSE: "5xx 응답 반복",
   CRITICAL_SCENARIO_FAILURE: "핵심 시나리오 실패",
   PERFORMANCE_SCORE_BELOW_THRESHOLD: "성능 점수 임계값 미달",
-  RESPONSE_TIME_ABOVE_THRESHOLD: "응답 시간 임계값 초과"
+  RESPONSE_TIME_ABOVE_THRESHOLD: "응답 시간 임계값 초과",
+  DEPLOY_CHECK_COMPLETED: "배포 검사 완료"
 };
 
 function labelOrRaw(labels: Record<string, string>, value: string): string {

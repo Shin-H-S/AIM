@@ -10,6 +10,7 @@ from aim_api.services import ai_reports as ai_report_service
 from aim_api.services import alert_delivery as alert_delivery_service
 from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
+from aim_api.services import deploy_summaries as deploy_summary_service
 from aim_api.services import incidents as incident_service
 from aim_api.services import run_comparisons as run_comparison_service
 from aim_api.services import scan_queue
@@ -159,7 +160,13 @@ def sync_check_run_incidents(
             lighthouse_result=lighthouse_result,
             score_result=score_result,
         )
-        if sync_result.alerts:
+        deploy_summary_alerts = deploy_summary_service.create_deploy_summary_alerts(
+            session,
+            check_run=check_run,
+            project=project,
+            score_result=score_result,
+        )
+        if sync_result.alerts or deploy_summary_alerts:
             enqueue_email_alert_delivery_for_check_run(check_run_id=check_run_id)
     except Exception:
         session.rollback()

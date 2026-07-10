@@ -44,6 +44,11 @@ class IncidentStatus(StrEnum):
 class AlertType(StrEnum):
     INCIDENT_OPENED = "INCIDENT_OPENED"
     INCIDENT_RECOVERED = "INCIDENT_RECOVERED"
+    DEPLOY_SUMMARY = "DEPLOY_SUMMARY"
+
+
+# incident와 무관한 배포 요약 알림이 alerts.trigger_type에 기록하는 값.
+DEPLOY_SUMMARY_TRIGGER_TYPE = "DEPLOY_CHECK_COMPLETED"
 
 
 class AlertChannel(StrEnum):
@@ -135,7 +140,7 @@ class Alert(Base):
     __tablename__ = "alerts"
     __table_args__ = (
         CheckConstraint(
-            "alert_type IN ('INCIDENT_OPENED', 'INCIDENT_RECOVERED')",
+            "alert_type IN ('INCIDENT_OPENED', 'INCIDENT_RECOVERED', 'DEPLOY_SUMMARY')",
             name="ck_alerts_alert_type",
         ),
         CheckConstraint(
@@ -145,7 +150,8 @@ class Alert(Base):
                 "'REPEATED_5XX_RESPONSE', "
                 "'CRITICAL_SCENARIO_FAILURE', "
                 "'PERFORMANCE_SCORE_BELOW_THRESHOLD', "
-                "'RESPONSE_TIME_ABOVE_THRESHOLD')"
+                "'RESPONSE_TIME_ABOVE_THRESHOLD', "
+                "'DEPLOY_CHECK_COMPLETED')"
             ),
             name="ck_alerts_trigger_type",
         ),
@@ -164,10 +170,10 @@ class Alert(Base):
         nullable=False,
         index=True,
     )
-    incident_id: Mapped[UUID] = mapped_column(
+    incident_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("incidents.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     check_run_id: Mapped[UUID | None] = mapped_column(

@@ -32,6 +32,7 @@ describe("statusLabels", () => {
     expect(alertChannelLabel("WEBHOOK")).toBe("Webhook");
     expect(alertTypeLabel("INCIDENT_OPENED")).toBe("장애 발생");
     expect(alertTypeLabel("INCIDENT_RECOVERED")).toBe("장애 복구");
+    expect(alertTypeLabel("DEPLOY_SUMMARY")).toBe("배포 요약");
   });
 
   it("maps incident fields to Korean labels", () => {
@@ -40,6 +41,7 @@ describe("statusLabels", () => {
     expect(severityLabel("WARNING")).toBe("주의");
     expect(severityLabel("RISK")).toBe("위험");
     expect(incidentTriggerLabel("SERVICE_CONNECTION_FAILURE")).toBe("서비스 연결 실패");
+    expect(incidentTriggerLabel("DEPLOY_CHECK_COMPLETED")).toBe("배포 검사 완료");
   });
 
   it("maps remaining display enums", () => {

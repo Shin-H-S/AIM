@@ -109,7 +109,8 @@ export type Incident = {
 export type Alert = {
   id: string;
   project_id: string;
-  incident_id: string;
+  // 배포 요약 알림은 incident 없이 발송된다.
+  incident_id: string | null;
   check_run_id: string | null;
   alert_type: string;
   trigger_type: string;

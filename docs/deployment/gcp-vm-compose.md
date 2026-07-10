@@ -203,6 +203,28 @@ https://api.aim.example.com/health/database
 
 ## 10. 운영 명령
 
+### 배포 스크립트 (권장)
+
+코드 반영 배포는 스크립트 하나로 실행합니다. `git pull → 재빌드 → migration → 기동` 후,
+배포 훅으로 AIM 자신에 대한 검사를 자동 트리거합니다(`deploy_ref` = 커밋 SHA).
+
+```bash
+cd ~/AIM
+scripts/deploy.sh          # api worker beat web 전체
+scripts/deploy.sh web      # 웹만 반영할 때
+```
+
+배포 훅 토큰 준비(최초 1회): 웹의 프로젝트 설정 화면에서 Aim 프로젝트 토큰을 발급해
+아래 파일에 저장합니다. 파일이 없으면 훅 호출만 건너뛰고 배포는 정상 진행됩니다.
+
+```bash
+mkdir -p ~/.config/aim && chmod 700 ~/.config/aim
+printf '%s' '<발급한 aim_ 토큰>' > ~/.config/aim/deploy-token
+chmod 600 ~/.config/aim/deploy-token
+```
+
+### 수동 명령
+
 서비스 재시작:
 
 ```bash

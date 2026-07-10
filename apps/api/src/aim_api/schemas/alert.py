@@ -29,7 +29,7 @@ class AlertRead(BaseModel):
 
     id: UUID
     project_id: UUID
-    incident_id: UUID
+    incident_id: UUID | None
     check_run_id: UUID | None
     alert_type: str
     trigger_type: str

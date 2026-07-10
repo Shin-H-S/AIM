@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     smtp_timeout_seconds: float = 10.0
     alert_delivery_batch_size: int = 25
     alert_webhook_timeout_seconds: float = 10.0
+    # 알림 본문에 넣을 웹 UI 기본 URL (예: https://qaaimsync.com). 없으면 링크를 생략한다.
+    web_base_url: str | None = None
     anthropic_api_key: str | None = None
     ai_report_model: str = "claude-opus-4-8"
     ai_report_llm_timeout_seconds: float = 30.0

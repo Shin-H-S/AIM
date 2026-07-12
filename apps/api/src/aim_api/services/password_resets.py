@@ -137,6 +137,9 @@ def confirm_password_reset(
         raise InvalidResetTokenError
 
     user.password_hash = hash_password(new_password)
+    # 재설정 이전에 발급된 액세스 토큰(로그인 세션)을 전부 무효화한다.
+    # JWT iat는 초 단위라, 같은 초에 발급되는 새 로그인 토큰이 거부되지 않도록 절사한다.
+    user.token_invalid_before = now.replace(microsecond=0)
     record.used_at = now
 
     # 같은 사용자의 다른 미사용 토큰도 함께 무효화한다.

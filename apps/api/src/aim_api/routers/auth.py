@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from aim_api.database import get_db
-from aim_api.dependencies import get_current_user
+from aim_api.dependencies import get_current_user, oauth2_scheme
 from aim_api.models.user import User
 from aim_api.schemas.auth import (
     AccessToken,
@@ -14,8 +14,9 @@ from aim_api.schemas.auth import (
     UserLogin,
     UserRead,
 )
-from aim_api.security import create_access_token
+from aim_api.security import create_access_token, decode_access_token
 from aim_api.services import password_resets as password_reset_service
+from aim_api.services import token_revocation
 from aim_api.services import users as user_service
 from aim_api.services.rate_limit import rate_limited
 
@@ -82,8 +83,16 @@ def read_me(current_user: Annotated[User, Depends(get_current_user)]) -> UserRea
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(current_user: Annotated[User, Depends(get_current_user)]) -> Response:
+def logout(
+    current_user: Annotated[User, Depends(get_current_user)],
+    token: Annotated[str, Depends(oauth2_scheme)],
+) -> Response:
     _ = current_user
+    # 남은 수명 동안 이 토큰을 서버 측에서도 무효화한다.
+    claims = decode_access_token(token)
+    if claims is not None:
+        token_revocation.revoke_token(claims)
+
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

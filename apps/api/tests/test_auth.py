@@ -129,7 +129,11 @@ def test_login_returns_bearer_token(client: TestClient) -> None:
     body = login(client)
 
     assert body["token_type"] == "bearer"
-    assert decode_access_token(body["access_token"]) == UUID(user["id"])
+    claims = decode_access_token(body["access_token"])
+    assert claims is not None
+    assert claims.user_id == UUID(user["id"])
+    assert claims.token_id
+    assert claims.issued_at is not None
 
 
 def test_login_rejects_invalid_password(client: TestClient) -> None:

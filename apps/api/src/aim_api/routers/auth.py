@@ -17,11 +17,24 @@ from aim_api.schemas.auth import (
 from aim_api.security import create_access_token
 from aim_api.services import password_resets as password_reset_service
 from aim_api.services import users as user_service
+from aim_api.services.rate_limit import rate_limited
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# 비인증 엔드포인트의 IP당 분당 한도. 브루트포스·계정 남발·메일 폭탄 방지가 목적이며
+# 정상 사용자는 도달하지 않는 수준으로 잡는다.
+signup_rate_limit = rate_limited("auth-signup", limit=5)
+login_rate_limit = rate_limited("auth-login", limit=10)
+password_reset_request_rate_limit = rate_limited("password-reset-request", limit=5)
+password_reset_confirm_rate_limit = rate_limited("password-reset-confirm", limit=10)
 
-@router.post("/signup", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/signup",
+    response_model=UserRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(signup_rate_limit)],
+)
 def signup(
     payload: UserCreate,
     session: Annotated[Session, Depends(get_db)],
@@ -43,7 +56,7 @@ def signup(
     return UserRead.model_validate(user)
 
 
-@router.post("/login", response_model=AccessToken)
+@router.post("/login", response_model=AccessToken, dependencies=[Depends(login_rate_limit)])
 def login(
     payload: UserLogin,
     session: Annotated[Session, Depends(get_db)],
@@ -74,7 +87,11 @@ def logout(current_user: Annotated[User, Depends(get_current_user)]) -> Response
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/password-reset/request", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/password-reset/request",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(password_reset_request_rate_limit)],
+)
 def request_password_reset(
     payload: PasswordResetRequest,
     session: Annotated[Session, Depends(get_db)],
@@ -84,7 +101,11 @@ def request_password_reset(
     return {"detail": "If the email is registered, a reset message has been sent."}
 
 
-@router.post("/password-reset/confirm", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/password-reset/confirm",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(password_reset_confirm_rate_limit)],
+)
 def confirm_password_reset(
     payload: PasswordResetConfirm,
     session: Annotated[Session, Depends(get_db)],

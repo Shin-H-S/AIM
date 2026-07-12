@@ -13,11 +13,15 @@ from aim_api.services import check_runs as check_run_service
 from aim_api.services import project_api_tokens as token_service
 from aim_api.services import scan_queue
 from aim_api.services import scenarios as scenario_service
+from aim_api.services.rate_limit import rate_limited
 
 router = APIRouter(prefix="/hooks", tags=["deploy-hooks"])
 
 # JWT 로그인과 분리된 프로젝트 토큰 전용 스킴. auto_error=False로 직접 401을 만든다.
 bearer_scheme = HTTPBearer(auto_error=False)
+
+# 토큰 브루트포스 방지. CI 재시도에는 여유가 있는 수준으로 잡는다.
+deploy_hook_rate_limit = rate_limited("deploy-hook", limit=30)
 
 
 def invalid_deploy_token() -> HTTPException:
@@ -52,6 +56,7 @@ def scan_queue_unavailable() -> HTTPException:
     "/projects/{project_id}/check-runs",
     response_model=CheckRunRead,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(deploy_hook_rate_limit)],
 )
 def trigger_deploy_check_run(
     project_id: UUID,

@@ -17,14 +17,48 @@ from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus, StepResult, 
 SCORING_VERSION = "2026-06-28.scenario-v1"
 SCORE_BREAKDOWN_VERSION = 1
 
-WEIGHTS = {
-    "availability_score": 25,
-    "functional_stability_score": 30,
-    "web_performance_score": 20,
-    "accessibility_score": 10,
-    "seo_basic_quality_score": 5,
-    "regression_stability_score": 10,
+# 서비스 성격별 카테고리 가중치 프리셋 (각 합 100).
+# 가중치 0인 카테고리는 수집돼도 종합 점수에 반영되지 않는다.
+DEFAULT_SCORING_PRESET = "service"
+
+SCORING_PRESETS: dict[str, dict[str, int]] = {
+    # 로그인·거래 등 핵심 흐름이 있는 웹 서비스 — 기능 > 접속 > 속도.
+    "service": {
+        "availability_score": 25,
+        "functional_stability_score": 30,
+        "web_performance_score": 20,
+        "accessibility_score": 10,
+        "seo_basic_quality_score": 5,
+        "regression_stability_score": 10,
+    },
+    # 블로그·문서·마케팅 — 검색 유입과 로딩 속도가 핵심.
+    "content": {
+        "availability_score": 25,
+        "functional_stability_score": 15,
+        "web_performance_score": 30,
+        "accessibility_score": 10,
+        "seo_basic_quality_score": 15,
+        "regression_stability_score": 5,
+    },
+    # 어드민·백오피스 — 검색엔진 무관, 동작이 전부.
+    "internal": {
+        "availability_score": 30,
+        "functional_stability_score": 40,
+        "web_performance_score": 15,
+        "accessibility_score": 10,
+        "seo_basic_quality_score": 0,
+        "regression_stability_score": 5,
+    },
 }
+
+# 하위 호환용 별칭 — 기본(서비스형) 가중치.
+WEIGHTS = SCORING_PRESETS[DEFAULT_SCORING_PRESET]
+
+
+def get_preset_weights(preset: str) -> dict[str, int]:
+    """알 수 없는 프리셋 값은 기본 프리셋으로 처리해 점수 계산이 멈추지 않게 한다."""
+    return SCORING_PRESETS.get(preset, SCORING_PRESETS[DEFAULT_SCORING_PRESET])
+
 
 GRADE_ORDER = {
     "A": 5,
@@ -92,7 +126,9 @@ def calculate_score(
         "seo_basic_quality_score": seo_basic_quality_score,
         "regression_stability_score": None,
     }
-    overall_score, evaluated_weight = calculate_weighted_score(category_scores)
+    scoring_preset = project.scoring_preset if project.scoring_preset else DEFAULT_SCORING_PRESET
+    weights = get_preset_weights(scoring_preset)
+    overall_score, evaluated_weight = calculate_weighted_score(category_scores, weights=weights)
     grade_before_gate = grade_for_score(overall_score)
     grade = grade_before_gate
     deployment_risk = "STABLE"
@@ -118,40 +154,41 @@ def calculate_score(
 
     score_breakdown = {
         "version": SCORE_BREAKDOWN_VERSION,
+        "preset": scoring_preset,
         "categories": [
             {
                 "key": "availability",
-                "weight": WEIGHTS["availability_score"],
+                "weight": weights["availability_score"],
                 "score": availability_score,
                 "reasons": availability_reasons,
             },
             {
                 "key": "functional_stability",
-                "weight": WEIGHTS["functional_stability_score"],
+                "weight": weights["functional_stability_score"],
                 "score": functional_stability_score,
                 "reasons": functional_reasons,
             },
             {
                 "key": "web_performance",
-                "weight": WEIGHTS["web_performance_score"],
+                "weight": weights["web_performance_score"],
                 "score": web_performance_score,
                 "reasons": web_performance_reasons,
             },
             {
                 "key": "accessibility",
-                "weight": WEIGHTS["accessibility_score"],
+                "weight": weights["accessibility_score"],
                 "score": accessibility_score,
                 "reasons": accessibility_reasons,
             },
             {
                 "key": "seo_basic_quality",
-                "weight": WEIGHTS["seo_basic_quality_score"],
+                "weight": weights["seo_basic_quality_score"],
                 "score": seo_basic_quality_score,
                 "reasons": seo_reasons,
             },
             {
                 "key": "regression_stability",
-                "weight": WEIGHTS["regression_stability_score"],
+                "weight": weights["regression_stability_score"],
                 "score": None,
                 "reasons": [{"code": "not_implemented"}],
             },
@@ -350,14 +387,22 @@ def calculate_functional_stability_score(
     )[0]
 
 
-def calculate_weighted_score(category_scores: dict[str, int | None]) -> tuple[int, int]:
+def calculate_weighted_score(
+    category_scores: dict[str, int | None],
+    *,
+    weights: dict[str, int] | None = None,
+) -> tuple[int, int]:
+    weights = weights if weights is not None else WEIGHTS
     weighted_total = 0
     evaluated_weight = 0
     for category, score in category_scores.items():
         if score is None:
             continue
 
-        weight = WEIGHTS[category]
+        weight = weights[category]
+        if weight == 0:
+            continue
+
         weighted_total += score * weight
         evaluated_weight += weight
 

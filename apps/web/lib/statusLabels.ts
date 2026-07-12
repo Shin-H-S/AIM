@@ -62,6 +62,12 @@ const ENVIRONMENT_LABELS: Record<string, string> = {
   production: "운영"
 };
 
+const SCORING_PRESET_LABELS: Record<string, string> = {
+  service: "서비스형",
+  content: "콘텐츠형",
+  internal: "내부 도구형"
+};
+
 const INCIDENT_TRIGGER_LABELS: Record<string, string> = {
   SERVICE_CONNECTION_FAILURE: "서비스 연결 실패",
   REPEATED_5XX_RESPONSE: "5xx 응답 반복",
@@ -117,6 +123,10 @@ export function incidentTriggerLabel(triggerType: string): string {
 
 export function environmentLabel(environment: string): string {
   return labelOrRaw(ENVIRONMENT_LABELS, environment);
+}
+
+export function scoringPresetLabel(preset: string): string {
+  return labelOrRaw(SCORING_PRESET_LABELS, preset);
 }
 
 export function verifiedLabel(isVerified: boolean): string {

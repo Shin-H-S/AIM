@@ -36,6 +36,10 @@ class Project(Base):
             "environment IN ('development', 'staging', 'production')",
             name="ck_projects_environment",
         ),
+        CheckConstraint(
+            "scoring_preset IN ('service', 'content', 'internal')",
+            name="ck_projects_scoring_preset",
+        ),
         CheckConstraint("scan_interval_minutes > 0", name="ck_projects_scan_interval_positive"),
         CheckConstraint(
             "response_time_threshold_ms > 0",
@@ -64,6 +68,13 @@ class Project(Base):
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     description: Mapped[str | None] = mapped_column(Text)
     environment: Mapped[str] = mapped_column(String(32), nullable=False, default="development")
+    # 서비스 성격별 카테고리 가중치 프리셋. 다음 검사부터 적용되며 과거 점수는 유지된다.
+    scoring_preset: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="service",
+        server_default="service",
+    )
     scan_interval_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
     scheduled_scans_enabled: Mapped[bool] = mapped_column(
         Boolean,

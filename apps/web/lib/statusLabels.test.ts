@@ -9,6 +9,7 @@ import {
   incidentStatusLabel,
   incidentTriggerLabel,
   runStatusLabel,
+  scoringPresetLabel,
   severityLabel,
   stepStatusLabel,
   triggerSourceLabel,
@@ -42,6 +43,13 @@ describe("statusLabels", () => {
     expect(severityLabel("RISK")).toBe("위험");
     expect(incidentTriggerLabel("SERVICE_CONNECTION_FAILURE")).toBe("서비스 연결 실패");
     expect(incidentTriggerLabel("DEPLOY_CHECK_COMPLETED")).toBe("배포 검사 완료");
+  });
+
+  it("maps scoring presets to Korean labels", () => {
+    expect(scoringPresetLabel("service")).toBe("서비스형");
+    expect(scoringPresetLabel("content")).toBe("콘텐츠형");
+    expect(scoringPresetLabel("internal")).toBe("내부 도구형");
+    expect(scoringPresetLabel("unknown")).toBe("unknown");
   });
 
   it("maps remaining display enums", () => {

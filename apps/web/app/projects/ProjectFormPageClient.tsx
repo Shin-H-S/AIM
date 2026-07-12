@@ -17,7 +17,8 @@ import {
   type ProjectApiToken,
   type ProjectEnvironment,
   type ProjectPayload,
-  type ProjectVerification
+  type ProjectVerification,
+  type ScoringPreset
 } from "@/lib/api";
 import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
 import { formatNullableDateTime } from "@/lib/format";
@@ -30,6 +31,7 @@ type ProjectFormState = {
   serviceUrl: string;
   description: string;
   environment: ProjectEnvironment;
+  scoringPreset: ScoringPreset;
   scanIntervalMinutes: string;
   scheduledScansEnabled: boolean;
   responseTimeThresholdMs: string;
@@ -53,11 +55,71 @@ const initialForm: ProjectFormState = {
   serviceUrl: "",
   description: "",
   environment: "development",
+  scoringPreset: "service",
   scanIntervalMinutes: "60",
   scheduledScansEnabled: false,
   responseTimeThresholdMs: "2000",
   qualityScoreThreshold: "80"
 };
+
+type ScoringPresetWeight = {
+  label: string;
+  shortLabel: string;
+  weight: number;
+  implemented: boolean;
+};
+
+type ScoringPresetOption = {
+  value: ScoringPreset;
+  title: string;
+  badge?: string;
+  description: string;
+  weights: ScoringPresetWeight[];
+};
+
+// 백엔드 SCORING_PRESETS(score_results.py)와 동일한 값의 표시용 사본.
+const SCORING_PRESET_OPTIONS: ScoringPresetOption[] = [
+  {
+    value: "service",
+    title: "서비스형",
+    badge: "기본",
+    description: "로그인·거래 등 핵심 흐름이 있는 웹 서비스",
+    weights: [
+      { label: "기능 안정성", shortLabel: "기능", weight: 30, implemented: true },
+      { label: "가용성", shortLabel: "가용", weight: 25, implemented: true },
+      { label: "웹 성능", shortLabel: "성능", weight: 20, implemented: true },
+      { label: "접근성", shortLabel: "접근", weight: 10, implemented: true },
+      { label: "회귀 안정성", shortLabel: "회귀", weight: 10, implemented: false },
+      { label: "SEO/기본 품질", shortLabel: "SEO", weight: 5, implemented: true }
+    ]
+  },
+  {
+    value: "content",
+    title: "콘텐츠형",
+    description: "블로그·문서·마케팅 — 검색 유입과 로딩이 핵심",
+    weights: [
+      { label: "웹 성능", shortLabel: "성능", weight: 30, implemented: true },
+      { label: "가용성", shortLabel: "가용", weight: 25, implemented: true },
+      { label: "기능 안정성", shortLabel: "기능", weight: 15, implemented: true },
+      { label: "SEO/기본 품질", shortLabel: "SEO", weight: 15, implemented: true },
+      { label: "접근성", shortLabel: "접근", weight: 10, implemented: true },
+      { label: "회귀 안정성", shortLabel: "회귀", weight: 5, implemented: false }
+    ]
+  },
+  {
+    value: "internal",
+    title: "내부 도구형",
+    description: "어드민·백오피스 — 검색엔진 무관, 동작이 전부",
+    weights: [
+      { label: "기능 안정성", shortLabel: "기능", weight: 40, implemented: true },
+      { label: "가용성", shortLabel: "가용", weight: 30, implemented: true },
+      { label: "웹 성능", shortLabel: "성능", weight: 15, implemented: true },
+      { label: "접근성", shortLabel: "접근", weight: 10, implemented: true },
+      { label: "회귀 안정성", shortLabel: "회귀", weight: 5, implemented: false },
+      { label: "SEO/기본 품질", shortLabel: "SEO", weight: 0, implemented: true }
+    ]
+  }
+];
 
 export function ProjectFormPageClient({
   mode,
@@ -475,6 +537,11 @@ function ProjectForm({
             value={form.description}
           />
         </label>
+
+        <ScoringPresetField
+          onChange={(value) => onChange({ ...form, scoringPreset: value })}
+          selected={form.scoringPreset}
+        />
 
         <div className="grid gap-4 md:grid-cols-3">
           <TextField
@@ -1045,12 +1112,121 @@ function StatusMessage({
   );
 }
 
+function ScoringPresetField({
+  onChange,
+  selected
+}: {
+  onChange: (value: ScoringPreset) => void;
+  selected: ScoringPreset;
+}) {
+  const selectedOption =
+    SCORING_PRESET_OPTIONS.find((option) => option.value === selected) ??
+    SCORING_PRESET_OPTIONS[0];
+
+  return (
+    <fieldset>
+      <legend className="text-sm font-semibold text-slate-600">평가 기준 프리셋</legend>
+      <p className="mt-1 text-xs leading-5 text-slate-500">
+        서비스 성격에 맞는 프리셋을 고르면 카테고리 가중치가 달라집니다. 위험 게이트는
+        유형과 무관하게 동일합니다.
+      </p>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-3">
+        {SCORING_PRESET_OPTIONS.map((option) => {
+          const isSelected = option.value === selected;
+
+          return (
+            <label
+              className={`cursor-pointer rounded-2xl border p-4 transition ${
+                isSelected
+                  ? "border-cyan-500 bg-cyan-50/40 ring-2 ring-cyan-500/20"
+                  : "border-slate-200 bg-white hover:border-cyan-300"
+              }`}
+              key={option.value}
+            >
+              <input
+                checked={isSelected}
+                className="sr-only"
+                name="scoring_preset"
+                onChange={() => onChange(option.value)}
+                type="radio"
+                value={option.value}
+              />
+              <span className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                    isSelected ? "border-cyan-600" : "border-slate-300"
+                  }`}
+                >
+                  {isSelected && <span className="h-2 w-2 rounded-full bg-cyan-600" />}
+                </span>
+                <span className="text-sm font-bold text-slate-900">{option.title}</span>
+                {option.badge && (
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    {option.badge}
+                  </span>
+                )}
+              </span>
+              <span className="mt-1.5 block break-keep text-xs leading-5 text-slate-500">
+                {option.description}
+              </span>
+              <span className="mt-2 block text-[11px] font-semibold leading-4 text-slate-400">
+                {option.weights
+                  .map((weight) => `${weight.shortLabel} ${weight.weight}`)
+                  .join(" · ")}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold text-slate-400">
+          선택한 프리셋 — {selectedOption.title} 가중치
+        </p>
+        <div className="mt-2 grid gap-1.5">
+          {selectedOption.weights.map((weight) => (
+            <div className="flex items-center gap-2" key={weight.label}>
+              <span className="w-24 shrink-0 break-keep text-xs text-slate-500">
+                {weight.label}
+              </span>
+              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200">
+                {weight.weight > 0 && (
+                  <div
+                    className={`h-full rounded-full ${
+                      weight.implemented ? "bg-cyan-500" : "bg-slate-300"
+                    }`}
+                    style={{ width: `${Math.min(weight.weight * 2.5, 100)}%` }}
+                  />
+                )}
+              </div>
+              <span className="w-7 shrink-0 text-right text-xs font-bold text-slate-700">
+                {weight.weight}
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-[11px] leading-4 text-slate-400">
+          회귀 안정성은 준비 중인 항목이라 아직 평가에서 제외됩니다. 가중치 0인 항목은
+          수집돼도 점수에 반영되지 않습니다.
+        </p>
+      </div>
+
+      <p className="mt-2 text-xs text-slate-500">
+        변경은 다음 검사부터 적용됩니다. 이미 저장된 점수는 당시 기준 그대로 유지됩니다.
+      </p>
+    </fieldset>
+  );
+}
+
 function formFromProject(project: Project): ProjectFormState {
   return {
     name: project.name,
     serviceUrl: project.service_url,
     description: project.description ?? "",
     environment: project.environment,
+    scoringPreset: project.scoring_preset ?? "service",
     scanIntervalMinutes: String(project.scan_interval_minutes),
     scheduledScansEnabled: project.scheduled_scans_enabled,
     responseTimeThresholdMs: String(project.response_time_threshold_ms),
@@ -1098,6 +1274,7 @@ function buildProjectPayload(
       service_url: serviceUrl,
       description: description || null,
       environment: form.environment,
+      scoring_preset: form.scoringPreset,
       scan_interval_minutes: scanIntervalMinutes,
       scheduled_scans_enabled: form.scheduledScansEnabled,
       response_time_threshold_ms: responseTimeThresholdMs,

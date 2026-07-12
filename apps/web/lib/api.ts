@@ -641,6 +641,25 @@ export type SignupResult =
       state: "unavailable";
     };
 
+export type PasswordResetRequestResult =
+  | {
+      state: "accepted";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type PasswordResetConfirmResult =
+  | {
+      state: "success";
+    }
+  | {
+      state: "invalid-token";
+    }
+  | {
+      state: "unavailable";
+    };
+
 export type CurrentUserResult =
   | {
       state: "success";
@@ -993,6 +1012,14 @@ export function getLoginUrl(apiBaseUrl = getApiBaseUrl()): string {
   return new URL("/auth/login", getApiBaseUrl(apiBaseUrl)).toString();
 }
 
+export function getPasswordResetRequestUrl(apiBaseUrl = getApiBaseUrl()): string {
+  return new URL("/auth/password-reset/request", getApiBaseUrl(apiBaseUrl)).toString();
+}
+
+export function getPasswordResetConfirmUrl(apiBaseUrl = getApiBaseUrl()): string {
+  return new URL("/auth/password-reset/confirm", getApiBaseUrl(apiBaseUrl)).toString();
+}
+
 export function getCurrentUserUrl(apiBaseUrl = getApiBaseUrl()): string {
   return new URL("/auth/me", getApiBaseUrl(apiBaseUrl)).toString();
 }
@@ -1332,6 +1359,70 @@ export async function signupUser({
       state: "success",
       user: (await response.json()) as User
     };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function requestPasswordReset({
+  email,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  email: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<PasswordResetRequestResult> {
+  try {
+    const response = await fetcher(getPasswordResetRequestUrl(apiBaseUrl ?? getApiBaseUrl()), {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email })
+    });
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return { state: "accepted" };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function confirmPasswordReset({
+  token,
+  newPassword,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  token: string;
+  newPassword: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<PasswordResetConfirmResult> {
+  try {
+    const response = await fetcher(getPasswordResetConfirmUrl(apiBaseUrl ?? getApiBaseUrl()), {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ token, new_password: newPassword })
+    });
+
+    if (response.status === 400 || response.status === 422) {
+      return { state: "invalid-token" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return { state: "success" };
   } catch {
     return { state: "unavailable" };
   }

@@ -114,6 +114,10 @@ export default function Home() {
               <Link className="font-bold text-cyan-700 hover:text-cyan-700" href="/signup">
                 회원가입
               </Link>
+              <span className="mx-2 text-slate-300">·</span>
+              <Link className="font-bold text-cyan-700 hover:text-cyan-700" href="/password-reset">
+                비밀번호를 잊으셨나요?
+              </Link>
             </p>
 
             <LoginNotice loginState={loginState} />

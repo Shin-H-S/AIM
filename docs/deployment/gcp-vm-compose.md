@@ -223,6 +223,27 @@ printf '%s' '<발급한 aim_ 토큰>' > ~/.config/aim/deploy-token
 chmod 600 ~/.config/aim/deploy-token
 ```
 
+### 시나리오 시크릿 (선택)
+
+시나리오 fill 값에 `{{secret:NAME}}` 참조를 쓰면 DB에는 참조만 저장되고, 워커가
+실행 시점에 실제 값을 주입합니다. 실제 값은 두 곳에서 찾습니다(환경변수 우선):
+
+1. 워커 환경변수 `SCENARIO_SECRET_<NAME>`
+2. VM의 시크릿 파일 `~/.config/aim/scenario-secrets.env` (`NAME=VALUE` 형식, 워커에 읽기 전용 마운트)
+
+시크릿 파일은 최초 1회 만들어 둡니다 — compose가 워커에 마운트하므로 **파일이
+없으면 docker가 같은 경로에 빈 디렉토리를 만들어** 참조 해석이 전부 실패합니다:
+
+```bash
+mkdir -p ~/.config/aim && chmod 700 ~/.config/aim
+touch ~/.config/aim/scenario-secrets.env
+chmod 600 ~/.config/aim/scenario-secrets.env
+# 예: printf 'MONITOR_PASSWORD=<모니터 계정 비밀번호>\n' >> ~/.config/aim/scenario-secrets.env
+```
+
+파일은 매 시나리오 실행 시점에 읽으므로 값을 추가·수정해도 재시작이 필요 없습니다.
+참조한 시크릿이 설정돼 있지 않으면 해당 스텝은 명확한 사유와 함께 실패합니다.
+
 ### 수동 명령
 
 서비스 재시작:

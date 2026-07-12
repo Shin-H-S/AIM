@@ -53,7 +53,7 @@ const supportedActions: TestStepAction[] = [
 const actionHelp: Record<TestStepAction, string> = {
   navigate: "대상에 이동할 URL을 입력합니다.",
   click: "대상에 클릭할 CSS 선택자를 입력합니다.",
-  fill: "대상에 입력 필드 선택자, 값에 입력할 내용을 넣습니다.",
+  fill: "대상에 입력 필드 선택자, 값에 입력할 내용을 넣습니다. 비밀번호 같은 민감값은 {{secret:이름}} 참조로 넣으면 DB에 저장되지 않고 서버의 SCENARIO_SECRET_이름 설정에서 실행 시점에 주입됩니다.",
   wait: "제한 시간에 대기 시간을 ms 단위로 입력합니다.",
   assert_element_exists: "대상에 존재해야 하는 CSS 선택자를 입력합니다.",
   assert_text_exists: "값에 화면에 보여야 하는 텍스트를 입력합니다.",

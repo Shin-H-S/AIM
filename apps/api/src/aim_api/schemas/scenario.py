@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Self
@@ -17,6 +18,19 @@ class TestStepAction(StrEnum):
     ASSERT_TEXT_EXISTS = "assert_text_exists"
     ASSERT_URL = "assert_url"
     TAKE_SCREENSHOT = "take_screenshot"
+
+
+# fill 값의 시크릿 참조 문법. DB에는 참조만 저장되고 실제 값은 워커가 실행 시점에
+# SCENARIO_SECRET_<NAME> 환경변수(또는 시크릿 파일)에서 주입한다.
+SECRET_REFERENCE_PATTERN = re.compile(r"\{\{\s*secret:([A-Z][A-Z0-9_]*)\s*\}\}")
+SECRET_REFERENCE_HINT = "{{secret:NAME}} (NAME은 대문자·숫자·밑줄, 대문자로 시작)"
+
+
+def validate_secret_references(value: str) -> None:
+    """secret 참조처럼 보이는 조각이 있으면 문법이 정확한지 검사한다."""
+    remaining = SECRET_REFERENCE_PATTERN.sub("", value)
+    if "{{" in remaining and "secret" in remaining.lower():
+        raise ValueError(f"시크릿 참조 문법이 잘못되었습니다. 올바른 형식: {SECRET_REFERENCE_HINT}")
 
 
 class TestStepBase(BaseModel):
@@ -50,6 +64,9 @@ class TestStepBase(BaseModel):
 
         if self.action == TestStepAction.FILL and (self.target is None or self.value is None):
             raise ValueError("fill step requires target and value.")
+
+        if self.action == TestStepAction.FILL and self.value is not None:
+            validate_secret_references(self.value)
 
         if (
             self.action

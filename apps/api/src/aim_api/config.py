@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
     password_reset_token_expire_minutes: int = 30
+    # 비인증 엔드포인트(로그인·가입·재설정·배포 훅)의 IP당 분당 한도 사용 여부.
+    rate_limit_enabled: bool = True
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_username: str | None = None

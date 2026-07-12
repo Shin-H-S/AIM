@@ -55,6 +55,8 @@ export type TestStepPayload = {
 
 export type ProjectEnvironment = "development" | "staging" | "production";
 
+export type ScoringPreset = "service" | "content" | "internal";
+
 export type Project = {
   id: string;
   owner_id: string;
@@ -62,6 +64,8 @@ export type Project = {
   service_url: string;
   description: string | null;
   environment: ProjectEnvironment;
+  // API가 프리셋을 아직 배포하지 않은 경우를 대비해 optional로 둔다.
+  scoring_preset?: ScoringPreset;
   scan_interval_minutes: number;
   scheduled_scans_enabled: boolean;
   response_time_threshold_ms: number;
@@ -80,6 +84,7 @@ export type ProjectPayload = {
   service_url: string;
   description: string | null;
   environment: ProjectEnvironment;
+  scoring_preset?: ScoringPreset;
   scan_interval_minutes: number;
   scheduled_scans_enabled?: boolean;
   response_time_threshold_ms: number;
@@ -225,6 +230,8 @@ export type ScoreBreakdownGate = {
 
 export type ScoreBreakdown = {
   version: number;
+  // 프리셋 도입(0030) 이전 기록에는 없다.
+  preset?: ScoringPreset | string;
   categories: ScoreBreakdownCategory[];
   gate: ScoreBreakdownGate | null;
   overall: {

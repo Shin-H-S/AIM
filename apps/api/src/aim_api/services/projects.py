@@ -47,6 +47,7 @@ def create_project(session: Session, *, owner_id: UUID, payload: ProjectCreate) 
         service_url=str(payload.service_url),
         description=payload.description,
         environment=payload.environment.value,
+        scoring_preset=payload.scoring_preset.value,
         scan_interval_minutes=payload.scan_interval_minutes,
         scheduled_scans_enabled=payload.scheduled_scans_enabled,
         response_time_threshold_ms=payload.response_time_threshold_ms,
@@ -102,6 +103,8 @@ def update_project(
         project.description = payload.description
     if "environment" in updated_fields and payload.environment is not None:
         project.environment = payload.environment.value
+    if "scoring_preset" in updated_fields and payload.scoring_preset is not None:
+        project.scoring_preset = payload.scoring_preset.value
     if "scan_interval_minutes" in updated_fields and payload.scan_interval_minutes is not None:
         project.scan_interval_minutes = payload.scan_interval_minutes
     if "scheduled_scans_enabled" in updated_fields and payload.scheduled_scans_enabled is not None:

@@ -31,7 +31,7 @@ import {
   type SslResult
 } from "@/lib/api";
 import { buildAvailabilityAdvice, buildSslAdvice } from "@/lib/advice";
-import { triggerSourceLabel } from "@/lib/statusLabels";
+import { scoringPresetLabel, triggerSourceLabel } from "@/lib/statusLabels";
 import {
   RingGauge,
   ScoreBandLegend,
@@ -1407,8 +1407,9 @@ function DetailSections({
   const lighthouse = getLighthouseSummary(checkRun.lighthouse_result, qualityScoreThreshold);
   const scenario = getScenarioSummaryLine(checkRun.linked_scenario_runs);
   const score = checkRun.score_result;
+  const breakdownPreset = score?.score_breakdown?.preset;
   const breakdownSummary = score
-    ? `가중 평균 · 반영 ${score.evaluated_weight}%${
+    ? `${breakdownPreset ? `${scoringPresetLabel(String(breakdownPreset))} 프리셋 · ` : ""}가중 평균 · 반영 ${score.evaluated_weight}%${
         score.score_breakdown?.gate ? " · 등급 상한 적용" : ""
       }`
     : "아직 계산된 점수가 없습니다";

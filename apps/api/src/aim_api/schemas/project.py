@@ -20,6 +20,12 @@ class ProjectEnvironment(StrEnum):
     PRODUCTION = "production"
 
 
+class ScoringPreset(StrEnum):
+    SERVICE = "service"
+    CONTENT = "content"
+    INTERNAL = "internal"
+
+
 MAX_WEBHOOK_URL_LENGTH = 1024
 
 
@@ -43,6 +49,7 @@ class ProjectBase(BaseModel):
     service_url: HttpUrl
     description: str | None = Field(default=None, max_length=1000)
     environment: ProjectEnvironment = ProjectEnvironment.DEVELOPMENT
+    scoring_preset: ScoringPreset = ScoringPreset.SERVICE
     scan_interval_minutes: int = Field(default=60, ge=1, le=43_200)
     scheduled_scans_enabled: bool = False
     response_time_threshold_ms: int = Field(default=2_000, ge=1, le=600_000)
@@ -95,6 +102,7 @@ class ProjectUpdate(BaseModel):
     service_url: HttpUrl | None = None
     description: str | None = Field(default=None, max_length=1000)
     environment: ProjectEnvironment | None = None
+    scoring_preset: ScoringPreset | None = None
     scan_interval_minutes: int | None = Field(default=None, ge=1, le=43_200)
     scheduled_scans_enabled: bool | None = None
     response_time_threshold_ms: int | None = Field(default=None, ge=1, le=600_000)

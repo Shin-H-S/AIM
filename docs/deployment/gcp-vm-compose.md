@@ -229,16 +229,17 @@ chmod 600 ~/.config/aim/deploy-token
 실행 시점에 실제 값을 주입합니다. 실제 값은 두 곳에서 찾습니다(환경변수 우선):
 
 1. 워커 환경변수 `SCENARIO_SECRET_<NAME>`
-2. VM의 시크릿 파일 `~/.config/aim/scenario-secrets.env` (`NAME=VALUE` 형식, 워커에 읽기 전용 마운트)
+2. VM의 시크릿 파일 `~/.config/aim/scenario-secrets/secrets.env` (`NAME=VALUE` 형식)
 
-시크릿 파일은 최초 1회 만들어 둡니다 — compose가 워커에 마운트하므로 **파일이
-없으면 docker가 같은 경로에 빈 디렉토리를 만들어** 참조 해석이 전부 실패합니다:
+compose는 **디렉토리**(`~/.config/aim/scenario-secrets`)를 워커에 읽기 전용으로
+마운트합니다 — 파일 단독 마운트는 `sed -i`처럼 inode가 바뀌는 편집이 컨테이너에
+반영되지 않는 함정이 있어 디렉토리 기준입니다. 최초 1회 만들어 둡니다:
 
 ```bash
-mkdir -p ~/.config/aim && chmod 700 ~/.config/aim
-touch ~/.config/aim/scenario-secrets.env
-chmod 600 ~/.config/aim/scenario-secrets.env
-# 예: printf 'MONITOR_PASSWORD=<모니터 계정 비밀번호>\n' >> ~/.config/aim/scenario-secrets.env
+mkdir -p ~/.config/aim/scenario-secrets && chmod 700 ~/.config/aim/scenario-secrets
+touch ~/.config/aim/scenario-secrets/secrets.env
+chmod 600 ~/.config/aim/scenario-secrets/secrets.env
+# 예: printf 'MONITOR_PASSWORD=<모니터 계정 비밀번호>\n' >> ~/.config/aim/scenario-secrets/secrets.env
 ```
 
 파일은 매 시나리오 실행 시점에 읽으므로 값을 추가·수정해도 재시작이 필요 없습니다.

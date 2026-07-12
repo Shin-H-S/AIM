@@ -8,6 +8,7 @@ from uuid import UUID
 from aim_api.models.scenario import StepResultStatus, TestStep
 from aim_api.url_validation import UrlValidationError, validate_service_url
 from playwright.sync_api import ConsoleMessage, Request, sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from aim_worker.scenario_secrets import resolve_secret_references
 
@@ -45,6 +46,8 @@ class PageProtocol(Protocol):
     def locator(self, selector: str) -> LocatorProtocol: ...
 
     def wait_for_timeout(self, timeout: int) -> None: ...
+
+    def wait_for_url(self, url: Callable[[str], bool], *, timeout: float | None) -> None: ...
 
     def screenshot(self, *, full_page: bool) -> bytes: ...
 
@@ -245,9 +248,18 @@ def execute_step(page: PageProtocol, step: TestStep) -> None:
         case "assert_url":
             if step.value is None:
                 raise RuntimeError("assert_url step requires value.")
-            # 쿼리 파라미터나 trailing slash 차이로 깨지지 않도록 부분 일치로 검사한다.
-            if step.value not in page.url:
-                raise RuntimeError("Current URL did not contain the expected URL fragment.")
+            # 부분 일치로 검사하되, SPA 리다이렉트가 끝날 때까지 timeout 동안 기다린다 —
+            # 즉시 1회 검사하면 로그인 제출 직후처럼 URL 전환 중인 화면에서 항상 실패한다.
+            expected_fragment = step.value
+            try:
+                page.wait_for_url(
+                    lambda current_url: expected_fragment in current_url,
+                    timeout=timeout_ms,
+                )
+            except PlaywrightTimeoutError as exc:
+                raise RuntimeError(
+                    "Current URL did not contain the expected URL fragment."
+                ) from exc
         case "take_screenshot":
             page.screenshot(full_page=True)
         case _:

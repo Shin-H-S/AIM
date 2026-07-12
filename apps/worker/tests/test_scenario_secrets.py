@@ -132,6 +132,9 @@ class SingleLocatorPage:
     def wait_for_timeout(self, timeout: int) -> None:
         raise AssertionError("wait should not be called")
 
+    def wait_for_url(self, url: object, *, timeout: float | None) -> None:
+        raise AssertionError("wait_for_url should not be called")
+
     def screenshot(self, *, full_page: bool) -> bytes:
         raise AssertionError("screenshot should not be called")
 

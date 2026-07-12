@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     password_reset_token_expire_minutes: int = 30
     # 비인증 엔드포인트(로그인·가입·재설정·배포 훅)의 IP당 분당 한도 사용 여부.
     rate_limit_enabled: bool = True
+    # 시나리오 {{secret:NAME}} 참조를 해석할 NAME=VALUE 형식 파일 (환경변수보다 후순위).
+    scenario_secrets_file: str | None = None
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_username: str | None = None

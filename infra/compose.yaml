@@ -35,6 +35,7 @@ x-aim-env: &aim-env
   ALERT_DELIVERY_BATCH_SIZE: ${ALERT_DELIVERY_BATCH_SIZE:-25}
   ALERT_WEBHOOK_TIMEOUT_SECONDS: ${ALERT_WEBHOOK_TIMEOUT_SECONDS:-10}
   WEB_BASE_URL: ${WEB_BASE_URL:-}
+  SCENARIO_SECRETS_FILE: ${SCENARIO_SECRETS_FILE:-/run/aim/scenario-secrets.env}
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   AI_REPORT_MODEL: ${AI_REPORT_MODEL:-claude-opus-4-8}
   AI_REPORT_LLM_TIMEOUT_SECONDS: ${AI_REPORT_LLM_TIMEOUT_SECONDS:-30}
@@ -137,6 +138,9 @@ services:
       ]
     volumes:
       - artifacts-data:/data/aim/artifacts
+      # 시나리오 {{secret:NAME}} 참조용 NAME=VALUE 파일. 호스트에 미리 만들어 둔다
+      # (없으면 docker가 빈 디렉토리를 만들어 참조 해석이 전부 실패한다).
+      - ${SCENARIO_SECRETS_HOST_FILE:-~/.config/aim/scenario-secrets.env}:/run/aim/scenario-secrets.env:ro
 
   beat:
     build:

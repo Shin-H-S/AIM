@@ -9,6 +9,8 @@ from aim_api.models.scenario import StepResultStatus, TestStep
 from aim_api.url_validation import UrlValidationError, validate_service_url
 from playwright.sync_api import ConsoleMessage, Request, sync_playwright
 
+from aim_worker.scenario_secrets import resolve_secret_references
+
 DEFAULT_STEP_TIMEOUT_MS = 10_000
 BODY_SELECTOR = "body"
 BLOCKED_URL_PLACEHOLDER = "[blocked-url]"
@@ -221,7 +223,11 @@ def execute_step(page: PageProtocol, step: TestStep) -> None:
         case "fill":
             if step.target is None or step.value is None:
                 raise RuntimeError("fill step requires target and value.")
-            page.locator(step.target).fill(step.value, timeout=timeout_ms)
+            # DB에는 {{secret:NAME}} 참조만 저장되고 실제 값은 실행 시점에만 주입된다.
+            page.locator(step.target).fill(
+                resolve_secret_references(step.value),
+                timeout=timeout_ms,
+            )
         case "wait":
             if step.timeout_ms is None:
                 raise RuntimeError("wait step requires timeout_ms.")

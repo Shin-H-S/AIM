@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Literal
 from uuid import uuid4
 
@@ -5,6 +6,7 @@ import pytest
 from aim_api.models.scenario import StepResultStatus, TestStep
 from aim_api.url_validation import UrlValidationError
 from aim_worker import playwright_runner
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 
 class FakeLocator:
@@ -69,6 +71,11 @@ class FakePage:
 
     def wait_for_timeout(self, timeout: int) -> None:
         self.waits.append(timeout)
+
+    def wait_for_url(self, url: Callable[[str], bool], *, timeout: float | None) -> None:
+        assert timeout is not None
+        if not url(self._url):
+            raise PlaywrightTimeoutError("Timed out waiting for URL.")
 
     def screenshot(self, *, full_page: bool) -> bytes:
         assert full_page is True

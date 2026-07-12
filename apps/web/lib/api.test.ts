@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   cancelCheckRun,
   clearProjectBaseline,
+  confirmPasswordReset,
   createCheckRun,
   createProject,
   createScenario,
@@ -50,6 +51,7 @@ import {
   getSignupUrl,
   loginUser,
   logoutUser,
+  requestPasswordReset,
   retryAlert,
   setProjectBaseline,
   signupUser,
@@ -291,6 +293,88 @@ describe("loginUser", () => {
       loginUser({
         email: "user@example.com",
         password: "password",
+        fetcher: unavailableFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
+  });
+});
+
+describe("requestPasswordReset", () => {
+  it("posts the email and returns accepted", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 202 }));
+
+    await expect(
+      requestPasswordReset({
+        email: "user@example.com",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "accepted" });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/auth/password-reset/request", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email: "user@example.com" })
+    });
+  });
+
+  it("maps failures to unavailable", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 503 }));
+
+    await expect(
+      requestPasswordReset({
+        email: "user@example.com",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
+  });
+});
+
+describe("confirmPasswordReset", () => {
+  it("posts the token with the new password", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 204 }));
+
+    await expect(
+      confirmPasswordReset({
+        token: "reset-token",
+        newPassword: "new password 456",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "success" });
+
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/auth/password-reset/confirm", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ token: "reset-token", new_password: "new password 456" })
+    });
+  });
+
+  it("maps invalid tokens and unavailable responses", async () => {
+    const invalidFetcher = vi.fn(async () => new Response(null, { status: 400 }));
+    const unavailableFetcher = vi.fn(async () => new Response(null, { status: 503 }));
+
+    await expect(
+      confirmPasswordReset({
+        token: "expired",
+        newPassword: "new password 456",
+        fetcher: invalidFetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "invalid-token" });
+
+    await expect(
+      confirmPasswordReset({
+        token: "reset-token",
+        newPassword: "new password 456",
         fetcher: unavailableFetcher,
         apiBaseUrl: "http://localhost:8000"
       })

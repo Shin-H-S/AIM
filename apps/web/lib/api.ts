@@ -212,6 +212,9 @@ export type ScoreBreakdownReason = {
   clean?: number;
   seo?: number | null;
   best_practices?: number | null;
+  compared?: number;
+  total_drop?: number;
+  regressed?: { category: string; drop: number }[];
 };
 
 export type ScoreBreakdownCategory = {

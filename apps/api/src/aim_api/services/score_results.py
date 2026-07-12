@@ -97,6 +97,7 @@ def calculate_score(
     lighthouse_result: LighthouseResult | None,
     scenario_runs: list[ScenarioRun] | None = None,
     step_results_by_run_id: dict[UUID, list[StepResult]] | None = None,
+    previous_score_result: ScoreResult | None = None,
 ) -> CalculatedScore:
     scenario_runs = scenario_runs or []
     step_results_by_run_id = step_results_by_run_id or {}
@@ -118,13 +119,21 @@ def calculate_score(
     )
     seo_basic_quality_score, seo_reasons = seo_basic_quality_score_with_reasons(lighthouse_result)
 
-    category_scores = {
+    current_scores: dict[str, int | None] = {
         "availability_score": availability_score,
         "functional_stability_score": functional_stability_score,
         "web_performance_score": web_performance_score,
         "accessibility_score": accessibility_score,
         "seo_basic_quality_score": seo_basic_quality_score,
-        "regression_stability_score": None,
+    }
+    regression_stability_score, regression_reasons = regression_stability_score_with_reasons(
+        current_scores=current_scores,
+        previous_score_result=previous_score_result,
+    )
+
+    category_scores = {
+        **current_scores,
+        "regression_stability_score": regression_stability_score,
     }
     scoring_preset = project.scoring_preset if project.scoring_preset else DEFAULT_SCORING_PRESET
     weights = get_preset_weights(scoring_preset)
@@ -189,8 +198,8 @@ def calculate_score(
             {
                 "key": "regression_stability",
                 "weight": weights["regression_stability_score"],
-                "score": None,
-                "reasons": [{"code": "not_implemented"}],
+                "score": regression_stability_score,
+                "reasons": regression_reasons,
             },
         ],
         "gate": gate_breakdown,
@@ -207,7 +216,7 @@ def calculate_score(
         web_performance_score=web_performance_score,
         accessibility_score=accessibility_score,
         seo_basic_quality_score=seo_basic_quality_score,
-        regression_stability_score=None,
+        regression_stability_score=regression_stability_score,
         overall_score=overall_score,
         evaluated_weight=evaluated_weight,
         grade=grade,
@@ -387,6 +396,69 @@ def calculate_functional_stability_score(
     )[0]
 
 
+# 회귀 안정성: 직전 검사의 카테고리 원점수 대비 하락 폭 합계에 배수를 곱해 감점한다.
+# 최종 종합 점수가 아니라 카테고리 원점수를 비교하므로 점수 계산에 순환이 생기지 않는다.
+REGRESSION_PENALTY_MULTIPLIER = 2
+
+REGRESSION_COMPARED_CATEGORY_KEYS = (
+    "availability_score",
+    "functional_stability_score",
+    "web_performance_score",
+    "accessibility_score",
+    "seo_basic_quality_score",
+)
+
+
+def regression_stability_score_with_reasons(
+    *,
+    current_scores: dict[str, int | None],
+    previous_score_result: ScoreResult | None,
+) -> tuple[int | None, ScoreReasons]:
+    if previous_score_result is None:
+        return None, [{"code": "no_previous_run"}]
+
+    compared = 0
+    regressions: list[dict[str, Any]] = []
+    for key in REGRESSION_COMPARED_CATEGORY_KEYS:
+        current = current_scores.get(key)
+        previous = getattr(previous_score_result, key)
+        if current is None or previous is None:
+            continue
+
+        compared += 1
+        drop = previous - current
+        if drop > 0:
+            regressions.append({"category": key.removesuffix("_score"), "drop": drop})
+
+    if compared == 0:
+        return None, [{"code": "no_comparable_categories"}]
+
+    if not regressions:
+        return 100, [{"code": "no_regressions", "compared": compared}]
+
+    total_drop = sum(int(regression["drop"]) for regression in regressions)
+    penalty = min(100, REGRESSION_PENALTY_MULTIPLIER * total_drop)
+    return 100 - penalty, [
+        {
+            "code": "category_regressions",
+            "points": -penalty,
+            "total_drop": total_drop,
+            "regressed": regressions,
+        }
+    ]
+
+
+def calculate_regression_stability_score(
+    *,
+    current_scores: dict[str, int | None],
+    previous_score_result: ScoreResult | None,
+) -> int | None:
+    return regression_stability_score_with_reasons(
+        current_scores=current_scores,
+        previous_score_result=previous_score_result,
+    )[0]
+
+
 def calculate_weighted_score(
     category_scores: dict[str, int | None],
     *,
@@ -530,6 +602,11 @@ def record_score_result(
         lighthouse_result=lighthouse_result,
         scenario_runs=scenario_runs,
         step_results_by_run_id=step_results_by_run_id,
+        previous_score_result=get_previous_score_result(
+            session,
+            project_id=project.id,
+            check_run_id=check_run_id,
+        ),
     )
     result = get_score_result(session, check_run_id=check_run_id)
     if result is None:
@@ -560,6 +637,26 @@ def get_score_result(
     check_run_id: UUID,
 ) -> ScoreResult | None:
     return session.scalar(select(ScoreResult).where(ScoreResult.check_run_id == check_run_id))
+
+
+def get_previous_score_result(
+    session: Session,
+    *,
+    project_id: UUID,
+    check_run_id: UUID,
+) -> ScoreResult | None:
+    """직전 검사의 점수 — '직전'의 정의는 직전 비교 기능과 동일한 조회를 재사용한다."""
+    from aim_api.services.run_comparisons import get_previous_comparable_check_run
+
+    previous_check_run = get_previous_comparable_check_run(
+        session,
+        project_id=project_id,
+        check_run_id=check_run_id,
+    )
+    if previous_check_run is None:
+        return None
+
+    return get_score_result(session, check_run_id=previous_check_run.id)
 
 
 def list_score_results_for_check_runs(

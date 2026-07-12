@@ -254,7 +254,7 @@ def test_record_score_result_stores_score_breakdown_with_deductions_and_gate(
     ]
     assert breakdown_by_key["web_performance"]["reasons"] == [{"code": "lighthouse_failed"}]
     assert breakdown_by_key["web_performance"]["score"] == 0
-    assert breakdown_by_key["regression_stability"]["reasons"] == [{"code": "not_implemented"}]
+    assert breakdown_by_key["regression_stability"]["reasons"] == [{"code": "no_previous_run"}]
 
     assert breakdown["gate"] == {
         "code": "lighthouse_failed",

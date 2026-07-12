@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
@@ -66,7 +66,6 @@ type ScoringPresetWeight = {
   label: string;
   shortLabel: string;
   weight: number;
-  implemented: boolean;
 };
 
 type ScoringPresetOption = {
@@ -85,12 +84,12 @@ const SCORING_PRESET_OPTIONS: ScoringPresetOption[] = [
     badge: "기본",
     description: "로그인·거래 등 핵심 흐름이 있는 웹 서비스",
     weights: [
-      { label: "기능 안정성", shortLabel: "기능", weight: 30, implemented: true },
-      { label: "가용성", shortLabel: "가용", weight: 25, implemented: true },
-      { label: "웹 성능", shortLabel: "성능", weight: 20, implemented: true },
-      { label: "접근성", shortLabel: "접근", weight: 10, implemented: true },
-      { label: "회귀 안정성", shortLabel: "회귀", weight: 10, implemented: false },
-      { label: "SEO/기본 품질", shortLabel: "SEO", weight: 5, implemented: true }
+      { label: "기능 안정성", shortLabel: "기능", weight: 30 },
+      { label: "가용성", shortLabel: "가용", weight: 25 },
+      { label: "웹 성능", shortLabel: "성능", weight: 20 },
+      { label: "접근성", shortLabel: "접근", weight: 10 },
+      { label: "회귀 안정성", shortLabel: "회귀", weight: 10 },
+      { label: "SEO/기본 품질", shortLabel: "SEO", weight: 5 }
     ]
   },
   {
@@ -98,12 +97,12 @@ const SCORING_PRESET_OPTIONS: ScoringPresetOption[] = [
     title: "콘텐츠형",
     description: "블로그·문서·마케팅 — 검색 유입과 로딩이 핵심",
     weights: [
-      { label: "웹 성능", shortLabel: "성능", weight: 30, implemented: true },
-      { label: "가용성", shortLabel: "가용", weight: 25, implemented: true },
-      { label: "기능 안정성", shortLabel: "기능", weight: 15, implemented: true },
-      { label: "SEO/기본 품질", shortLabel: "SEO", weight: 15, implemented: true },
-      { label: "접근성", shortLabel: "접근", weight: 10, implemented: true },
-      { label: "회귀 안정성", shortLabel: "회귀", weight: 5, implemented: false }
+      { label: "웹 성능", shortLabel: "성능", weight: 30 },
+      { label: "가용성", shortLabel: "가용", weight: 25 },
+      { label: "기능 안정성", shortLabel: "기능", weight: 15 },
+      { label: "SEO/기본 품질", shortLabel: "SEO", weight: 15 },
+      { label: "접근성", shortLabel: "접근", weight: 10 },
+      { label: "회귀 안정성", shortLabel: "회귀", weight: 5 }
     ]
   },
   {
@@ -111,12 +110,12 @@ const SCORING_PRESET_OPTIONS: ScoringPresetOption[] = [
     title: "내부 도구형",
     description: "어드민·백오피스 — 검색엔진 무관, 동작이 전부",
     weights: [
-      { label: "기능 안정성", shortLabel: "기능", weight: 40, implemented: true },
-      { label: "가용성", shortLabel: "가용", weight: 30, implemented: true },
-      { label: "웹 성능", shortLabel: "성능", weight: 15, implemented: true },
-      { label: "접근성", shortLabel: "접근", weight: 10, implemented: true },
-      { label: "회귀 안정성", shortLabel: "회귀", weight: 5, implemented: false },
-      { label: "SEO/기본 품질", shortLabel: "SEO", weight: 0, implemented: true }
+      { label: "기능 안정성", shortLabel: "기능", weight: 40 },
+      { label: "가용성", shortLabel: "가용", weight: 30 },
+      { label: "웹 성능", shortLabel: "성능", weight: 15 },
+      { label: "접근성", shortLabel: "접근", weight: 10 },
+      { label: "회귀 안정성", shortLabel: "회귀", weight: 5 },
+      { label: "SEO/기본 품질", shortLabel: "SEO", weight: 0 }
     ]
   }
 ];
@@ -1194,9 +1193,7 @@ function ScoringPresetField({
               <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200">
                 {weight.weight > 0 && (
                   <div
-                    className={`h-full rounded-full ${
-                      weight.implemented ? "bg-cyan-500" : "bg-slate-300"
-                    }`}
+                    className="h-full rounded-full bg-cyan-500"
                     style={{ width: `${Math.min(weight.weight * 2.5, 100)}%` }}
                   />
                 )}
@@ -1208,8 +1205,8 @@ function ScoringPresetField({
           ))}
         </div>
         <p className="mt-2 text-[11px] leading-4 text-slate-400">
-          회귀 안정성은 준비 중인 항목이라 아직 평가에서 제외됩니다. 가중치 0인 항목은
-          수집돼도 점수에 반영되지 않습니다.
+          회귀 안정성은 직전 검사 대비 하락 폭으로 계산되며 첫 검사에서는 평가에서
+          제외됩니다. 가중치 0인 항목은 수집돼도 점수에 반영되지 않습니다.
         </p>
       </div>
 

@@ -479,7 +479,7 @@ def test_run_check_run_records_previous_run_comparison(
     comparison = session.scalars(select(RunComparison)).one()
     assert comparison.check_run_id == check_run.id
     assert comparison.baseline_check_run_id == baseline_run.id
-    assert comparison.overall_score_delta == 3
+    assert comparison.overall_score_delta == 4
     assert comparison.performance_score_delta == 10
     assert comparison.response_time_delta_ms == -577
     assert comparison.deployment_risk_changed is False

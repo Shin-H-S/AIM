@@ -217,12 +217,12 @@ def test_record_previous_run_comparison_stores_metric_deltas(session: Session) -
     assert comparison.check_run_id == target_run.id
     assert comparison.baseline_check_run_id == baseline_run.id
     assert comparison.comparison_type == "previous_run"
-    assert comparison.overall_score_delta == 3
+    assert comparison.overall_score_delta == 4
     assert comparison.web_performance_score_delta == 10
     assert comparison.performance_score_delta == 10
     assert comparison.response_time_delta_ms == -200
     assert comparison.deployment_risk_changed is False
-    assert comparison.summary == ("Overall score improved by 3. Response time improved by 200ms.")
+    assert comparison.summary == ("Overall score improved by 4. Response time improved by 200ms.")
 
 
 def test_record_previous_run_comparison_updates_existing_result(session: Session) -> None:
@@ -333,13 +333,14 @@ def test_compute_baseline_comparison_uses_pinned_baseline(session: Session) -> N
     assert comparison.comparison_type == "baseline"
     assert comparison.check_run_id == target_run.id
     assert comparison.baseline_check_run_id == baseline_run.id
-    assert comparison.overall_score_delta == 3
+    # 세 번째 검사는 직전(두 번째) 검사 대비 성능이 하락해 회귀 안정성 90점이 반영된다.
+    assert comparison.overall_score_delta == 2
     assert comparison.web_performance_score_delta == 10
     assert comparison.performance_score_delta == 10
     assert comparison.response_time_delta_ms == -200
     assert comparison.deployment_risk_changed is False
     assert comparison.current_deployment_risk == comparison.baseline_deployment_risk
-    assert comparison.summary == ("Overall score improved by 3. Response time improved by 200ms.")
+    assert comparison.summary == ("Overall score improved by 2. Response time improved by 200ms.")
     assert session.scalars(select(RunComparison)).all() == []
 
 

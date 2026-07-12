@@ -75,6 +75,16 @@ export function scoreReasonText(reason: ScoreBreakdownReason): string {
       return `시나리오 실행 결과 반영 (실패 ${reason.failed ?? 0} · step 실패 포함 ${
         reason.with_failed_steps ?? 0
       } · 성공 ${reason.clean ?? 0})`;
+    case "no_previous_run":
+      return "비교할 이전 검사가 없어 평가 제외 — 두 번째 검사부터 반영됩니다";
+    case "no_comparable_categories":
+      return "직전 검사와 비교 가능한 카테고리가 없어 평가 제외";
+    case "no_regressions":
+      return `직전 검사 대비 하락한 카테고리 없음 (${reason.compared ?? "-"}개 비교)`;
+    case "category_regressions":
+      return `직전 검사 대비 카테고리 점수가 총 ${reason.total_drop ?? "-"}점 하락해 ${
+        reason.points ?? "-"
+      }점`;
     case "not_implemented":
       return "준비 중인 항목이라 평가 제외";
     default:

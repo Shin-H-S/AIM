@@ -487,7 +487,8 @@ const verdictCategoryKeys = [
   "functional_stability",
   "web_performance",
   "accessibility",
-  "seo_basic_quality"
+  "seo_basic_quality",
+  "regression_stability"
 ] as const;
 
 function getVerdictCategoryScore(
@@ -508,6 +509,10 @@ function getVerdictCategoryScore(
 
   if (key === "accessibility") {
     return result.accessibility_score;
+  }
+
+  if (key === "regression_stability") {
+    return result.regression_stability_score;
   }
 
   return result.seo_basic_quality_score;
@@ -962,8 +967,12 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
       hint: "Lighthouse SEO 점수와 웹 권장사항 점수의 평균입니다.",
       key: "seo_basic_quality",
       score: result.seo_basic_quality_score
+    },
+    {
+      hint: "직전 검사 대비 카테고리 점수 하락 폭으로 계산한 회귀 안정성입니다. 첫 검사는 평가 제외.",
+      key: "regression_stability",
+      score: result.regression_stability_score
     }
-    // 회귀 안정성은 아직 준비 중인 항목이라 게이지에서 숨긴다(산출 근거에는 표시됨).
   ];
 
   return (

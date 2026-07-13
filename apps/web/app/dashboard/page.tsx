@@ -462,7 +462,7 @@ function ProjectDashboardCard({
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-3">
+      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-4">
         <FooterLink href={`/projects/${project.id}/check-runs`} label="검사 이력" />
         <FooterLink href={`/projects/${project.id}/scenarios`} label="시나리오" />
         <FooterLink href={`/projects/${project.id}/alerts`} label="알림" />
@@ -592,7 +592,7 @@ function LatestRunLine({
 function FooterLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
-      className="text-xs font-semibold text-slate-500 transition hover:text-cyan-700"
+      className="whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-center text-xs font-semibold text-slate-600 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-800"
       href={href}
     >
       {label}

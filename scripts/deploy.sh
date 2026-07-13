@@ -28,6 +28,13 @@ compose run --rm migrate
 compose up -d "${SERVICES[@]}"
 compose ps
 
+# 매 배포마다 buildkit 캐시가 쌓여 디스크를 채우지 않도록 상한을 두고 정리하고,
+# 재빌드로 dangling이 된 옛 이미지도 제거한다. 정리 실패가 배포를 실패시키지는 않는다.
+BUILD_CACHE_KEEP="${AIM_DEPLOY_BUILD_CACHE_KEEP:-8GB}"
+docker builder prune --keep-storage "$BUILD_CACHE_KEEP" --force >/dev/null 2>&1 || true
+docker image prune --force >/dev/null 2>&1 || true
+echo "docker 정리: 빌드 캐시 상한 ${BUILD_CACHE_KEEP} 유지, dangling 이미지 제거 완료."
+
 TOKEN_FILE="${AIM_DEPLOY_TOKEN_FILE:-$HOME/.config/aim/deploy-token}"
 AIM_PROJECT_ID="${AIM_DEPLOY_PROJECT_ID:-51de8dd3-0b84-4cda-8b71-3795e7e92a53}"
 HOOK_URL="${AIM_DEPLOY_HOOK_URL:-https://api.qaaimsync.com/hooks/projects/${AIM_PROJECT_ID}/check-runs}"
@@ -35,6 +42,14 @@ HOOK_URL="${AIM_DEPLOY_HOOK_URL:-https://api.qaaimsync.com/hooks/projects/${AIM_
 if [ ! -f "$TOKEN_FILE" ]; then
   echo "deploy hook: 토큰 파일(${TOKEN_FILE})이 없어 검사 트리거를 건너뜁니다."
   exit 0
+fi
+
+# 재기동 직후에는 컨테이너 워밍업(Next.js 첫 렌더 등) 때문에 Lighthouse 성능 점수에
+# 노이즈가 생긴다. 잠시 대기해 배포 검사가 안정된 상태를 측정하게 한다. 0이면 생략.
+WARMUP_SECONDS="${AIM_DEPLOY_WARMUP_SECONDS:-90}"
+if [ "$WARMUP_SECONDS" -gt 0 ]; then
+  echo "deploy hook: 워밍업 ${WARMUP_SECONDS}초 대기 후 검사를 트리거합니다."
+  sleep "$WARMUP_SECONDS"
 fi
 
 DEPLOY_REF="$(git rev-parse --short HEAD)"

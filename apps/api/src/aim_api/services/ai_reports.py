@@ -6,9 +6,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from aim_api.models.ai_report import AIReport
-from aim_api.schemas.ai_diagnosis import AIDiagnosisReport
+from aim_api.models.check_run import CheckRun
+from aim_api.schemas.ai_diagnosis import AIDiagnosisDeploymentRisk, AIDiagnosisReport
 from aim_api.services import ai_diagnosis_inputs, ai_diagnosis_reports, ai_report_narratives
 from aim_api.services.ai_report_narratives import DETERMINISTIC_GENERATOR, NarrativeGenerator
+
+SCHEDULED_TRIGGER_SOURCE = "scheduled"
 
 
 class AIReportNotFoundError(Exception):
@@ -57,6 +60,9 @@ def generate_and_record_ai_report(
         diagnosis_input,
         generated_at=generated_at,
     )
+    if should_skip_llm_narrative(session, report=report):
+        return record_ai_report(session, report=report)
+
     enhancement = ai_report_narratives.enhance_report_narrative(
         diagnosis_input,
         report,
@@ -67,6 +73,19 @@ def generate_and_record_ai_report(
         report=enhancement.report,
         generator=enhancement.generator,
     )
+
+
+def should_skip_llm_narrative(session: Session, *, report: AIDiagnosisReport) -> bool:
+    """이상 신호가 없는 정기 검사는 LLM 서술 없이 결정론 리포트만 기록한다.
+
+    정기 검사 대부분은 "변화 없음"이라 LLM 서술의 정보 가치가 낮고 호출 비용만 남는다.
+    배포·수동 검사, 게이트에 걸렸거나 이슈가 있는 검사는 지금처럼 LLM 서술을 받는다.
+    """
+    if report.score.deployment_risk != AIDiagnosisDeploymentRisk.STABLE or report.top_issues:
+        return False
+
+    check_run = session.get(CheckRun, report.check_run_id)
+    return check_run is not None and check_run.trigger_source == SCHEDULED_TRIGGER_SOURCE
 
 
 def get_ai_report(session: Session, *, check_run_id: UUID) -> AIReport:

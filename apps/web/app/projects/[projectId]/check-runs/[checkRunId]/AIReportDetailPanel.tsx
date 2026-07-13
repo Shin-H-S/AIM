@@ -101,7 +101,7 @@ function AIReportIssuesList({
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Expected user impact
+                  예상 사용자 영향
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
                   {issue.expected_user_impact}
@@ -109,7 +109,7 @@ function AIReportIssuesList({
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Recommended next action
+                  권장 다음 조치
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
                   {issue.recommended_next_action}
@@ -174,7 +174,7 @@ function AIReportWarningsCard({ warnings }: { warnings: string[] }) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <h3 className="text-lg font-semibold text-slate-900">생성 경고</h3>
-        <p className="mt-2 text-sm text-slate-500">기록된 generation warning이 없습니다.</p>
+        <p className="mt-2 text-sm text-slate-500">기록된 생성 경고가 없습니다.</p>
       </div>
     );
   }

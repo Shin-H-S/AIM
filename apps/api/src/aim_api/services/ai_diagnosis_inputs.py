@@ -405,7 +405,7 @@ def build_statements(
                 statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
                 severity=AIDiagnosisSeverity.RISK,
                 category="check_run",
-                summary="CheckRun finished in FAILED state.",
+                summary="검사가 FAILED 상태로 끝났습니다.",
                 evidence_ids=["check-run-status"],
             )
         )
@@ -416,7 +416,7 @@ def build_statements(
                 statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
                 severity=AIDiagnosisSeverity.WARNING,
                 category="check_run",
-                summary="CheckRun was cancelled before completion.",
+                summary="검사가 완료 전에 취소되었습니다.",
                 evidence_ids=["check-run-status"],
             )
         )
@@ -430,8 +430,8 @@ def build_statements(
                 severity=deployment_risk_to_severity(deployment_risk),
                 category="deployment_risk",
                 summary=(
-                    f"Deterministic scoring marked this run as {deployment_risk} "
-                    f"with grade {score_result.grade}."
+                    f"결정론 스코어링이 이 검사를 {deployment_risk}"
+                    f"(등급 {score_result.grade})로 판정했습니다."
                 ),
                 evidence_ids=["score-result"],
             )
@@ -445,7 +445,7 @@ def build_statements(
                     statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
                     severity=AIDiagnosisSeverity.RISK,
                     category="availability",
-                    summary="Availability check reported the service as unavailable.",
+                    summary="가용성 검사에서 서비스에 접속할 수 없었습니다.",
                     evidence_ids=["availability-result"],
                 )
             )
@@ -459,7 +459,7 @@ def build_statements(
                     statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
                     severity=AIDiagnosisSeverity.WARNING,
                     category="availability",
-                    summary="Response time exceeded the configured project threshold.",
+                    summary="응답 시간이 프로젝트에 설정한 임계값을 초과했습니다.",
                     evidence_ids=["availability-result"],
                 )
             )
@@ -471,7 +471,7 @@ def build_statements(
                 statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
                 severity=AIDiagnosisSeverity.RISK,
                 category="ssl",
-                summary="SSL inspection found an invalid certificate.",
+                summary="SSL 검사에서 유효하지 않은 인증서가 확인되었습니다.",
                 evidence_ids=["ssl-result"],
             )
         )
@@ -483,7 +483,7 @@ def build_statements(
                 statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
                 severity=AIDiagnosisSeverity.WARNING,
                 category="web_quality",
-                summary="Lighthouse scan did not complete successfully.",
+                summary="Lighthouse 스캔이 정상적으로 완료되지 않았습니다.",
                 evidence_ids=["lighthouse-result"],
             )
         )
@@ -524,7 +524,7 @@ def build_statements(
                     statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
                     severity=AIDiagnosisSeverity.RISK,
                     category="functional_stability",
-                    summary="A linked ScenarioRun failed.",
+                    summary="연결된 시나리오 실행이 실패했습니다.",
                     evidence_ids=[f"scenario-run-{scenario_run.id}"],
                 )
             )
@@ -535,9 +535,9 @@ def build_statements(
                     statement_type=AIDiagnosisStatementType.UNKNOWN_CAUSE,
                     severity=AIDiagnosisSeverity.WARNING,
                     category="functional_stability",
-                    summary="A linked ScenarioRun has not reached a terminal state.",
+                    summary="연결된 시나리오 실행이 아직 종결되지 않았습니다.",
                     evidence_ids=[f"scenario-run-{scenario_run.id}"],
-                    unknown_reason="The browser worker has not produced a terminal result yet.",
+                    unknown_reason="브라우저 워커가 아직 최종 결과를 내지 않았습니다.",
                 )
             )
         failed_step_evidence_ids = [
@@ -552,7 +552,7 @@ def build_statements(
                     statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
                     severity=AIDiagnosisSeverity.RISK,
                     category="functional_stability",
-                    summary="One or more scenario steps failed.",
+                    summary="하나 이상의 시나리오 스텝이 실패했습니다.",
                     evidence_ids=failed_step_evidence_ids[:20],
                 )
             )
@@ -563,7 +563,7 @@ def build_statements(
                     statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
                     severity=AIDiagnosisSeverity.WARNING,
                     category="browser_console",
-                    summary="Browser console errors were captured during the scenario run.",
+                    summary="시나리오 실행 중 브라우저 콘솔 오류가 수집되었습니다.",
                     evidence_ids=[
                         f"console-error-{console_error.id}"
                         for console_error in scenario.console_errors[:20]
@@ -577,7 +577,7 @@ def build_statements(
                     statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
                     severity=AIDiagnosisSeverity.WARNING,
                     category="network",
-                    summary="Failed network requests were captured during the scenario run.",
+                    summary="시나리오 실행 중 실패한 네트워크 요청이 수집되었습니다.",
                     evidence_ids=[
                         f"network-failure-{network_failure.id}"
                         for network_failure in scenario.network_failures[:20]
@@ -592,7 +592,7 @@ def build_statements(
                 statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
                 severity=AIDiagnosisSeverity.INFO,
                 category="summary",
-                summary="No deterministic risk evidence has been collected yet.",
+                summary="아직 수집된 결정론 위험 근거가 없습니다.",
                 evidence_ids=["check-run-status"],
             )
         )
@@ -645,9 +645,9 @@ def build_lighthouse_opportunity_statement(
         f"lighthouse-audit-{audit['id']}"[:120] for audit in top_audits if audit.get("id")
     )
 
-    summary = "Lighthouse found concrete improvement opportunities on this page."
+    summary = "Lighthouse가 이 페이지에서 구체적인 개선 기회를 발견했습니다."
     if titles:
-        summary = f"Lighthouse found improvement opportunities: {', '.join(titles)}."
+        summary = f"Lighthouse 개선 기회: {', '.join(titles)}."
 
     return AIDiagnosisStatement(
         id="lighthouse-improvement-opportunities",

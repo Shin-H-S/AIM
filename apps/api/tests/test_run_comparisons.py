@@ -222,7 +222,7 @@ def test_record_previous_run_comparison_stores_metric_deltas(session: Session) -
     assert comparison.performance_score_delta == 10
     assert comparison.response_time_delta_ms == -200
     assert comparison.deployment_risk_changed is False
-    assert comparison.summary == ("Overall score improved by 4. Response time improved by 200ms.")
+    assert comparison.summary == "종합 점수 4점 개선. 응답 시간 200ms 빨라짐."
 
 
 def test_record_previous_run_comparison_updates_existing_result(session: Session) -> None:
@@ -340,7 +340,7 @@ def test_compute_baseline_comparison_uses_pinned_baseline(session: Session) -> N
     assert comparison.response_time_delta_ms == -200
     assert comparison.deployment_risk_changed is False
     assert comparison.current_deployment_risk == comparison.baseline_deployment_risk
-    assert comparison.summary == ("Overall score improved by 2. Response time improved by 200ms.")
+    assert comparison.summary == "종합 점수 2점 개선. 응답 시간 200ms 빨라짐."
     assert session.scalars(select(RunComparison)).all() == []
 
 

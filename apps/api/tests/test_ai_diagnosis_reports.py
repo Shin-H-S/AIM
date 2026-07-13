@@ -222,9 +222,7 @@ def test_build_ai_diagnosis_report_creates_stable_report_without_top_issues() ->
     assert report.top_issues == []
     assert report.improved_areas == []
     assert report.regressed_areas == []
-    assert report.generation_warnings == [
-        "No run comparison was available, so changed areas are empty."
-    ]
+    assert report.generation_warnings == ["실행 비교가 없어 개선/회귀 영역이 비어 있습니다."]
 
 
 def test_build_ai_diagnosis_report_uses_score_issue_when_no_warning_statement_exists() -> None:
@@ -248,10 +246,7 @@ def test_build_ai_diagnosis_report_uses_score_issue_when_no_warning_statement_ex
     assert len(report.top_issues) == 1
     assert report.top_issues[0].id == "deployment-risk-score-result"
     assert report.top_issues[0].evidence_ids == ["score-result"]
-    assert (
-        "No risk or warning statement was provided, so the report used score evidence."
-        in report.generation_warnings
-    )
+    assert "위험/경고 서술이 없어 점수 근거로 이슈를 구성했습니다." in report.generation_warnings
 
 
 def test_build_ai_diagnosis_report_requires_score_result() -> None:

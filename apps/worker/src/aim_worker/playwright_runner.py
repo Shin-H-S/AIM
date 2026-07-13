@@ -190,10 +190,18 @@ def collect_console_error(
     )
 
 
+# 클라이언트가 스스로 취소한 요청. Next.js의 RSC/스크립트 프리페치 취소처럼 정상
+# 동작에서 상시 발생하므로 서비스 실패의 근거로 수집하지 않는다.
+CLIENT_ABORTED_FAILURE_TEXTS = frozenset({"net::ERR_ABORTED"})
+
+
 def collect_network_failure(
     network_failures: list[NetworkFailureEvidence],
     request: RequestProtocol,
 ) -> None:
+    if request.failure in CLIENT_ABORTED_FAILURE_TEXTS:
+        return
+
     sanitized_url = sanitize_evidence_url(request.url)
     failure_text = (
         "Blocked unsafe request URL."

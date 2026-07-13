@@ -351,3 +351,26 @@ def test_collect_network_failure_hides_unsafe_url(monkeypatch: pytest.MonkeyPatc
     assert len(network_failures) == 1
     assert network_failures[0].request_url == playwright_runner.BLOCKED_URL_PLACEHOLDER
     assert network_failures[0].failure_text == "Blocked unsafe request URL."
+
+
+def test_collect_network_failure_ignores_client_aborted_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(playwright_runner, "validate_service_url", lambda _: None)
+    network_failures: list[playwright_runner.NetworkFailureEvidence] = []
+
+    # Next.js RSC 프리페치 취소처럼 클라이언트가 스스로 중단한 요청은 노이즈다.
+    playwright_runner.collect_network_failure(
+        network_failures,
+        FakeRequest("https://example.com/?_rsc=abc123", failure="net::ERR_ABORTED"),
+    )
+
+    assert network_failures == []
+
+    # 실제 네트워크 실패는 계속 수집된다.
+    playwright_runner.collect_network_failure(
+        network_failures,
+        FakeRequest("https://example.com/api", failure="net::ERR_FAILED"),
+    )
+
+    assert len(network_failures) == 1

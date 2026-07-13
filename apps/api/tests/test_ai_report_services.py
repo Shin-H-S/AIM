@@ -232,12 +232,16 @@ def test_generate_and_record_ai_report_uses_stored_check_run_results(session: Se
 class FakeNarrativeGenerator:
     generator_name = "claude-test-model"
 
+    def __init__(self) -> None:
+        self.calls = 0
+
     def generate(
         self,
         *,
         diagnosis_input: object,
         report: AIDiagnosisReport,
     ) -> ai_report_narratives.AIReportNarrative:
+        self.calls += 1
         return ai_report_narratives.AIReportNarrative(
             summary="LLM summary of the run.",
             issue_narratives=[],
@@ -258,6 +262,71 @@ def test_generate_and_record_ai_report_records_llm_narrative(session: Session) -
     assert ai_report.generator == "claude-test-model"
     assert ai_report.summary == "LLM summary of the run."
     assert ai_report.report_json["summary"] == "LLM summary of the run."
+    assert ai_report.deployment_risk == "RISK"
+
+
+def test_generate_and_record_skips_llm_for_clean_scheduled_run(session: Session) -> None:
+    _, check_run = create_project_and_check_run(session)
+    check_run.trigger_source = "scheduled"
+    session.commit()
+    record_score_result(
+        session,
+        check_run=check_run,
+        deployment_risk="STABLE",
+        grade="A",
+        overall_score=99,
+    )
+    narrative_generator = FakeNarrativeGenerator()
+
+    ai_report = ai_reports.generate_and_record_ai_report(
+        session,
+        check_run_id=check_run.id,
+        narrative_generator=narrative_generator,
+    )
+
+    assert narrative_generator.calls == 0
+    assert ai_report.generator == "deterministic"
+    assert "근거에서 확인된 주요 배포 이슈는 없습니다." in ai_report.summary
+
+
+def test_generate_and_record_keeps_llm_for_clean_deploy_run(session: Session) -> None:
+    _, check_run = create_project_and_check_run(session)
+    check_run.trigger_source = "deploy"
+    session.commit()
+    record_score_result(
+        session,
+        check_run=check_run,
+        deployment_risk="STABLE",
+        grade="A",
+        overall_score=99,
+    )
+    narrative_generator = FakeNarrativeGenerator()
+
+    ai_report = ai_reports.generate_and_record_ai_report(
+        session,
+        check_run_id=check_run.id,
+        narrative_generator=narrative_generator,
+    )
+
+    assert narrative_generator.calls == 1
+    assert ai_report.generator == "claude-test-model"
+
+
+def test_generate_and_record_keeps_llm_for_scheduled_run_with_issues(session: Session) -> None:
+    _, check_run = create_project_and_check_run(session)
+    check_run.trigger_source = "scheduled"
+    session.commit()
+    record_score_result(session, check_run=check_run)
+    narrative_generator = FakeNarrativeGenerator()
+
+    ai_report = ai_reports.generate_and_record_ai_report(
+        session,
+        check_run_id=check_run.id,
+        narrative_generator=narrative_generator,
+    )
+
+    assert narrative_generator.calls == 1
+    assert ai_report.generator == "claude-test-model"
     assert ai_report.deployment_risk == "RISK"
 
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
@@ -608,7 +608,7 @@ function ScenarioCreateForm({
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
-          className="rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={createState === "creating"}
           type="submit"
         >
@@ -957,7 +957,7 @@ function ScenarioCard({
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <button
-              className="rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={mutationState === "creating"}
               type="submit"
             >
@@ -1025,7 +1025,7 @@ function ScenarioCard({
             삭제
           </button>
           <button
-            className="rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-2xl bg-cyan-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={!scenario.is_active || isCreating}
             onClick={onRun}
             type="button"

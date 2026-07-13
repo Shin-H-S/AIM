@@ -597,7 +597,7 @@ function ProjectForm({
       </div>
 
       <button
-        className="mt-6 w-full rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-6 w-full rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
         disabled={submitState === "submitting"}
         type="submit"
       >
@@ -655,7 +655,7 @@ function VerificationPanel({
         <VerificationContent verification={verification} verificationState={verificationState} />
 
         <button
-          className="w-full rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={verificationState !== "success" || verifyActionState === "verifying"}
           onClick={onVerify}
           type="button"
@@ -870,7 +870,7 @@ function DeployTokenPanel({ projectId }: { projectId: string }) {
           value={tokenName}
         />
         <button
-          className="rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-2xl bg-cyan-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isCreating || !tokenName.trim()}
           type="submit"
         >
@@ -1158,7 +1158,7 @@ function ScoringPresetField({
                     isSelected ? "border-cyan-600" : "border-slate-300"
                   }`}
                 >
-                  {isSelected && <span className="h-2 w-2 rounded-full bg-cyan-600" />}
+                  {isSelected && <span className="h-2 w-2 rounded-full bg-cyan-700" />}
                 </span>
                 <span className="text-sm font-bold text-slate-900">{option.title}</span>
                 {option.badge && (

@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import type { ReactNode } from "react";
 import type { CheckRunStatus, ScenarioRunStatus } from "@/lib/api";
 
@@ -151,7 +151,7 @@ export function LoginRequiredNotice({ expired = false }: { expired?: boolean }) 
     <Notice
       action={
         <Link
-          className="inline-flex rounded-xl bg-cyan-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-cyan-500"
+          className="inline-flex rounded-xl bg-cyan-700 px-4 py-2 text-xs font-bold text-white transition hover:bg-cyan-600"
           href="/"
         >
           로그인 페이지로 이동
@@ -188,8 +188,8 @@ export function EmptyState({
 const linkButtonVariantClassName = {
   outline:
     "border border-slate-200 text-slate-700 hover:border-cyan-400 hover:text-cyan-700",
-  primary: "bg-cyan-600 text-white hover:bg-cyan-500",
-  dark: "bg-slate-900 text-white hover:bg-cyan-500"
+  primary: "bg-cyan-700 text-white hover:bg-cyan-600",
+  dark: "bg-slate-900 text-white hover:bg-cyan-600"
 } as const;
 
 export function LinkButton({

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
@@ -50,7 +50,7 @@ export default function PasswordResetRequestPage() {
           </label>
 
           <button
-            className="mt-6 w-full rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-6 w-full rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={requestState === "submitting"}
             type="submit"
           >

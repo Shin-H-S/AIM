@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
@@ -527,7 +527,7 @@ function ProjectAlertSettingsCard({
         </label>
 
         <button
-          className="mt-5 rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-5 rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={submitState === "submitting"}
           type="submit"
         >
@@ -728,7 +728,7 @@ function AlertFilterBar({
           <button
             className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
               isSelected
-                ? "bg-cyan-600 text-white"
+                ? "bg-cyan-700 text-white"
                 : "border border-slate-200 text-slate-600 hover:border-cyan-400 hover:text-cyan-700"
             }`}
             key={filter.value}
@@ -776,7 +776,7 @@ function AlertCard({
         <div className="flex flex-wrap gap-2">
           {canRetry && (
             <button
-              className="rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-2xl bg-cyan-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={retrying}
               onClick={() => onRetry(alert)}
               type="button"

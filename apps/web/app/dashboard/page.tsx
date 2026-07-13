@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -428,7 +428,7 @@ function ProjectDashboardCard({
           </a>
         </div>
         <button
-          className="shrink-0 rounded-xl bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+          className="shrink-0 rounded-xl bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
           disabled={!project.is_verified || startState === "starting"}
           onClick={() => onStartCheckRun(project)}
           type="button"

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -166,7 +166,7 @@ export default function SignupPage() {
             </div>
 
             <button
-              className="mt-6 w-full rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-6 w-full rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={signupState === "submitting"}
               type="submit"
             >
@@ -184,7 +184,7 @@ export default function SignupPage() {
 function OnboardingStep({ index, text }: { index: number; text: string }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-black text-white">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-700 text-xs font-black text-white">
         {index}
       </span>
       <p>{text}</p>

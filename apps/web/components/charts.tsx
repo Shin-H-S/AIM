@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { InfoHint } from "./ui";
@@ -243,7 +243,7 @@ export function ScoreTrendPanel({ series }: { series: ScoreTrendSeries[] }) {
           <button
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
               entry.key === activeSeries.key
-                ? "bg-cyan-600 text-white"
+                ? "bg-cyan-700 text-white"
                 : "border border-slate-200 text-slate-600 hover:border-cyan-400 hover:text-cyan-700"
             }`}
             key={entry.key}

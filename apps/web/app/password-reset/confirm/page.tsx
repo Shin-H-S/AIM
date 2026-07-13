@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -61,7 +61,7 @@ function PasswordResetConfirmForm() {
           메일에 포함된 링크로 다시 접속하거나, 재설정 메일을 새로 요청하세요.
         </p>
         <Link
-          className="mt-6 inline-flex rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500"
+          className="mt-6 inline-flex rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-600"
           href="/password-reset"
         >
           재설정 메일 다시 요청
@@ -78,7 +78,7 @@ function PasswordResetConfirmForm() {
           새 비밀번호로 다시 로그인하세요.
         </p>
         <Link
-          className="mt-6 inline-flex rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500"
+          className="mt-6 inline-flex rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-600"
           href="/"
         >
           로그인으로 이동
@@ -126,7 +126,7 @@ function PasswordResetConfirmForm() {
         </div>
 
         <button
-          className="mt-6 w-full rounded-2xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-6 w-full rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={confirmState === "submitting"}
           type="submit"
         >

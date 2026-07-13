@@ -254,7 +254,7 @@ export function ProjectFormPageClient({
     setSubmitMessage(
       mode === "create"
         ? "프로젝트를 생성했습니다. 도메인 인증 안내로 이동합니다."
-        : "프로젝트 설정을 저장했습니다."
+        : "프로젝트 설정을 저장했습니다. 대시보드로 이동합니다."
     );
 
     if (mode === "create") {
@@ -262,7 +262,7 @@ export function ProjectFormPageClient({
       return;
     }
 
-    await loadVerification(accessToken, result.project.id);
+    router.replace("/dashboard");
   }
 
   async function handleVerifyProject() {

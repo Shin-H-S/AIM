@@ -328,21 +328,19 @@ def summarize_comparison(
     parts: list[str] = []
     if overall_score_delta is not None:
         if overall_score_delta > 0:
-            parts.append(f"Overall score improved by {overall_score_delta}.")
+            parts.append(f"종합 점수 {overall_score_delta}점 개선.")
         elif overall_score_delta < 0:
-            parts.append(f"Overall score regressed by {abs(overall_score_delta)}.")
+            parts.append(f"종합 점수 {abs(overall_score_delta)}점 하락.")
         else:
-            parts.append("Overall score did not change.")
+            parts.append("종합 점수 변화 없음.")
 
     if response_time_delta_ms is not None:
         if response_time_delta_ms > 0:
-            parts.append(f"Response time slowed by {response_time_delta_ms}ms.")
+            parts.append(f"응답 시간 {response_time_delta_ms}ms 느려짐.")
         elif response_time_delta_ms < 0:
-            parts.append(f"Response time improved by {abs(response_time_delta_ms)}ms.")
+            parts.append(f"응답 시간 {abs(response_time_delta_ms)}ms 빨라짐.")
 
     if deployment_risk_changed:
-        parts.append(
-            f"Deployment risk changed from {baseline_deployment_risk} to {current_deployment_risk}."
-        )
+        parts.append(f"배포 위험도 {baseline_deployment_risk} → {current_deployment_risk} 변경.")
 
-    return " ".join(parts) if parts else "No comparable metric changes were detected."
+    return " ".join(parts) if parts else "비교 가능한 지표 변화가 없습니다."

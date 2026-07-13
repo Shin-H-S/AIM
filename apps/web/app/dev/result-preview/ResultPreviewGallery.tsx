@@ -173,13 +173,12 @@ const aiReportDetail: AIReportDetail = {
       {
         id: "lighthouse-improvement-opportunities",
         priority: 1,
-        title:
-          "Lighthouse found improvement opportunities: 렌더링 차단 리소스 제거하기, 이미지를 효율적으로 인코딩하기",
+        title: "Lighthouse 개선 기회: 렌더링 차단 리소스 제거하기, 이미지를 효율적으로 인코딩하기",
         statement_type: "confirmed_observation",
         severity: "warning",
         category: "web_quality",
         summary:
-          "Lighthouse found improvement opportunities: 렌더링 차단 리소스 제거하기, 이미지를 효율적으로 인코딩하기.",
+          "Lighthouse 개선 기회: 렌더링 차단 리소스 제거하기, 이미지를 효율적으로 인코딩하기.",
         evidence_ids: [
           "lighthouse-result",
           "lighthouse-audit-render-blocking-resources",
@@ -194,11 +193,11 @@ const aiReportDetail: AIReportDetail = {
       {
         id: "availability-response-time-threshold",
         priority: 2,
-        title: "Response time exceeded the configured project threshold",
+        title: "응답 시간이 프로젝트에 설정한 임계값을 초과했습니다",
         statement_type: "confirmed_observation",
         severity: "warning",
         category: "availability",
-        summary: "Response time exceeded the configured project threshold.",
+        summary: "응답 시간이 프로젝트에 설정한 임계값을 초과했습니다.",
         evidence_ids: ["availability-result"],
         expected_user_impact: "첫 응답이 느려 페이지 진입 체감 속도가 떨어집니다.",
         recommended_next_action:
@@ -211,7 +210,7 @@ const aiReportDetail: AIReportDetail = {
       {
         id: "response_time_ms-regressed",
         category: "regression",
-        summary: "Response time regressed by 365 ms compared with the baseline.",
+        summary: "응답 시간이 기준 대비 365ms 느려졌습니다.",
         evidence_ids: ["run-comparison"],
         metric_name: "response_time_ms",
         previous_value: null,

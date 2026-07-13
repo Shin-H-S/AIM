@@ -24,39 +24,29 @@ SEVERITY_PRIORITY: Final[dict[AIDiagnosisSeverity, int]] = {
 }
 
 ISSUE_IMPACT_BY_CATEGORY: Final[dict[str, str]] = {
-    "availability": "Users may be unable to reach the service or may experience unstable access.",
-    "browser_console": "Users may encounter client-side errors in the tested browser flow.",
-    "check_run": "The scan did not finish cleanly, so release confidence is lower.",
-    "deployment_risk": "The deployment may be risky according to deterministic scoring.",
-    "functional_stability": "Users may be blocked in a critical browser flow.",
-    "network": "The tested flow may fail because browser requests did not complete.",
-    "regression": "The latest run is worse than the baseline and should be reviewed.",
-    "ssl": "Users may see browser security warnings or failed secure connections.",
-    "unknown_cause": "The visible symptom is known, but the root cause is not confirmed.",
-    "web_quality": "Users may experience degraded loading quality or incomplete quality checks.",
+    "availability": "사용자가 서비스에 접속하지 못하거나 접속이 불안정할 수 있습니다.",
+    "browser_console": "테스트한 브라우저 흐름에서 사용자가 클라이언트 오류를 겪을 수 있습니다.",
+    "check_run": "검사가 정상적으로 끝나지 않아 릴리스 신뢰도가 낮아집니다.",
+    "deployment_risk": "결정론 스코어링 기준으로 이번 배포는 위험할 수 있습니다.",
+    "functional_stability": "핵심 브라우저 흐름에서 사용자가 막힐 수 있습니다.",
+    "network": "브라우저 요청이 완료되지 않아 테스트한 흐름이 실패할 수 있습니다.",
+    "regression": "최신 검사가 기준보다 나빠져 검토가 필요합니다.",
+    "ssl": "사용자에게 브라우저 보안 경고가 표시되거나 보안 연결이 실패할 수 있습니다.",
+    "unknown_cause": "드러난 증상은 확인됐지만 근본 원인은 확정되지 않았습니다.",
+    "web_quality": "로딩 품질이 저하되거나 품질 검사가 불완전할 수 있습니다.",
 }
 
 ISSUE_ACTION_BY_CATEGORY: Final[dict[str, str]] = {
-    "availability": (
-        "Review the availability evidence, recent deploys, and external dependency status."
-    ),
-    "browser_console": (
-        "Inspect the captured console errors and reproduce the browser flow locally."
-    ),
-    "check_run": "Investigate the CheckRun failure and run the scan again after the fix.",
-    "deployment_risk": (
-        "Address the deterministic gate reason before treating this deployment as safe."
-    ),
-    "functional_stability": "Re-run the scenario and inspect the failed step evidence first.",
-    "network": "Inspect the failed browser requests and verify the related endpoint behavior.",
-    "regression": (
-        "Compare this run with the baseline and decide whether the regression is acceptable."
-    ),
-    "ssl": "Check certificate validity, expiration, and HTTPS configuration.",
-    "unknown_cause": (
-        "Inspect server logs or telemetry for the same time window and correlate evidence."
-    ),
-    "web_quality": "Review Lighthouse artifacts and fix the highest-impact diagnostics first.",
+    "availability": "가용성 근거와 최근 배포, 외부 의존성 상태를 확인하세요.",
+    "browser_console": "수집된 콘솔 오류를 확인하고 해당 브라우저 흐름을 로컬에서 재현해 보세요.",
+    "check_run": "검사 실패 원인을 조사하고 수정 후 검사를 다시 실행하세요.",
+    "deployment_risk": "결정론 게이트 사유를 해소하기 전에는 이 배포를 안전하다고 판단하지 마세요.",
+    "functional_stability": "시나리오를 다시 실행하고 실패한 스텝 근거부터 확인하세요.",
+    "network": "실패한 브라우저 요청을 확인하고 관련 엔드포인트 동작을 점검하세요.",
+    "regression": "이번 검사를 기준과 비교해 회귀를 수용할지 판단하세요.",
+    "ssl": "인증서 유효성과 만료일, HTTPS 설정을 점검하세요.",
+    "unknown_cause": "같은 시간대의 서버 로그나 텔레메트리를 확인해 근거와 대조하세요.",
+    "web_quality": "Lighthouse 산출물을 확인하고 영향이 큰 진단부터 수정하세요.",
 }
 
 
@@ -75,9 +65,7 @@ def build_ai_diagnosis_report(
 
     if report_score.deployment_risk != AIDiagnosisDeploymentRisk.STABLE and not top_issues:
         top_issues = [build_score_based_issue(report_score)]
-        generation_warnings.append(
-            "No risk or warning statement was provided, so the report used score evidence."
-        )
+        generation_warnings.append("위험/경고 서술이 없어 점수 근거로 이슈를 구성했습니다.")
 
     improved_areas, regressed_areas = build_report_changes(diagnosis_input)
 
@@ -161,13 +149,13 @@ def build_score_based_issue(report_score: AIDiagnosisReportScore) -> AIDiagnosis
         else AIDiagnosisSeverity.WARNING
     )
     summary = (
-        f"Deterministic scoring marked this run as {report_score.deployment_risk.value} "
-        f"with grade {report_score.grade}."
+        f"결정론 스코어링이 이 검사를 {report_score.deployment_risk.value}"
+        f"(등급 {report_score.grade})로 판정했습니다."
     )
     return AIDiagnosisReportIssue(
         id="deployment-risk-score-result",
         priority=1,
-        title="Deployment risk from deterministic score",
+        title="결정론 점수 기준 배포 위험",
         statement_type=AIDiagnosisStatementType.CONFIRMED_OBSERVATION,
         severity=severity,
         category="deployment_risk",
@@ -193,30 +181,20 @@ def build_report_changes(
         return [], []
 
     metrics: tuple[tuple[str, str, int | None, bool], ...] = (
-        ("overall_score", "Overall score", comparison.overall_score_delta, True),
-        ("availability_score", "Availability score", comparison.availability_score_delta, True),
-        (
-            "web_performance_score",
-            "Web performance score",
-            comparison.web_performance_score_delta,
-            True,
-        ),
-        (
-            "accessibility_score",
-            "Accessibility score",
-            comparison.accessibility_score_delta,
-            True,
-        ),
+        ("overall_score", "종합 점수", comparison.overall_score_delta, True),
+        ("availability_score", "가용성 점수", comparison.availability_score_delta, True),
+        ("web_performance_score", "웹 성능 점수", comparison.web_performance_score_delta, True),
+        ("accessibility_score", "접근성 점수", comparison.accessibility_score_delta, True),
         (
             "seo_basic_quality_score",
-            "SEO and basic quality score",
+            "SEO/기본 품질 점수",
             comparison.seo_basic_quality_score_delta,
             True,
         ),
-        ("response_time_ms", "Response time", comparison.response_time_delta_ms, False),
+        ("response_time_ms", "응답 시간", comparison.response_time_delta_ms, False),
         (
             "performance_score",
-            "Lighthouse performance score",
+            "Lighthouse 성능 점수",
             comparison.performance_score_delta,
             True,
         ),
@@ -253,23 +231,36 @@ def build_report_change(
     is_improvement: bool,
 ) -> AIDiagnosisReportChange:
     direction = "improved" if is_improvement else "regressed"
-    unit = " ms" if metric_name == "response_time_ms" else ""
+    if metric_name == "response_time_ms":
+        amount = f"{abs(delta)}ms"
+        verb = "빨라졌습니다" if is_improvement else "느려졌습니다"
+    else:
+        amount = f"{abs(delta)}점"
+        verb = "개선되었습니다" if is_improvement else "하락했습니다"
     return AIDiagnosisReportChange(
         id=f"{metric_name}-{direction}",
         category="regression",
-        summary=f"{label} {direction} by {abs(delta)}{unit} compared with the baseline.",
+        summary=f"{label}{korean_subject_particle(label)} 기준 대비 {amount} {verb}.",
         evidence_ids=evidence_ids,
         metric_name=metric_name,
         delta=delta,
     )
 
 
+def korean_subject_particle(word: str) -> str:
+    """마지막 글자의 받침 유무로 주격 조사(이/가)를 고른다."""
+    last = word[-1]
+    if "가" <= last <= "힣" and (ord(last) - ord("가")) % 28 > 0:
+        return "이"
+    return "가"
+
+
 def build_generation_warnings(diagnosis_input: AIDiagnosisInput) -> list[str]:
     warnings: list[str] = []
     if diagnosis_input.comparison_result is None:
-        warnings.append("No run comparison was available, so changed areas are empty.")
+        warnings.append("실행 비교가 없어 개선/회귀 영역이 비어 있습니다.")
     elif not find_evidence_ids(diagnosis_input, kind=AIDiagnosisEvidenceKind.RUN_COMPARISON):
-        warnings.append("Run comparison existed, but no comparison evidence item was provided.")
+        warnings.append("실행 비교는 있었지만 비교 근거 항목이 제공되지 않았습니다.")
 
     return warnings
 
@@ -279,16 +270,16 @@ def build_report_summary(
     top_issues: list[AIDiagnosisReportIssue],
 ) -> str:
     score_summary = (
-        f"This run is marked as {report_score.deployment_risk.value} with grade "
-        f"{report_score.grade} and score {report_score.overall_score}/100."
+        f"이 검사는 배포 위험도 {report_score.deployment_risk.value}, "
+        f"등급 {report_score.grade}, 점수 {report_score.overall_score}/100으로 판정되었습니다."
     )
     if report_score.deployment_risk == AIDiagnosisDeploymentRisk.STABLE:
-        return f"{score_summary} No top deployment issues were identified from evidence."
+        return f"{score_summary} 근거에서 확인된 주요 배포 이슈는 없습니다."
 
     if top_issues:
-        return f"{score_summary} Highest priority: {top_issues[0].title}."
+        return f"{score_summary} 최우선 이슈: {top_issues[0].title}."
 
-    return f"{score_summary} No top issue statement was available."
+    return f"{score_summary} 주요 이슈 서술이 제공되지 않았습니다."
 
 
 def find_evidence_ids(

@@ -225,7 +225,7 @@ def test_generate_and_record_ai_report_uses_stored_check_run_results(session: Se
     assert report_score["deployment_risk"] == "RISK"
     assert ai_report.report_json["top_issues"]
     assert ai_report.report_json["generation_warnings"] == [
-        "No run comparison was available, so changed areas are empty."
+        "실행 비교가 없어 개선/회귀 영역이 비어 있습니다."
     ]
 
 

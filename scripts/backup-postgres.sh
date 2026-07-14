@@ -30,10 +30,17 @@ docker compose --env-file .env.production -f infra/compose.yaml exec -T postgres
 # 오프박스 사본: 백업이 DB와 같은 디스크에만 있으면 디스크 장애 때 함께 사라진다.
 # 원격 보존 기간은 버킷 수명 주기(30일 삭제)가 담당하므로 여기서는 업로드만 한다.
 # 빈 값으로 두면 업로드를 건너뛴다. 업로드 실패 시 로컬 사본은 남고 종료 코드 1.
-BACKUP_BUCKET="${AIM_BACKUP_BUCKET:-gs://aim-db-backups-ai-manager-501413}"
-if [ -n "$BACKUP_BUCKET" ]; then
-  gcloud storage cp --no-user-output-enabled "$OUT" "$BACKUP_BUCKET/postgres/$(basename "$OUT")"
-  echo "backup uploaded: $BACKUP_BUCKET/postgres/$(basename "$OUT")"
+#
+# gcloud storage cp는 업로드 전에 대상 존재 확인(storage.objects.get)을 해서
+# objectCreator(생성 전용) 최소 권한과 충돌한다. XML API PUT은 create 권한만
+# 필요하므로 직접 호출한다 — VM이 침해돼도 백업을 읽거나 지울 수 없는 구성 유지.
+BACKUP_BUCKET_NAME="${AIM_BACKUP_BUCKET_NAME:-aim-db-backups-ai-manager-501413}"
+if [ -n "$BACKUP_BUCKET_NAME" ]; then
+  ACCESS_TOKEN="$(gcloud auth print-access-token)"
+  curl -fsS -X PUT --upload-file "$OUT" \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
+    "https://storage.googleapis.com/${BACKUP_BUCKET_NAME}/postgres/$(basename "$OUT")" >/dev/null
+  echo "backup uploaded: gs://${BACKUP_BUCKET_NAME}/postgres/$(basename "$OUT")"
 fi
 
 find "$BACKUP_DIR" -name 'aim-*.sql.gz' -mtime +"$RETENTION_DAYS" -delete

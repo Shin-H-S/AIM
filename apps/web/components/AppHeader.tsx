@@ -120,9 +120,9 @@ export function AppHeader() {
   const isSignedIn = session.state === "signed-in";
   const projectContext = isSignedIn ? parseProjectContext(pathname) : null;
   const contextProjectId = projectContext?.projectId ?? null;
-  // 홈은 히어로가 섹션 안내를 담당하고 로그인은 집중 화면이므로,
-  // 두 페이지에서는 비로그인 앵커 내비를 숨기고 로고+인증 버튼만 남긴다.
-  const hideGuestNav = pathname === "/" || pathname === "/login";
+  // 홈은 히어로가 섹션 안내를 담당하고 로그인·가입은 집중 화면이므로,
+  // 이 페이지들에서는 비로그인 앵커 내비를 숨기고 로고+인증 버튼만 남긴다.
+  const hideGuestNav = pathname === "/" || pathname === "/login" || pathname === "/signup";
 
   // 프로젝트 컨텍스트 배지에 쓸 이름 조회.
   useEffect(() => {

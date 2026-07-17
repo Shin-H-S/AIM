@@ -77,10 +77,10 @@ function Hero() {
               무료로 시작하기 →
             </Link>
             <a
-              className="inline-flex items-center rounded-xl px-5 py-3 text-sm font-bold text-slate-600 transition hover:text-cyan-700"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-400 hover:text-cyan-700"
               href="#flow"
             >
-              사용 흐름 보기
+              사용 흐름 보기 <span aria-hidden>↓</span>
             </a>
           </div>
           <div className="mt-7 flex flex-wrap gap-5 text-sm text-slate-500">

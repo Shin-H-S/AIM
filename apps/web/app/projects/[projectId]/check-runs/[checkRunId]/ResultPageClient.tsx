@@ -391,6 +391,15 @@ export function ResultPageClient({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {checkRun && (
+              <HeaderBaselineAction
+                checkRun={checkRun}
+                isMutating={isBaselineMutating}
+                onClearBaseline={handleClearBaseline}
+                onSetBaseline={handleSetBaseline}
+                project={project}
+              />
+            )}
             {checkRun && ACTIVE_STATUSES.has(checkRun.status) && (
               <button
                 className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-bold text-rose-800 transition hover:border-rose-500 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
@@ -462,9 +471,6 @@ export function ResultPageClient({
               baselineComparisonResult={baselineComparisonResult}
               checkRun={checkRun}
               comparison={checkRun.comparison_result}
-              isMutating={isBaselineMutating}
-              onClearBaseline={handleClearBaseline}
-              onSetBaseline={handleSetBaseline}
               project={project}
             />
 
@@ -745,30 +751,71 @@ function DeltaChipRow({
   );
 }
 
-function BaselineActionButton({
-  disabled,
-  label,
-  onClick,
-  tone = "default"
+// 기준점 지정/변경/해제는 "이 검사"에 대한 행동이므로 페이지 헤더의 액션 영역에
+// 고정 배치한다(2026-07-18 UX 개선). 같은 자리가 상태에 따라 주 버튼(지정) →
+// 보조 버튼(변경) → 상태 배지(현재 기준점)로 바뀌어 상태 표시기를 겸한다.
+function HeaderBaselineAction({
+  checkRun,
+  isMutating,
+  onClearBaseline,
+  onSetBaseline,
+  project
 }: {
-  disabled: boolean;
-  label: string;
-  onClick: () => void;
-  tone?: "default" | "danger";
+  checkRun: CheckRunDetail;
+  isMutating: boolean;
+  onClearBaseline: () => void;
+  onSetBaseline: () => void;
+  project: Project | null;
 }) {
-  const toneClassName =
-    tone === "danger"
-      ? "border-rose-300 bg-rose-50 text-rose-800 hover:border-rose-500 hover:bg-rose-100"
-      : "border-cyan-300 bg-cyan-50 text-cyan-700 hover:border-cyan-500 hover:bg-cyan-100";
+  if (!project) {
+    return null;
+  }
+
+  const baselineCheckRunId = project.baseline_check_run_id;
+  const isCurrentBaseline = baselineCheckRunId === checkRun.id;
+  const isTerminal = !ACTIVE_STATUSES.has(checkRun.status);
+  const canPin = isTerminal && checkRun.score_result !== null;
+  const disabledReason = canPin ? undefined : "점수가 있는 종료된 검사만 지정할 수 있습니다";
+
+  if (isCurrentBaseline) {
+    return (
+      <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
+        📌 현재 기준점
+        <button
+          className="text-xs font-bold text-rose-600 underline underline-offset-2 transition hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isMutating}
+          onClick={onClearBaseline}
+          type="button"
+        >
+          {isMutating ? "해제 중" : "해제"}
+        </button>
+      </span>
+    );
+  }
+
+  if (!baselineCheckRunId) {
+    return (
+      <button
+        className="whitespace-nowrap rounded-2xl bg-cyan-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-cyan-600/30 transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+        disabled={!canPin || isMutating}
+        onClick={onSetBaseline}
+        title={disabledReason}
+        type="button"
+      >
+        {isMutating ? "지정 중" : "📌 이 검사를 기준점으로"}
+      </button>
+    );
+  }
 
   return (
     <button
-      className={`whitespace-nowrap rounded-xl border px-2.5 py-1 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${toneClassName}`}
-      disabled={disabled}
-      onClick={onClick}
+      className="whitespace-nowrap rounded-2xl border border-cyan-300 bg-white px-4 py-2 text-sm font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+      disabled={!canPin || isMutating}
+      onClick={onSetBaseline}
+      title={disabledReason}
       type="button"
     >
-      {label}
+      {isMutating ? "변경 중" : "📌 이 검사로 기준 변경"}
     </button>
   );
 }
@@ -783,19 +830,15 @@ const baselineErrorMessages: Record<
   unavailable: "기준점 비교 요청이 실패했습니다. 잠시 후 다시 시도하세요."
 };
 
+// 행동 버튼은 페이지 헤더(HeaderBaselineAction)로 이동했다.
+// 이 행은 기준점의 정체(배지)와 비교 결과(칩)만 보여주는 읽기 전용 영역이다.
 function BaselineRow({
   baselineComparisonResult,
   checkRun,
-  isMutating,
-  onClearBaseline,
-  onSetBaseline,
   project
 }: {
   baselineComparisonResult: BaselineComparisonResult | null;
   checkRun: CheckRunDetail;
-  isMutating: boolean;
-  onClearBaseline: () => void;
-  onSetBaseline: () => void;
   project: Project | null;
 }) {
   if (!project) {
@@ -805,39 +848,21 @@ function BaselineRow({
   const baselineCheckRunId = project.baseline_check_run_id;
   const isCurrentBaseline = baselineCheckRunId === checkRun.id;
   const isTerminal = !ACTIVE_STATUSES.has(checkRun.status);
-  const canPin = isTerminal && checkRun.score_result !== null;
 
   if (isCurrentBaseline) {
     return (
-      <>
-        <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
-          이 검사가 현재 기준점
-        </span>
-        <BaselineActionButton
-          disabled={isMutating}
-          label={isMutating ? "해제 중" : "기준점 해제"}
-          onClick={onClearBaseline}
-          tone="danger"
-        />
-      </>
+      <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
+        📌 이 검사가 현재 기준점
+      </span>
     );
   }
 
   if (!baselineCheckRunId) {
     return (
-      <>
-        <span className="text-xs text-slate-400">기준점이 지정되지 않았습니다</span>
-        <BaselineActionButton
-          disabled={!canPin || isMutating}
-          label={isMutating ? "지정 중" : "이 검사를 기준점으로 지정"}
-          onClick={onSetBaseline}
-        />
-        {!canPin && (
-          <span className="text-[11px] text-slate-400">
-            점수가 있는 종료된 검사만 지정할 수 있습니다
-          </span>
-        )}
-      </>
+      <span className="break-keep rounded-xl bg-cyan-50 px-3 py-1.5 text-xs leading-5 text-cyan-900">
+        기준점이 없습니다 — 지정하면 이후 모든 검사가 이 검사와 자동 비교됩니다. 우측 상단
+        📌 버튼으로 지정하세요.
+      </span>
     );
   }
 
@@ -865,6 +890,13 @@ function BaselineRow({
 
   return (
     <>
+      <Link
+        className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-xs font-bold text-cyan-700 transition hover:border-cyan-400 hover:text-cyan-800"
+        href={`/projects/${project.id}/check-runs/${baselineCheckRunId}`}
+        title="기준점 검사 결과로 이동"
+      >
+        📌 기준 검사 보기
+      </Link>
       <DeltaChipRow
         entries={buildScoreDeltaEntries(comparison)}
         responseTimeDeltaMs={comparison.response_time_delta_ms}
@@ -876,11 +908,6 @@ function BaselineRow({
           {riskLabels[comparison.current_deployment_risk]}
         </span>
       )}
-      <BaselineActionButton
-        disabled={!canPin || isMutating}
-        label={isMutating ? "지정 중" : "이 검사를 기준점으로 지정"}
-        onClick={onSetBaseline}
-      />
     </>
   );
 }
@@ -890,18 +917,12 @@ function DeltaStripCard({
   baselineComparisonResult,
   checkRun,
   comparison,
-  isMutating,
-  onClearBaseline,
-  onSetBaseline,
   project
 }: {
   actionError: string | null;
   baselineComparisonResult: BaselineComparisonResult | null;
   checkRun: CheckRunDetail;
   comparison: RunComparison | null;
-  isMutating: boolean;
-  onClearBaseline: () => void;
-  onSetBaseline: () => void;
   project: Project | null;
 }) {
   return (
@@ -923,9 +944,6 @@ function DeltaStripCard({
         <BaselineRow
           baselineComparisonResult={baselineComparisonResult}
           checkRun={checkRun}
-          isMutating={isMutating}
-          onClearBaseline={onClearBaseline}
-          onSetBaseline={onSetBaseline}
           project={project}
         />
       </div>

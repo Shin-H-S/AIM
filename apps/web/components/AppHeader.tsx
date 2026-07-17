@@ -167,10 +167,10 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-4">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
+        <div className="flex min-w-0 items-center gap-5">
           <Link
-            className="shrink-0 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl"
+            className="shrink-0 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl"
             href={isSignedIn ? "/dashboard" : "/"}
           >
             AIM<span className="text-cyan-600">.</span>
@@ -215,19 +215,19 @@ export function AppHeader() {
                 /
               </span>
               <Link
-                className="max-w-[180px] truncate rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 transition hover:border-cyan-400 hover:text-cyan-800"
+                className="max-w-[180px] truncate rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[13px] font-bold text-slate-800 transition hover:border-cyan-400 hover:text-cyan-800"
                 href={`/projects/${projectContext.projectId}/check-runs`}
                 title="프로젝트 검사 이력으로 이동"
               >
                 {projectName ?? "프로젝트"}
               </Link>
-              <nav className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-0.5 text-xs font-bold text-slate-500">
+              <nav className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-1 text-[13px] font-bold text-slate-500">
                 {PROJECT_SECTIONS.map((section) => (
                   <Link
                     className={
                       projectContext.section === section.slug
-                        ? "rounded-lg bg-white px-2.5 py-1 text-cyan-800 shadow-sm"
-                        : "rounded-lg px-2.5 py-1 transition hover:text-cyan-700"
+                        ? "rounded-lg bg-white px-3 py-1.5 text-cyan-800 shadow-sm"
+                        : "rounded-lg px-3 py-1.5 transition hover:text-cyan-700"
                     }
                     href={`/projects/${projectContext.projectId}/${section.slug}`}
                     key={section.slug}
@@ -244,13 +244,13 @@ export function AppHeader() {
           {session.state === "signed-out" && (
             <div className="hidden items-center gap-2 sm:flex">
               <Link
-                className="rounded-xl px-3 py-1.5 text-sm font-bold text-slate-600 transition hover:text-cyan-700"
+                className="rounded-xl px-3.5 py-2 text-sm font-bold text-slate-600 transition hover:text-cyan-700"
                 href="/login"
               >
                 로그인
               </Link>
               <Link
-                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-700"
+                className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-cyan-700"
                 href="/signup"
               >
                 무료로 시작
@@ -268,7 +268,7 @@ export function AppHeader() {
                 onClick={() => setIsUserMenuOpen((open) => !open)}
                 type="button"
               >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-600 text-xs font-black text-white">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-600 text-[13px] font-black text-white">
                   {avatarInitial}
                 </span>
                 <span aria-hidden className="text-xs text-slate-400">
@@ -421,7 +421,7 @@ export function AppHeader() {
 }
 
 function navLinkClassName(isActive: boolean) {
-  return `rounded-xl px-3 py-1.5 transition ${
+  return `rounded-xl px-3.5 py-2 transition ${
     isActive ? "bg-cyan-50 text-cyan-800" : "hover:bg-slate-100 hover:text-cyan-700"
   }`;
 }

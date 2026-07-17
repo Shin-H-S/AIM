@@ -258,7 +258,7 @@ export function AppHeader() {
           {session.state === "signed-out" && (
             <div className="hidden items-center gap-2 sm:flex">
               <Link
-                className="rounded-xl px-3.5 py-2 text-sm font-bold text-slate-600 transition hover:text-cyan-700"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-400 hover:text-cyan-700"
                 href="/login"
               >
                 로그인

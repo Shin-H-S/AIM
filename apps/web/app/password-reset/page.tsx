@@ -59,7 +59,7 @@ export default function PasswordResetRequestPage() {
 
           <p className="mt-4 text-center text-sm text-slate-500">
             비밀번호가 기억나셨나요?{" "}
-            <Link className="font-bold text-cyan-700 hover:text-cyan-700" href="/">
+            <Link className="font-bold text-cyan-700 hover:text-cyan-700" href="/login">
               로그인으로 돌아가기
             </Link>
           </p>

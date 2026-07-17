@@ -118,6 +118,22 @@ export function AppHeader() {
               </button>
             </>
           )}
+          {session.state === "signed-out" && (
+            <>
+              <Link
+                className="rounded-xl px-3 py-1.5 text-sm font-bold text-slate-600 transition hover:text-cyan-700"
+                href="/login"
+              >
+                로그인
+              </Link>
+              <Link
+                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-700"
+                href="/signup"
+              >
+                무료로 시작
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

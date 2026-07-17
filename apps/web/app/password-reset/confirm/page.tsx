@@ -79,7 +79,7 @@ function PasswordResetConfirmForm() {
         </p>
         <Link
           className="mt-6 inline-flex rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-600"
-          href="/"
+          href="/login"
         >
           로그인으로 이동
         </Link>

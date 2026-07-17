@@ -216,8 +216,8 @@ export function AppHeader() {
               </span>
               <Link
                 className="max-w-[180px] truncate rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[13px] font-bold text-slate-800 transition hover:border-cyan-400 hover:text-cyan-800"
-                href={`/projects/${projectContext.projectId}/check-runs`}
-                title="프로젝트 검사 이력으로 이동"
+                href="/dashboard"
+                title="Dashboard로 돌아가기"
               >
                 {projectName ?? "프로젝트"}
               </Link>

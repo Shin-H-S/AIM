@@ -6,7 +6,13 @@ import { FormEvent, useEffect, useState } from "react";
 import { loginUser } from "@/lib/api";
 import { getStoredAccessToken, storeAccessToken } from "@/lib/auth";
 
-type LoginState = "idle" | "submitting" | "success" | "invalid-credentials" | "unavailable";
+type LoginState =
+  | "idle"
+  | "submitting"
+  | "success"
+  | "invalid-credentials"
+  | "email-not-verified"
+  | "unavailable";
 
 export default function Home() {
   const router = useRouter();
@@ -145,6 +151,18 @@ function LoginNotice({ loginState }: { loginState: LoginState }) {
     return (
       <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
         이메일 또는 비밀번호를 확인하세요.
+      </p>
+    );
+  }
+
+  if (loginState === "email-not-verified") {
+    return (
+      <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+        이메일 인증이 아직 완료되지 않았습니다. 가입 시 받은 인증 메일을 확인하거나,{" "}
+        <Link className="font-bold underline underline-offset-2" href="/verify-email">
+          인증 메일을 다시 받으세요
+        </Link>
+        .
       </p>
     );
   }

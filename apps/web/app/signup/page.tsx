@@ -12,6 +12,7 @@ type SignupState =
   | "idle"
   | "submitting"
   | "success"
+  | "verify-email-sent"
   | "invalid"
   | "password-mismatch"
   | "email-already-registered"
@@ -53,6 +54,13 @@ export default function SignupPage() {
       return;
     }
 
+    // 인증 메일이 발송된 계정은 이메일 인증 전까지 로그인이 차단되므로
+    // 자동 로그인을 시도하지 않고 안내 화면을 보여준다.
+    if (!signupResult.user.email_verified_at) {
+      setSignupState("verify-email-sent");
+      return;
+    }
+
     const loginResult = await loginUser({
       email: normalizedEmail,
       password
@@ -81,14 +89,14 @@ export default function SignupPage() {
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
               AIM은 가입 후 첫 Project를 만들고, domain verification을 거친 뒤 CheckRun을
-              시작하는 흐름을 기준으로 설계되어 있습니다. 가입이 완료되면 자동으로 로그인하고
-              Project 생성 화면으로 이동합니다.
+              시작하는 흐름을 기준으로 설계되어 있습니다. 가입하면 인증 메일이 발송되고,
+              이메일 인증을 마치면 로그인할 수 있습니다.
             </p>
 
             <div className="mt-8 grid gap-3 text-sm text-slate-600">
               <OnboardingStep index={1} text="Email/password 계정을 생성합니다." />
-              <OnboardingStep index={2} text="가입과 동시에 자동으로 로그인됩니다." />
-              <OnboardingStep index={3} text="첫 Project 생성 화면으로 이동합니다." />
+              <OnboardingStep index={2} text="인증 메일의 링크로 이메일을 인증합니다." />
+              <OnboardingStep index={3} text="로그인 후 첫 Project를 생성합니다." />
               <OnboardingStep
                 index={4}
                 text="HTML meta-tag 기반 domain verification을 진행합니다."
@@ -202,7 +210,7 @@ function SignupNotice({ signupState }: { signupState: SignupState }) {
   return (
     <p
       className={`mt-4 rounded-2xl border p-4 text-sm leading-6 ${
-        signupState === "success"
+        signupState === "success" || signupState === "verify-email-sent"
           ? "border-emerald-200 bg-emerald-50 text-emerald-800"
           : "border-rose-200 bg-rose-50 text-rose-800"
       }`}
@@ -214,6 +222,8 @@ function SignupNotice({ signupState }: { signupState: SignupState }) {
 
 const signupStateMessage: Record<Exclude<SignupState, "idle" | "submitting">, string> = {
   success: "가입되었습니다. 첫 Project 생성 화면으로 이동합니다.",
+  "verify-email-sent":
+    "인증 메일을 보냈습니다. 메일함에서 링크를 열어 인증을 완료한 뒤 로그인하세요.",
   invalid: "이메일 형식과 8자 이상 비밀번호를 확인하세요.",
   "password-mismatch": "비밀번호와 비밀번호 확인 값이 다릅니다.",
   "email-already-registered": "이미 등록된 이메일입니다. 로그인 화면에서 로그인하세요.",

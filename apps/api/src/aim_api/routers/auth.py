@@ -8,6 +8,8 @@ from aim_api.dependencies import get_current_user, oauth2_scheme
 from aim_api.models.user import User
 from aim_api.schemas.auth import (
     AccessToken,
+    EmailVerificationConfirm,
+    EmailVerificationRequest,
     PasswordResetConfirm,
     PasswordResetRequest,
     UserCreate,
@@ -15,6 +17,7 @@ from aim_api.schemas.auth import (
     UserRead,
 )
 from aim_api.security import create_access_token, decode_access_token
+from aim_api.services import email_verification as email_verification_service
 from aim_api.services import password_resets as password_reset_service
 from aim_api.services import token_revocation
 from aim_api.services import users as user_service
@@ -28,6 +31,8 @@ signup_rate_limit = rate_limited("auth-signup", limit=5)
 login_rate_limit = rate_limited("auth-login", limit=10)
 password_reset_request_rate_limit = rate_limited("password-reset-request", limit=5)
 password_reset_confirm_rate_limit = rate_limited("password-reset-confirm", limit=10)
+email_verification_request_rate_limit = rate_limited("email-verification-request", limit=5)
+email_verification_confirm_rate_limit = rate_limited("email-verification-confirm", limit=10)
 
 
 @router.post(
@@ -54,6 +59,9 @@ def signup(
             detail="Email is already registered.",
         ) from exc
 
+    # SMTP가 설정된 환경에서는 인증 메일을 보내고, 없으면 즉시 인증 완료로 처리한다.
+    email_verification_service.start_email_verification(session, user=user)
+
     return UserRead.model_validate(user)
 
 
@@ -72,6 +80,13 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # 자격 증명이 맞아도 이메일 소유 확인 전에는 로그인시키지 않는다.
+    if user.email_verified_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email is not verified.",
         )
 
     return AccessToken(access_token=create_access_token(user.id))
@@ -129,6 +144,42 @@ def confirm_password_reset(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Reset token is invalid or expired.",
+        ) from exc
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/email-verification/request",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(email_verification_request_rate_limit)],
+)
+def request_email_verification(
+    payload: EmailVerificationRequest,
+    session: Annotated[Session, Depends(get_db)],
+) -> dict[str, str]:
+    # 계정 존재·인증 여부를 응답으로 드러내지 않기 위해 항상 202를 반환한다.
+    email_verification_service.request_email_verification(session, email=str(payload.email))
+    return {
+        "detail": "If the email is registered and unverified, a verification message has been sent."
+    }
+
+
+@router.post(
+    "/email-verification/confirm",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(email_verification_confirm_rate_limit)],
+)
+def confirm_email_verification(
+    payload: EmailVerificationConfirm,
+    session: Annotated[Session, Depends(get_db)],
+) -> Response:
+    try:
+        email_verification_service.confirm_email_verification(session, token=payload.token)
+    except email_verification_service.InvalidVerificationTokenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification token is invalid or expired.",
         ) from exc
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

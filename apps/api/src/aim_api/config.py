@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
     password_reset_token_expire_minutes: int = 30
+    # 가입 인증 메일 링크 유효 시간. 재발송 수단이 있으므로 하루면 충분하다.
+    email_verification_token_expire_minutes: int = 60 * 24
     # 비인증 엔드포인트(로그인·가입·재설정·배포 훅)의 IP당 분당 한도 사용 여부.
     rate_limit_enabled: bool = True
     # 시나리오 {{secret:NAME}} 참조를 해석할 NAME=VALUE 형식 파일 (환경변수보다 후순위).

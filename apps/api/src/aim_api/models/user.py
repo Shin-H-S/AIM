@@ -22,6 +22,8 @@ class User(Base):
     )
     # 이 시각보다 먼저 발급된 액세스 토큰은 전부 무효 (비밀번호 재설정 시 갱신).
     token_invalid_before: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # 이메일 소유 확인이 끝난 시각. NULL이면 미인증 상태라 로그인이 차단된다.
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

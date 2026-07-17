@@ -14,6 +14,7 @@ export type User = {
   id: string;
   email: string;
   is_active: boolean;
+  email_verified_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -633,6 +634,9 @@ export type LoginResult =
       state: "invalid-credentials";
     }
   | {
+      state: "email-not-verified";
+    }
+  | {
       state: "unavailable";
     };
 
@@ -660,6 +664,25 @@ export type PasswordResetRequestResult =
     };
 
 export type PasswordResetConfirmResult =
+  | {
+      state: "success";
+    }
+  | {
+      state: "invalid-token";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type EmailVerificationRequestResult =
+  | {
+      state: "accepted";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type EmailVerificationConfirmResult =
   | {
       state: "success";
     }
@@ -1030,6 +1053,14 @@ export function getPasswordResetConfirmUrl(apiBaseUrl = getApiBaseUrl()): string
   return new URL("/auth/password-reset/confirm", getApiBaseUrl(apiBaseUrl)).toString();
 }
 
+export function getEmailVerificationRequestUrl(apiBaseUrl = getApiBaseUrl()): string {
+  return new URL("/auth/email-verification/request", getApiBaseUrl(apiBaseUrl)).toString();
+}
+
+export function getEmailVerificationConfirmUrl(apiBaseUrl = getApiBaseUrl()): string {
+  return new URL("/auth/email-verification/confirm", getApiBaseUrl(apiBaseUrl)).toString();
+}
+
 export function getCurrentUserUrl(apiBaseUrl = getApiBaseUrl()): string {
   return new URL("/auth/me", getApiBaseUrl(apiBaseUrl)).toString();
 }
@@ -1313,6 +1344,10 @@ export async function loginUser({
       return { state: "invalid-credentials" };
     }
 
+    if (response.status === 403) {
+      return { state: "email-not-verified" };
+    }
+
     if (!response.ok) {
       return { state: "unavailable" };
     }
@@ -1422,6 +1457,68 @@ export async function confirmPasswordReset({
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ token, new_password: newPassword })
+    });
+
+    if (response.status === 400 || response.status === 422) {
+      return { state: "invalid-token" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return { state: "success" };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function requestEmailVerification({
+  email,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  email: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<EmailVerificationRequestResult> {
+  try {
+    const response = await fetcher(getEmailVerificationRequestUrl(apiBaseUrl ?? getApiBaseUrl()), {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email })
+    });
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return { state: "accepted" };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function confirmEmailVerification({
+  token,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  token: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<EmailVerificationConfirmResult> {
+  try {
+    const response = await fetcher(getEmailVerificationConfirmUrl(apiBaseUrl ?? getApiBaseUrl()), {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ token })
     });
 
     if (response.status === 400 || response.status === 422) {

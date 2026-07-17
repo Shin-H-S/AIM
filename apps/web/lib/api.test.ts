@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   cancelCheckRun,
   clearProjectBaseline,
+  confirmEmailVerification,
   confirmPasswordReset,
   createCheckRun,
   createProject,
@@ -51,6 +52,7 @@ import {
   getSignupUrl,
   loginUser,
   logoutUser,
+  requestEmailVerification,
   requestPasswordReset,
   retryAlert,
   setProjectBaseline,
@@ -297,6 +299,19 @@ describe("loginUser", () => {
         apiBaseUrl: "http://localhost:8000"
       })
     ).resolves.toEqual({ state: "unavailable" });
+  });
+
+  it("maps an unverified email login to email-not-verified", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 403 }));
+
+    await expect(
+      loginUser({
+        email: "user@example.com",
+        password: "password",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "email-not-verified" });
   });
 });
 
@@ -2769,5 +2784,93 @@ describe("deleteProject", () => {
         apiBaseUrl: "http://localhost:8000"
       })
     ).resolves.toEqual({ state: "unauthorized" });
+  });
+});
+
+describe("requestEmailVerification", () => {
+  it("posts the email and returns accepted", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 202 }));
+
+    await expect(
+      requestEmailVerification({
+        email: "user@example.com",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "accepted" });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/auth/email-verification/request",
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email: "user@example.com" })
+      }
+    );
+  });
+
+  it("maps failures to unavailable", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 503 }));
+
+    await expect(
+      requestEmailVerification({
+        email: "user@example.com",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
+  });
+});
+
+describe("confirmEmailVerification", () => {
+  it("posts the token and returns success", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 204 }));
+
+    await expect(
+      confirmEmailVerification({
+        token: "verification-token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "success" });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:8000/auth/email-verification/confirm",
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ token: "verification-token" })
+      }
+    );
+  });
+
+  it("maps an invalid token to invalid-token", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 400 }));
+
+    await expect(
+      confirmEmailVerification({
+        token: "expired-token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "invalid-token" });
+  });
+
+  it("maps failures to unavailable", async () => {
+    const fetcher = vi.fn(async () => new Response(null, { status: 503 }));
+
+    await expect(
+      confirmEmailVerification({
+        token: "verification-token",
+        fetcher,
+        apiBaseUrl: "http://localhost:8000"
+      })
+    ).resolves.toEqual({ state: "unavailable" });
   });
 });

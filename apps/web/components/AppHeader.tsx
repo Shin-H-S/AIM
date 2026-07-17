@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AimMark } from "@/components/AimMark";
 import { fetchCurrentUser, fetchProject, logoutUser, type User } from "@/lib/api";
 import {
   ACCESS_TOKEN_CHANGE_EVENT,
@@ -173,10 +174,13 @@ export function AppHeader() {
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
         <div className="flex min-w-0 items-center gap-5">
           <Link
-            className="shrink-0 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl"
+            className="flex shrink-0 items-center gap-2.5 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl"
             href={isSignedIn ? "/dashboard" : "/"}
           >
-            AIM<span className="text-cyan-600">.</span>
+            <AimMark className="h-7 w-7 sm:h-8 sm:w-8" />
+            <span>
+              AIM<span className="text-cyan-600">.</span>
+            </span>
           </Link>
 
           {session.state === "signed-out" && !hideGuestNav && (

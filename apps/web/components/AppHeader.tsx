@@ -215,11 +215,10 @@ export function AppHeader() {
                 /
               </span>
               <Link
-                className="max-w-[180px] truncate rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[13px] font-bold text-slate-800 transition hover:border-cyan-400 hover:text-cyan-800"
+                className="rounded-lg px-2 py-1 text-sm font-bold text-cyan-700 transition hover:bg-cyan-50 hover:text-cyan-800"
                 href="/dashboard"
-                title="Dashboard로 돌아가기"
               >
-                {projectName ?? "프로젝트"}
+                Dashboard
               </Link>
               <nav className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-1 text-[13px] font-bold text-slate-500">
                 {PROJECT_SECTIONS.map((section) => (
@@ -241,6 +240,18 @@ export function AppHeader() {
         </div>
 
         <div className="flex items-center gap-2">
+          {isSignedIn && projectContext && (
+            <span
+              className="hidden max-w-[200px] items-center gap-2 text-[13px] font-bold text-slate-500 sm:inline-flex"
+              title="현재 보고 있는 프로젝트"
+            >
+              <span
+                aria-hidden
+                className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 ring-3 ring-emerald-100"
+              />
+              <span className="truncate">{projectName ?? "프로젝트"}</span>
+            </span>
+          )}
           {session.state === "signed-out" && (
             <div className="hidden items-center gap-2 sm:flex">
               <Link

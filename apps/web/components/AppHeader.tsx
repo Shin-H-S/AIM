@@ -120,6 +120,9 @@ export function AppHeader() {
   const isSignedIn = session.state === "signed-in";
   const projectContext = isSignedIn ? parseProjectContext(pathname) : null;
   const contextProjectId = projectContext?.projectId ?? null;
+  // 홈은 히어로가 섹션 안내를 담당하고 로그인은 집중 화면이므로,
+  // 두 페이지에서는 비로그인 앵커 내비를 숨기고 로고+인증 버튼만 남긴다.
+  const hideGuestNav = pathname === "/" || pathname === "/login";
 
   // 프로젝트 컨텍스트 배지에 쓸 이름 조회.
   useEffect(() => {
@@ -176,7 +179,7 @@ export function AppHeader() {
             AIM<span className="text-cyan-600">.</span>
           </Link>
 
-          {session.state === "signed-out" && (
+          {session.state === "signed-out" && !hideGuestNav && (
             <nav className="hidden items-center gap-1 text-sm font-semibold text-slate-600 sm:flex">
               <Link className={navLinkClassName(false)} href="/#flow">
                 사용 흐름
@@ -344,25 +347,33 @@ export function AppHeader() {
         <nav className="border-t border-slate-200 bg-white px-4 pb-4 pt-2 sm:hidden">
           {session.state === "signed-out" && (
             <div className="grid gap-1">
-              <Link className={mobileLinkClassName(false)} href="/#flow" onClick={closeMobileMenu}>
-                사용 흐름
-              </Link>
-              <Link
-                className={mobileLinkClassName(false)}
-                href="/#features"
-                onClick={closeMobileMenu}
-              >
-                기능
-              </Link>
-              <a
-                className={mobileLinkClassName(false)}
-                href="https://github.com/Shin-H-S/AIM"
-                onClick={closeMobileMenu}
-                rel="noreferrer"
-                target="_blank"
-              >
-                GitHub
-              </a>
+              {!hideGuestNav && (
+                <>
+                  <Link
+                    className={mobileLinkClassName(false)}
+                    href="/#flow"
+                    onClick={closeMobileMenu}
+                  >
+                    사용 흐름
+                  </Link>
+                  <Link
+                    className={mobileLinkClassName(false)}
+                    href="/#features"
+                    onClick={closeMobileMenu}
+                  >
+                    기능
+                  </Link>
+                  <a
+                    className={mobileLinkClassName(false)}
+                    href="https://github.com/Shin-H-S/AIM"
+                    onClick={closeMobileMenu}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    GitHub
+                  </a>
+                </>
+              )}
               <Link
                 className={mobileLinkClassName(pathname === "/login")}
                 href="/login"

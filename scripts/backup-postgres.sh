@@ -5,7 +5,7 @@
 #   0 18 * * * $HOME/AIM/scripts/backup-postgres.sh >> $HOME/backups/aim/backup.log 2>&1
 set -euo pipefail
 
-# cron runs with a minimal PATH that may miss docker and the snap-installed gcloud.
+# cron runs with a minimal PATH that may miss docker.
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

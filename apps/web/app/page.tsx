@@ -349,7 +349,7 @@ function ResultMock() {
         <span className="font-mono tabular-nums text-slate-600 dark:text-slate-300">
           성능 86 · 접근성 100 · SEO 100
         </span>
-        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-600">
+        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
           회귀 없음
         </span>
       </div>

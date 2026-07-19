@@ -295,12 +295,12 @@ export function ResultPreviewGallery() {
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
-        <p className="rounded-2xl border border-dashed border-slate-300 bg-white/60 p-4 text-sm text-slate-500">
+        <p className="rounded-2xl border border-dashed border-slate-300 bg-white/60 dark:bg-slate-900/60 p-4 text-sm text-slate-500">
           개발용 미리보기 — 결과 페이지의 실제 컴포넌트를 예시 데이터로 렌더링합니다. 실제
           검사 데이터와 무관합니다.
         </p>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6">
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">
             점수 추이
           </p>

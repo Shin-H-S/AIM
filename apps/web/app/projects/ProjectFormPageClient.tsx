@@ -419,7 +419,7 @@ function DangerZone({
   const isConfirmed = deleteConfirmName.trim() === projectName;
 
   return (
-    <aside className="rounded-3xl border border-rose-200 dark:border-rose-900 bg-rose-50/60 p-6">
+    <aside className="rounded-3xl border border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/40 p-6">
       <h2 className="text-2xl font-bold text-rose-800 dark:text-rose-300">프로젝트 삭제</h2>
       <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
         프로젝트와 검사, 시나리오, 산출물 메타데이터, 알림 기록이 모두 삭제되며 되돌릴
@@ -1138,7 +1138,7 @@ function ScoringPresetField({
             <label
               className={`cursor-pointer rounded-2xl border p-4 transition ${
                 isSelected
-                  ? "border-cyan-500 bg-cyan-50/40 ring-2 ring-cyan-500/20"
+                  ? "border-cyan-500 bg-cyan-50/40 dark:bg-cyan-950/50 ring-2 ring-cyan-500/20"
                   : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-cyan-300"
               }`}
               key={option.value}

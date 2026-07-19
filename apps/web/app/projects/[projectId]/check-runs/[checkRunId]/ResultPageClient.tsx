@@ -1148,7 +1148,7 @@ export function AIReportSummaryCard({
   const riskClassName = getRiskBadgeClassName(report.deployment_risk);
 
   return (
-    <article className="rounded-3xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 p-6">
+    <article className="rounded-3xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 dark:bg-cyan-950/40 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400">
@@ -1296,7 +1296,7 @@ function DetailSection({
           />
         </svg>
       </button>
-      {isOpen && <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 p-4">{children}</div>}
+      {isOpen && <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 p-4">{children}</div>}
     </div>
   );
 }
@@ -1608,7 +1608,7 @@ function LinkedScenarioRunsCard({
                 <ScenarioRunStatusBadge status={scenarioRun.status} />
               </div>
               {isFailed && (
-                <p className="mt-4 rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-100 p-3 text-sm text-rose-800 dark:text-rose-300">
+                <p className="mt-4 rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-100 dark:bg-rose-950 p-3 text-sm text-rose-800 dark:text-rose-300">
                   우선 확인 필요: {scenarioRun.failure_reason ?? "실패 사유가 기록되지 않았습니다."}
                 </p>
               )}
@@ -2058,7 +2058,7 @@ function ArtifactCard({
 
 function EmptyResultCard({ title, description }: { title: string; description: string }) {
   return (
-    <article className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 p-6">
+    <article className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-6">
       <h2 className="text-xl font-semibold">{title}</h2>
       <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">{description}</p>
     </article>

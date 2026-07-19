@@ -279,7 +279,7 @@ function CheckRunList({
 
   if (checkRuns.length === 0) {
     return (
-      <section className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 p-6">
+      <section className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-6">
         <h2 className="text-xl font-semibold">검사 없음</h2>
         <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
           아직 실행된 검사가 없습니다. 대시보드에서 검사를 시작하면 이곳에 이력이

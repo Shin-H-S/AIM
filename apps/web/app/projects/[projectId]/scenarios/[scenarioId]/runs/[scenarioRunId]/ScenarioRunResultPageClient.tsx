@@ -484,7 +484,7 @@ function EvidenceListCard({
 
 function EmptyResultCard({ title, description }: { title: string; description: string }) {
   return (
-    <article className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 p-6">
+    <article className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-6">
       <h2 className="text-xl font-semibold">{title}</h2>
       <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">{description}</p>
     </article>

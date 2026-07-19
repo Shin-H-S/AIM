@@ -456,7 +456,7 @@ function ProjectAlertSettingsCard({
       </dl>
 
       <form
-        className="mt-6 rounded-2xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 p-5"
+        className="mt-6 rounded-2xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 dark:bg-cyan-950/40 p-5"
         onSubmit={onSubmit}
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

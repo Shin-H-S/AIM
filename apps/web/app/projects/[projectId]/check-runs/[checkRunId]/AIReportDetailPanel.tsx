@@ -184,7 +184,7 @@ function AIReportWarningsCard({ warnings }: { warnings: string[] }) {
       <h3 className="text-lg font-semibold">생성 경고</h3>
       <ul className="mt-3 grid gap-2 text-sm">
         {warnings.map((warning) => (
-          <li className="rounded-xl bg-amber-100 p-3" key={warning}>
+          <li className="rounded-xl bg-amber-100 dark:bg-amber-950 p-3" key={warning}>
             {warning}
           </li>
         ))}

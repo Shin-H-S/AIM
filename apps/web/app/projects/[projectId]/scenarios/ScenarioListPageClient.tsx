@@ -486,7 +486,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
             </div>
 
             {scenarios.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 p-5 text-sm text-slate-500 dark:text-slate-400">
+              <p className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-5 text-sm text-slate-500 dark:text-slate-400">
                 아직 생성된 scenario가 없습니다. 위 폼으로 첫 critical user flow를 등록하세요.
               </p>
             ) : (
@@ -532,7 +532,7 @@ function ScenarioCreateForm({
 }) {
   return (
     <form
-      className="rounded-3xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 p-6"
+      className="rounded-3xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 dark:bg-cyan-950/40 p-6"
       onSubmit={onSubmit}
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -875,7 +875,7 @@ function ScenarioCard({
 
   if (isEditing) {
     return (
-      <li className="rounded-2xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 p-5">
+      <li className="rounded-2xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 dark:bg-cyan-950/40 p-5">
         <form onSubmit={submitUpdate}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>

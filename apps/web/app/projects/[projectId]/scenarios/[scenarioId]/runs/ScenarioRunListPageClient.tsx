@@ -261,7 +261,7 @@ function ScenarioRunList({
 }) {
   if (scenarioRuns.length === 0) {
     return (
-      <section className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 p-6">
+      <section className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-6">
         <h2 className="text-xl font-semibold">시나리오 실행 없음</h2>
         <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
           아직 이 시나리오에서 생성된 실행 이력이 없습니다. 시나리오 목록에서 수동 실행을

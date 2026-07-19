@@ -330,7 +330,7 @@ Do not introduce a second queue framework without a clear reason.
 ### Artifact storage
 
 * MinIO for local development
-* Google Cloud Storage for production later
+* Object storage (e.g., Oracle Cloud Object Storage) for production later
 * Store only artifact metadata and paths in PostgreSQL
 
 Artifacts include:
@@ -346,8 +346,9 @@ Artifacts include:
 
 * Docker Compose for local development
 * GitHub Actions for CI
-* Initial deployment target: GCP VM with Docker Compose
-* Future migration may use Cloud Run, Cloud SQL, and Cloud Storage
+* Deployment target: Oracle Cloud Ampere A1 (arm64) single VM with Docker Compose
+  (migrated from GCP on 2026-07-17 — see docs/deployment/vm-compose.md)
+* Future migration may use managed containers or a managed database if scale demands
 
 Do not introduce Kubernetes during the MVP.
 

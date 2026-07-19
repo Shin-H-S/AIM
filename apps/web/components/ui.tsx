@@ -23,18 +23,18 @@ type RunStatus = CheckRunStatus | ScenarioRunStatus;
 
 function getRunStatusBadgeClassName(status: RunStatus): string {
   if (status === "COMPLETED") {
-    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+    return "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-900";
   }
 
   if (status === "FAILED") {
-    return "bg-rose-50 text-rose-700 ring-rose-200";
+    return "bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 ring-rose-200 dark:ring-rose-900";
   }
 
   if (status === "CANCELLED") {
-    return "bg-slate-100 text-slate-600 ring-slate-300";
+    return "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 ring-slate-300";
   }
 
-  return "bg-cyan-50 text-cyan-700 ring-cyan-200";
+  return "bg-cyan-50 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-400 ring-cyan-200 dark:ring-cyan-900";
 }
 
 export function CheckRunStatusBadge({ status }: { status: CheckRunStatus }) {
@@ -58,10 +58,10 @@ export function ScenarioRunStatusBadge({ status }: { status: ScenarioRunStatus }
 }
 
 const badgeToneClassName = {
-  default: "bg-slate-200 text-slate-700 ring-slate-200",
-  success: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  warning: "bg-amber-50 text-amber-700 ring-amber-200",
-  danger: "bg-rose-50 text-rose-700 ring-rose-200"
+  default: "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 ring-slate-200 dark:ring-slate-700",
+  success: "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-900",
+  warning: "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 ring-amber-200 dark:ring-amber-900",
+  danger: "bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 ring-rose-200 dark:ring-rose-900"
 } as const;
 
 export function Badge({
@@ -83,7 +83,7 @@ export function InfoHint({ text }: { text: string }) {
     <span className="group relative ml-1.5 inline-flex align-middle">
       <span
         aria-label={text}
-        className="flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full border border-slate-300 text-[9px] font-bold leading-none text-slate-400 transition group-hover:border-cyan-400 group-hover:text-cyan-600"
+        className="flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full border border-slate-300 dark:border-slate-700 text-[9px] font-bold leading-none text-slate-400 dark:text-slate-500 transition group-hover:border-cyan-400 group-hover:text-cyan-600"
         role="img"
         tabIndex={0}
       >
@@ -99,22 +99,22 @@ export function InfoHint({ text }: { text: string }) {
 export function Metric({ hint, label, value }: { hint?: string; label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+      <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
         {label}
         {hint && <InfoHint text={hint} />}
       </dt>
-      <dd className="mt-1 break-words text-slate-700">{value}</dd>
+      <dd className="mt-1 break-words text-slate-700 dark:text-slate-200">{value}</dd>
     </div>
   );
 }
 
 export function Identifier({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
         {label}
       </p>
-      <p className="break-all font-mono text-xs text-slate-700">{value}</p>
+      <p className="break-all font-mono text-xs text-slate-700 dark:text-slate-200">{value}</p>
     </div>
   );
 }
@@ -132,10 +132,10 @@ export function Notice({
 }) {
   const className =
     tone === "danger"
-      ? "border-rose-200 bg-rose-50 text-rose-800"
+      ? "border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-300"
       : tone === "success"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-        : "border-cyan-200 bg-cyan-50 text-cyan-700";
+        ? "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300"
+        : "border-cyan-200 dark:border-cyan-900 bg-cyan-50 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-400";
 
   return (
     <div className={`rounded-2xl border p-5 ${className}`}>
@@ -178,16 +178,16 @@ export function EmptyState({
   title?: string;
 }) {
   return (
-    <div className={`rounded-2xl border border-slate-200 bg-slate-50 ${compact ? "p-4" : "p-6"}`}>
-      {title && <h3 className="font-semibold text-slate-900">{title}</h3>}
-      <p className={`text-sm leading-6 text-slate-500 ${title ? "mt-2" : ""}`}>{description}</p>
+    <div className={`rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 ${compact ? "p-4" : "p-6"}`}>
+      {title && <h3 className="font-semibold text-slate-900 dark:text-white">{title}</h3>}
+      <p className={`text-sm leading-6 text-slate-500 dark:text-slate-400 ${title ? "mt-2" : ""}`}>{description}</p>
     </div>
   );
 }
 
 const linkButtonVariantClassName = {
   outline:
-    "border border-slate-200 text-slate-700 hover:border-cyan-400 hover:text-cyan-700",
+    "border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300",
   primary: "bg-cyan-700 text-white hover:bg-cyan-600",
   dark: "bg-slate-900 text-white hover:bg-cyan-600"
 } as const;
@@ -224,7 +224,7 @@ export function RefreshButton({
 }) {
   return (
     <button
-      className="rounded-2xl border border-cyan-300 px-4 py-2 text-sm font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+      className="rounded-2xl border border-cyan-300 dark:border-cyan-800 px-4 py-2 text-sm font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-950 disabled:cursor-not-allowed disabled:opacity-50"
       disabled={isLoading}
       onClick={onClick}
       type="button"

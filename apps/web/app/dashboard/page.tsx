@@ -223,10 +223,10 @@ export default function DashboardPage() {
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-8">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">대시보드</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">대시보드</h1>
             <HealthInline health={health} />
             {lastUpdatedAt && (
-              <span className="text-xs text-slate-400">갱신 {lastUpdatedAt}</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">갱신 {lastUpdatedAt}</span>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -261,10 +261,10 @@ function HealthInline({ health }: { health: HealthCheckResult }) {
       ? "animate-pulse bg-cyan-500"
       : "bg-rose-500";
   const textClassName = isAvailable
-    ? "text-emerald-600"
+    ? "text-emerald-600 dark:text-emerald-400"
     : health.state === "loading"
-      ? "text-cyan-700"
-      : "text-rose-600";
+      ? "text-cyan-700 dark:text-cyan-400"
+      : "text-rose-600 dark:text-rose-400";
 
   return (
     <span className={`flex items-center gap-1.5 text-xs font-semibold ${textClassName}`}>
@@ -283,7 +283,7 @@ type DashboardSummary = {
 
 function StatStrip({ summary }: { summary: DashboardSummary }) {
   return (
-    <div className="grid grid-cols-2 rounded-2xl border border-slate-200 bg-white sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+    <div className="grid grid-cols-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
       <StatCell label="프로젝트" value={summary.projectCount} />
       <StatCell
         label="진행 중"
@@ -315,14 +315,14 @@ function StatCell({
 }) {
   const valueClassName =
     tone === "danger" && value > 0
-      ? "text-rose-600"
+      ? "text-rose-600 dark:text-rose-400"
       : tone === "active"
-        ? "text-cyan-700"
-        : "text-slate-900";
+        ? "text-cyan-700 dark:text-cyan-400"
+        : "text-slate-900 dark:text-white";
 
   return (
     <div className="px-4 py-3 text-center">
-      <p className="text-xs font-semibold text-slate-400">{label}</p>
+      <p className="text-xs font-semibold text-slate-400 dark:text-slate-500">{label}</p>
       <p className={`mt-0.5 text-xl font-bold ${valueClassName}`}>{value}</p>
     </div>
   );
@@ -402,24 +402,24 @@ function ProjectDashboardCard({
     .reverse();
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4">
+    <article className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h3 className="text-base font-bold text-slate-900">{project.name}</h3>
-            <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">{project.name}</h3>
+            <span className="rounded-full border border-slate-200 dark:border-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
               {environmentLabel(project.environment)}
             </span>
             {project.is_verified ? (
-              <span className="text-[11px] font-semibold text-emerald-600">인증됨</span>
+              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">인증됨</span>
             ) : (
-              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-200">
+              <span className="rounded-full bg-amber-50 dark:bg-amber-950 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300 ring-1 ring-amber-200 dark:ring-amber-900">
                 미인증
               </span>
             )}
           </div>
           <a
-            className="mt-0.5 block truncate text-xs text-slate-400 transition hover:text-cyan-700"
+            className="mt-0.5 block truncate text-xs text-slate-400 dark:text-slate-500 transition hover:text-cyan-700 dark:hover:text-cyan-300"
             href={project.service_url}
             rel="noreferrer"
             target="_blank"
@@ -438,7 +438,7 @@ function ProjectDashboardCard({
       </div>
 
       {startState !== "idle" && startState !== "starting" && (
-        <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">
+        <p className="mt-2 rounded-xl bg-rose-50 dark:bg-rose-950 px-3 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-900">
           {checkRunStartStateMessage[startState]}
         </p>
       )}
@@ -451,18 +451,18 @@ function ProjectDashboardCard({
       />
 
       {latestCheckRun?.failure_reason && (
-        <p className="mt-2 truncate rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700 ring-1 ring-rose-200">
+        <p className="mt-2 truncate rounded-xl bg-rose-50 dark:bg-rose-950 px-3 py-2 text-xs text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-900">
           {latestCheckRun.failure_reason}
         </p>
       )}
 
       {failedScenarioCount > 0 && (
-        <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">
+        <p className="mt-2 rounded-xl bg-rose-50 dark:bg-rose-950 px-3 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-900">
           시나리오 실패 {failedScenarioCount}건 — 결과 페이지에서 step·스크린샷 근거를 확인하세요.
         </p>
       )}
 
-      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 dark:border-slate-800 pt-3 sm:grid-cols-4">
         <FooterLink href={`/projects/${project.id}/check-runs`} label="검사 이력" />
         <FooterLink href={`/projects/${project.id}/scenarios`} label="시나리오" />
         <FooterLink href={`/projects/${project.id}/alerts`} label="알림" />
@@ -490,24 +490,24 @@ function getRunStatusDotClassName(status: CheckRunStatus): string {
 
 function getRunStatusTextClassName(status: CheckRunStatus): string {
   if (status === "COMPLETED") {
-    return "text-emerald-700";
+    return "text-emerald-700 dark:text-emerald-400";
   }
 
   if (status === "FAILED") {
-    return "text-rose-700";
+    return "text-rose-700 dark:text-rose-300";
   }
 
   if (status === "CANCELLED") {
-    return "text-slate-500";
+    return "text-slate-500 dark:text-slate-400";
   }
 
-  return "text-cyan-700";
+  return "text-cyan-700 dark:text-cyan-400";
 }
 
 const riskChipClassName: Record<"STABLE" | "WARNING" | "RISK", string> = {
-  STABLE: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  WARNING: "bg-amber-50 text-amber-700 ring-amber-200",
-  RISK: "bg-rose-50 text-rose-700 ring-rose-200"
+  STABLE: "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-900",
+  WARNING: "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 ring-amber-200 dark:ring-amber-900",
+  RISK: "bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 ring-rose-200 dark:ring-rose-900"
 };
 
 function LatestRunLine({
@@ -523,7 +523,7 @@ function LatestRunLine({
 }) {
   if (latestCheckRunState !== "success") {
     return (
-      <p className="mt-3 text-xs font-semibold text-rose-600">
+      <p className="mt-3 text-xs font-semibold text-rose-600 dark:text-rose-400">
         최신 검사를 불러오지 못했습니다 — 권한 또는 API 상태를 확인하세요.
       </p>
     );
@@ -531,7 +531,7 @@ function LatestRunLine({
 
   if (!latestCheckRun) {
     return (
-      <p className="mt-3 text-xs text-slate-400">
+      <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
         아직 실행된 검사가 없습니다. 검사 시작 버튼으로 첫 검사를 실행하세요.
       </p>
     );
@@ -559,7 +559,7 @@ function LatestRunLine({
         />
         {checkRunStatusCopy[latestCheckRun.status]}
       </span>
-      <span className="min-w-0 truncate text-xs text-slate-500">
+      <span className="min-w-0 truncate text-xs text-slate-500 dark:text-slate-400">
         {triggerSourceLabel(latestCheckRun.trigger_source)} ·{" "}
         {formatRelativeTime(latestCheckRun.queued_at)}
       </span>
@@ -592,7 +592,7 @@ function LatestRunLine({
 function FooterLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
-      className="whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-center text-xs font-semibold text-slate-600 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-800"
+      className="whitespace-nowrap rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-1.5 text-center text-xs font-semibold text-slate-600 dark:text-slate-300 transition hover:border-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-950 hover:text-cyan-800"
       href={href}
     >
       {label}

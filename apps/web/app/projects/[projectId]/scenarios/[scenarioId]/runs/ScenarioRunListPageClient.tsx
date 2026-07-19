@@ -137,16 +137,16 @@ export function ScenarioRunListPageClient({
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
-        <header className="rounded-3xl border border-slate-200 bg-white p-6">
+        <header className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700 dark:text-cyan-400">
                 AIM 시나리오 실행
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
                 시나리오 실행 목록
               </h1>
-              <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600">
+              <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
                 이 시나리오의 최근 실행 이력입니다. 실패한 실행은 상세 결과에서 단계별
                 원인과 브라우저 근거를 확인할 수 있습니다.
               </p>
@@ -213,20 +213,20 @@ function SummaryCard({
   summary: ScenarioRunSummary;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6">
+    <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700 dark:text-cyan-400">
             최근 실행 요약
           </p>
-          <h2 className="mt-3 text-2xl font-bold text-slate-900">
+          <h2 className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">
             최근 시나리오 실행 {summary.total}개
           </h2>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             마지막 조회: {lastUpdatedAt ?? "아직 없음"}
           </p>
         </div>
-        <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
+        <span className="rounded-full bg-cyan-50 dark:bg-cyan-950 px-3 py-1 text-xs font-bold text-cyan-700 dark:text-cyan-400 ring-1 ring-cyan-200 dark:ring-cyan-900">
           로드 {summary.total}개
         </span>
       </div>
@@ -261,9 +261,9 @@ function ScenarioRunList({
 }) {
   if (scenarioRuns.length === 0) {
     return (
-      <section className="rounded-3xl border border-dashed border-slate-200 bg-white/60 p-6">
+      <section className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 p-6">
         <h2 className="text-xl font-semibold">시나리오 실행 없음</h2>
-        <p className="mt-3 text-sm leading-6 text-slate-500">
+        <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
           아직 이 시나리오에서 생성된 실행 이력이 없습니다. 시나리오 목록에서 수동 실행을
           생성하면 이곳에 기록됩니다.
         </p>
@@ -272,10 +272,10 @@ function ScenarioRunList({
   }
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6">
+    <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">실행 이력</h2>
-        <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
+        <span className="rounded-full bg-cyan-50 dark:bg-cyan-950 px-3 py-1 text-xs font-bold text-cyan-700 dark:text-cyan-400 ring-1 ring-cyan-200 dark:ring-cyan-900">
           {scenarioRuns.length}개
         </span>
       </div>
@@ -292,14 +292,14 @@ function ScenarioRunList({
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
-          className="rounded-2xl border border-cyan-300 px-4 py-2 text-sm font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-2xl border border-cyan-300 dark:border-cyan-800 px-4 py-2 text-sm font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-950 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={!hasMoreScenarioRuns || isLoadingMore}
           onClick={onLoadMore}
           type="button"
         >
           {isLoadingMore ? "더 불러오는 중" : "실행 더 보기"}
         </button>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           {hasMoreScenarioRuns
             ? `${LIST_LIMIT}개 단위로 다음 실행 이력을 불러옵니다.`
             : "현재 로드된 목록이 마지막 페이지입니다."}
@@ -307,7 +307,7 @@ function ScenarioRunList({
       </div>
 
       {listMessage && (
-        <p className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-700">
+        <p className="mt-4 rounded-2xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50 dark:bg-cyan-950 p-4 text-sm text-cyan-700 dark:text-cyan-400">
           {listMessage}
         </p>
       )}
@@ -325,7 +325,7 @@ function ScenarioRunCard({
   scenarioRun: ScenarioRun;
 }) {
   return (
-    <li className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+    <li className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-wrap gap-2">
           <ScenarioRunStatusBadge status={scenarioRun.status} />
@@ -355,7 +355,7 @@ function ScenarioRunCard({
       </dl>
 
       {scenarioRun.failure_reason && (
-        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        <p className="mt-4 rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950 p-4 text-sm text-rose-800 dark:text-rose-300">
           {scenarioRun.failure_reason}
         </p>
       )}

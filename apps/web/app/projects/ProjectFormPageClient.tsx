@@ -352,11 +352,11 @@ export function ProjectFormPageClient({
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
+          <p className="text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700 dark:text-cyan-400">
             AIM 프로젝트 관리
           </p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-6xl">{title}</h1>
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">{subtitle}</p>
+          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">{subtitle}</p>
         </div>
 
         <LoadStateNotice loadState={loadState} />
@@ -419,20 +419,20 @@ function DangerZone({
   const isConfirmed = deleteConfirmName.trim() === projectName;
 
   return (
-    <aside className="rounded-3xl border border-rose-200 bg-rose-50/60 p-6">
-      <h2 className="text-2xl font-bold text-rose-800">프로젝트 삭제</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-500">
+    <aside className="rounded-3xl border border-rose-200 dark:border-rose-900 bg-rose-50/60 p-6">
+      <h2 className="text-2xl font-bold text-rose-800 dark:text-rose-300">프로젝트 삭제</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
         프로젝트와 검사, 시나리오, 산출물 메타데이터, 알림 기록이 모두 삭제되며 되돌릴
         수 없습니다.
       </p>
 
       <label className="mt-5 block" htmlFor="delete_confirm_name">
-        <span className="text-sm font-semibold text-slate-600">
-          확인을 위해 프로젝트 이름(<span className="text-rose-700">{projectName}</span>)을
+        <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+          확인을 위해 프로젝트 이름(<span className="text-rose-700 dark:text-rose-300">{projectName}</span>)을
           입력하세요
         </span>
         <input
-          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-rose-300/0 transition placeholder:text-slate-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20"
+          className="mt-2 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none ring-rose-300/0 transition placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20"
           id="delete_confirm_name"
           onChange={(event) => onChangeConfirmName(event.target.value)}
           placeholder={projectName}
@@ -441,7 +441,7 @@ function DangerZone({
       </label>
 
       <button
-        className="mt-4 w-full rounded-2xl border border-rose-300 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-800 transition hover:border-rose-500 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-4 w-full rounded-2xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950 px-5 py-3 text-sm font-bold text-rose-800 dark:text-rose-300 transition hover:border-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/60 disabled:cursor-not-allowed disabled:opacity-50"
         disabled={!isConfirmed || isDeleting}
         onClick={onDelete}
         type="button"
@@ -450,7 +450,7 @@ function DangerZone({
       </button>
 
       {deleteError && (
-        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
+        <p className="mt-4 rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950 p-4 text-sm leading-6 text-rose-800 dark:text-rose-300">
           {deleteError}
         </p>
       )}
@@ -475,14 +475,14 @@ function ProjectForm({
 }) {
   return (
     <form
-      className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60"
+      className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl shadow-slate-200/60 dark:shadow-black/40"
       onSubmit={onSubmit}
     >
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
           {mode === "create" ? "새 프로젝트 정보" : "프로젝트 정보"}
         </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
           외부에서 접근 가능한 서비스 주소를 입력하세요. localhost나 사설 IP 같은 내부
           주소는 등록할 수 없습니다.
         </p>
@@ -507,9 +507,9 @@ function ProjectForm({
         />
 
         <label className="block" htmlFor="environment">
-          <span className="text-sm font-semibold text-slate-600">환경</span>
+          <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">환경</span>
           <select
-            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+            className="mt-2 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none ring-cyan-300/0 transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
             id="environment"
             onChange={(event) =>
               onChange({
@@ -526,9 +526,9 @@ function ProjectForm({
         </label>
 
         <label className="block" htmlFor="description">
-          <span className="text-sm font-semibold text-slate-600">설명</span>
+          <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">설명</span>
           <textarea
-            className="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+            className="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none ring-cyan-300/0 transition placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
             id="description"
             maxLength={1000}
             onChange={(event) => onChange({ ...form, description: event.target.value })}
@@ -573,7 +573,7 @@ function ProjectForm({
         </div>
 
         <label
-          className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4"
+          className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4"
           htmlFor="scheduled_scans_enabled"
         >
           <input
@@ -587,8 +587,8 @@ function ProjectForm({
             type="checkbox"
           />
           <span>
-            <span className="block text-sm font-semibold text-slate-700">정기 검사 사용</span>
-            <span className="mt-1 block text-xs leading-5 text-slate-500">
+            <span className="block text-sm font-semibold text-slate-700 dark:text-slate-200">정기 검사 사용</span>
+            <span className="mt-1 block text-xs leading-5 text-slate-500 dark:text-slate-400">
               체크하면 인증된 상태에서 위 검사 주기로 자동 검사합니다. 기본은 수동 검사
               전용입니다.
             </span>
@@ -632,19 +632,19 @@ function VerificationPanel({
   verifyActionState: VerifyActionState;
 }) {
   return (
-    <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
+    <aside className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl shadow-slate-200/60 dark:shadow-black/40">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">도메인 인증</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">도메인 인증</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
             정기 검사를 안전하게 실행하기 전, 대상 서비스를 제어할 수 있는지 확인합니다.
           </p>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${
             project.is_verified
-              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-              : "bg-amber-50 text-amber-700 ring-amber-200"
+              ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-900"
+              : "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 ring-amber-200 dark:ring-amber-900"
           }`}
         >
           {project.is_verified ? "인증됨" : "미인증"}
@@ -719,10 +719,10 @@ function VerificationContent({
       />
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
           Meta 태그
         </p>
-        <pre className="mt-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4 text-xs leading-6 text-cyan-700">
+        <pre className="mt-2 overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 text-xs leading-6 text-cyan-700 dark:text-cyan-400">
           {verification.meta_tag}
         </pre>
       </div>
@@ -736,9 +736,9 @@ function VerificationContent({
 
 function CreationGuide() {
   return (
-    <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
-      <h2 className="text-2xl font-bold text-slate-900">생성 후 다음 단계</h2>
-      <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-6 text-slate-500">
+    <aside className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl shadow-slate-200/60 dark:shadow-black/40">
+      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">생성 후 다음 단계</h2>
+      <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-6 text-slate-500 dark:text-slate-400">
         <li>프로젝트 생성이 완료되면 설정 화면으로 이동합니다.</li>
         <li>AIM이 생성한 HTML meta 태그를 대상 서비스의 head에 추가합니다.</li>
         <li>배포 후 Meta 태그 확인 버튼으로 도메인 소유권을 검증합니다.</li>
@@ -853,9 +853,9 @@ function DeployTokenPanel({ projectId }: { projectId: string }) {
   }
 
   return (
-    <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
-      <h2 className="text-2xl font-bold text-slate-900">배포 훅 토큰</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-500">
+    <aside className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl shadow-slate-200/60 dark:shadow-black/40">
+      <h2 className="text-2xl font-bold text-slate-900 dark:text-white">배포 훅 토큰</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
         CI가 배포 직후 검사를 자동 시작할 때 사용하는 프로젝트 전용 토큰입니다. 발급된
         토큰으로 배포 훅(<span className="font-mono text-xs">/hooks/…/check-runs</span>)만
         호출할 수 있습니다.
@@ -863,7 +863,7 @@ function DeployTokenPanel({ projectId }: { projectId: string }) {
 
       <form className="mt-5 flex flex-wrap items-center gap-2" onSubmit={handleCreate}>
         <input
-          className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+          className="min-w-0 flex-1 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none ring-cyan-300/0 transition placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
           maxLength={80}
           onChange={(event) => setTokenName(event.target.value)}
           placeholder="토큰 이름 (예: github-actions)"
@@ -879,11 +879,11 @@ function DeployTokenPanel({ projectId }: { projectId: string }) {
       </form>
 
       {issuedToken && (
-        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-sm font-semibold text-emerald-800">
+        <div className="mt-4 rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 p-4">
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
             토큰이 발급되었습니다 — 지금만 표시됩니다
           </p>
-          <p className="mt-2 break-all rounded-xl bg-white p-3 font-mono text-xs text-slate-800 ring-1 ring-emerald-200">
+          <p className="mt-2 break-all rounded-xl bg-white dark:bg-slate-900 p-3 font-mono text-xs text-slate-800 dark:text-slate-100 ring-1 ring-emerald-200 dark:ring-emerald-900">
             {issuedToken.token}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -894,7 +894,7 @@ function DeployTokenPanel({ projectId }: { projectId: string }) {
             >
               {copied ? "복사됨" : "복사"}
             </button>
-            <p className="text-xs text-emerald-800 opacity-80">
+            <p className="text-xs text-emerald-800 dark:text-emerald-300 opacity-80">
               CI 시크릿에 저장하세요. 이 화면을 벗어나면 다시 볼 수 없습니다.
             </p>
           </div>
@@ -902,7 +902,7 @@ function DeployTokenPanel({ projectId }: { projectId: string }) {
       )}
 
       {actionError && (
-        <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+        <p className="mt-4 rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950 p-3 text-sm text-rose-800 dark:text-rose-300">
           {actionError}
         </p>
       )}
@@ -931,12 +931,12 @@ function DeployTokenList({
   tokens: ProjectApiToken[];
 }) {
   if (listState === "loading") {
-    return <p className="text-sm text-slate-500">토큰 목록을 불러오는 중입니다.</p>;
+    return <p className="text-sm text-slate-500 dark:text-slate-400">토큰 목록을 불러오는 중입니다.</p>;
   }
 
   if (listState === "unauthorized") {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-500 dark:text-slate-400">
         로그인 세션이 만료되어 토큰 목록을 불러올 수 없습니다.
       </p>
     );
@@ -944,12 +944,12 @@ function DeployTokenList({
 
   if (listState === "unavailable") {
     return (
-      <p className="text-sm text-rose-800">토큰 목록을 불러오지 못했습니다. 잠시 후 다시 시도하세요.</p>
+      <p className="text-sm text-rose-800 dark:text-rose-300">토큰 목록을 불러오지 못했습니다. 잠시 후 다시 시도하세요.</p>
     );
   }
 
   if (tokens.length === 0) {
-    return <p className="text-sm text-slate-500">발급된 토큰이 없습니다.</p>;
+    return <p className="text-sm text-slate-500 dark:text-slate-400">발급된 토큰이 없습니다.</p>;
   }
 
   return (
@@ -959,18 +959,18 @@ function DeployTokenList({
 
         return (
           <li
-            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"
+            className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-300"
             key={token.id}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-semibold text-slate-900">{token.name}</p>
+              <p className="font-semibold text-slate-900 dark:text-white">{token.name}</p>
               {isRevoked ? (
-                <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
+                <span className="rounded-full bg-slate-200 dark:bg-slate-700 px-3 py-1 text-xs font-bold text-slate-600 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-700">
                   폐기됨
                 </span>
               ) : (
                 <button
-                  className="rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-800 transition hover:border-rose-400 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl border border-rose-200 dark:border-rose-900 px-3 py-1.5 text-xs font-bold text-rose-800 dark:text-rose-300 transition hover:border-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={revokingTokenId !== null}
                   onClick={() => onRevoke(token.id)}
                   type="button"
@@ -1069,10 +1069,10 @@ function TextField({
 }) {
   return (
     <label className="block" htmlFor={name}>
-      <span className="text-sm font-semibold text-slate-600">{label}</span>
-      <div className="mt-2 flex overflow-hidden rounded-2xl border border-slate-200 bg-white ring-cyan-300/0 transition focus-within:border-cyan-500 focus-within:ring-4 focus-within:ring-cyan-500/20">
+      <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{label}</span>
+      <div className="mt-2 flex overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 ring-cyan-300/0 transition focus-within:border-cyan-500 focus-within:ring-4 focus-within:ring-cyan-500/20">
         <input
-          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-slate-900 dark:text-white outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
           id={name}
           min={type === "number" ? 0 : undefined}
           onChange={(event) => onChange(event.target.value)}
@@ -1082,7 +1082,7 @@ function TextField({
           value={value}
         />
         {suffix && (
-          <span className="border-l border-slate-200 px-3 py-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+          <span className="border-l border-slate-200 dark:border-slate-800 px-3 py-3 text-xs font-bold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
             {suffix}
           </span>
         )}
@@ -1102,8 +1102,8 @@ function StatusMessage({
     <p
       className={`mt-4 rounded-2xl border p-4 text-sm leading-6 ${
         tone === "success"
-          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-          : "border-rose-200 bg-rose-50 text-rose-800"
+          ? "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300"
+          : "border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-300"
       }`}
     >
       {message}
@@ -1124,8 +1124,8 @@ function ScoringPresetField({
 
   return (
     <fieldset>
-      <legend className="text-sm font-semibold text-slate-600">평가 기준 프리셋</legend>
-      <p className="mt-1 text-xs leading-5 text-slate-500">
+      <legend className="text-sm font-semibold text-slate-600 dark:text-slate-300">평가 기준 프리셋</legend>
+      <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
         서비스 성격에 맞는 프리셋을 고르면 카테고리 가중치가 달라집니다. 위험 게이트는
         유형과 무관하게 동일합니다.
       </p>
@@ -1139,7 +1139,7 @@ function ScoringPresetField({
               className={`cursor-pointer rounded-2xl border p-4 transition ${
                 isSelected
                   ? "border-cyan-500 bg-cyan-50/40 ring-2 ring-cyan-500/20"
-                  : "border-slate-200 bg-white hover:border-cyan-300"
+                  : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-cyan-300"
               }`}
               key={option.value}
             >
@@ -1155,22 +1155,22 @@ function ScoringPresetField({
                 <span
                   aria-hidden
                   className={`flex h-4 w-4 items-center justify-center rounded-full border ${
-                    isSelected ? "border-cyan-600" : "border-slate-300"
+                    isSelected ? "border-cyan-600" : "border-slate-300 dark:border-slate-700"
                   }`}
                 >
                   {isSelected && <span className="h-2 w-2 rounded-full bg-cyan-700" />}
                 </span>
-                <span className="text-sm font-bold text-slate-900">{option.title}</span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white">{option.title}</span>
                 {option.badge && (
-                  <span className="text-[11px] font-semibold text-slate-400">
+                  <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                     {option.badge}
                   </span>
                 )}
               </span>
-              <span className="mt-1.5 block break-keep text-xs leading-5 text-slate-500">
+              <span className="mt-1.5 block break-keep text-xs leading-5 text-slate-500 dark:text-slate-400">
                 {option.description}
               </span>
-              <span className="mt-2 block text-[11px] font-semibold leading-4 text-slate-400">
+              <span className="mt-2 block text-[11px] font-semibold leading-4 text-slate-400 dark:text-slate-500">
                 {option.weights
                   .map((weight) => `${weight.shortLabel} ${weight.weight}`)
                   .join(" · ")}
@@ -1180,17 +1180,17 @@ function ScoringPresetField({
         })}
       </div>
 
-      <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-semibold text-slate-400">
+      <div className="mt-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
+        <p className="text-xs font-semibold text-slate-400 dark:text-slate-500">
           선택한 프리셋 — {selectedOption.title} 가중치
         </p>
         <div className="mt-2 grid gap-1.5">
           {selectedOption.weights.map((weight) => (
             <div className="flex items-center gap-2" key={weight.label}>
-              <span className="w-24 shrink-0 break-keep text-xs text-slate-500">
+              <span className="w-24 shrink-0 break-keep text-xs text-slate-500 dark:text-slate-400">
                 {weight.label}
               </span>
-              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                 {weight.weight > 0 && (
                   <div
                     className="h-full rounded-full bg-cyan-500"
@@ -1198,19 +1198,19 @@ function ScoringPresetField({
                   />
                 )}
               </div>
-              <span className="w-7 shrink-0 text-right text-xs font-bold text-slate-700">
+              <span className="w-7 shrink-0 text-right text-xs font-bold text-slate-700 dark:text-slate-200">
                 {weight.weight}
               </span>
             </div>
           ))}
         </div>
-        <p className="mt-2 text-[11px] leading-4 text-slate-400">
+        <p className="mt-2 text-[11px] leading-4 text-slate-400 dark:text-slate-500">
           회귀 안정성은 직전 검사 대비 하락 폭으로 계산되며 첫 검사에서는 평가에서
           제외됩니다. 가중치 0인 항목은 수집돼도 점수에 반영되지 않습니다.
         </p>
       </div>
 
-      <p className="mt-2 text-xs text-slate-500">
+      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         변경은 다음 검사부터 적용됩니다. 이미 저장된 점수는 당시 기준 그대로 유지됩니다.
       </p>
     </fieldset>

@@ -75,10 +75,10 @@ export function ArtifactImagePreview({
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3">
       <div className="flex flex-wrap items-center gap-2">
         <button
-          className="rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl border border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 disabled:cursor-not-allowed disabled:opacity-50"
           type="button"
           disabled={!trimmedToken || state === "loading"}
           onClick={() => {
@@ -89,7 +89,7 @@ export function ArtifactImagePreview({
         </button>
         {objectUrl && (
           <button
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800/60"
             type="button"
             onClick={clearPreview}
           >
@@ -98,12 +98,12 @@ export function ArtifactImagePreview({
         )}
       </div>
       {message && (
-        <p className="mt-3 text-xs text-rose-700">
+        <p className="mt-3 text-xs text-rose-700 dark:text-rose-300">
           {message}
         </p>
       )}
       {objectUrl && (
-        <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-black/30">
+        <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-black/30">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="max-h-[560px] w-full object-contain" src={objectUrl} alt={alt} />
         </div>

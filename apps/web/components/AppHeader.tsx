@@ -118,14 +118,6 @@ export function AppHeader() {
     };
   }, [isUserMenuOpen]);
 
-  // 다크모드 1단계는 공개 화면 한정 — 앱 내부(로그인 후) 화면은 아직 라이트
-  // 전용이라 로그인 상태에서는 다크 클래스를 해제한다. 2단계에서 확장 예정.
-  useEffect(() => {
-    if (session.state === "signed-in") {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [session.state]);
-
   const isSignedIn = session.state === "signed-in";
   const projectContext = isSignedIn ? parseProjectContext(pathname) : null;
   const contextProjectId = projectContext?.projectId ?? null;
@@ -239,17 +231,17 @@ export function AppHeader() {
                 /
               </span>
               <Link
-                className="rounded-lg px-2 py-1 text-sm font-bold text-cyan-700 transition hover:bg-cyan-50 hover:text-cyan-800"
+                className="rounded-lg px-2 py-1 text-sm font-bold text-cyan-700 dark:text-cyan-400 transition hover:bg-cyan-50 dark:hover:bg-cyan-950 hover:text-cyan-800"
                 href="/dashboard"
               >
                 Dashboard
               </Link>
-              <nav className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-1 text-[13px] font-bold text-slate-500">
+              <nav className="flex items-center gap-0.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 p-1 text-[13px] font-bold text-slate-500 dark:text-slate-400">
                 {PROJECT_SECTIONS.map((section) => (
                   <Link
                     className={
                       projectContext.section === section.slug
-                        ? "rounded-lg bg-white px-3 py-1.5 text-cyan-800 shadow-sm"
+                        ? "rounded-lg bg-white dark:bg-slate-900 px-3 py-1.5 text-cyan-800 dark:text-cyan-300 shadow-sm"
                         : "rounded-lg px-3 py-1.5 transition hover:text-cyan-700"
                     }
                     href={`/projects/${projectContext.projectId}/${section.slug}`}
@@ -266,17 +258,17 @@ export function AppHeader() {
         <div className="flex items-center gap-2">
           {isSignedIn && projectContext && (
             <span
-              className="hidden max-w-[200px] items-center gap-2 text-[13px] font-bold text-slate-500 sm:inline-flex"
+              className="hidden max-w-[200px] items-center gap-2 text-[13px] font-bold text-slate-500 dark:text-slate-400 sm:inline-flex"
               title="현재 보고 있는 프로젝트"
             >
               <span
                 aria-hidden
-                className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 ring-3 ring-emerald-100"
+                className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 ring-3 ring-emerald-100 dark:ring-emerald-900"
               />
               <span className="truncate">{projectName ?? "프로젝트"}</span>
             </span>
           )}
-          {session.state === "signed-out" && (
+          {session.state !== "loading" && (
             <button
               aria-label="다크 모드 전환"
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 shadow-sm transition hover:border-cyan-400 hover:text-cyan-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-cyan-500 dark:hover:text-cyan-300"
@@ -308,7 +300,7 @@ export function AppHeader() {
           {session.state === "signed-out" && (
             <div className="hidden items-center gap-2 sm:flex">
               <Link
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-400 hover:text-cyan-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                 href="/login"
               >
                 로그인
@@ -328,30 +320,30 @@ export function AppHeader() {
                 aria-expanded={isUserMenuOpen}
                 aria-haspopup="menu"
                 aria-label="계정 메뉴"
-                className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-2 transition hover:border-cyan-400"
+                className="flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-1 pl-1 pr-2 transition hover:border-cyan-400"
                 onClick={() => setIsUserMenuOpen((open) => !open)}
                 type="button"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-600 text-[13px] font-black text-white">
                   {avatarInitial}
                 </span>
-                <span aria-hidden className="text-xs text-slate-400">
+                <span aria-hidden className="text-xs text-slate-400 dark:text-slate-500">
                   ▾
                 </span>
               </button>
               {isUserMenuOpen && (
                 <div
-                  className="absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-900/10"
+                  className="absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1.5 shadow-xl shadow-slate-900/10 dark:shadow-black/40"
                   role="menu"
                 >
-                  <p className="border-b border-slate-100 px-3 pb-2 pt-1.5 text-xs text-slate-500">
+                  <p className="border-b border-slate-100 dark:border-slate-800 px-3 pb-2 pt-1.5 text-xs text-slate-500 dark:text-slate-400">
                     로그인 계정
-                    <span className="mt-0.5 block break-all text-[13px] font-bold text-slate-900">
+                    <span className="mt-0.5 block break-all text-[13px] font-bold text-slate-900 dark:text-white">
                       {userEmail ?? "확인 중"}
                     </span>
                   </p>
                   <button
-                    className="mt-1 w-full rounded-xl px-3 py-2 text-left text-sm font-bold text-rose-600 transition hover:bg-rose-50"
+                    className="mt-1 w-full rounded-xl px-3 py-2 text-left text-sm font-bold text-rose-600 dark:text-rose-400 transition hover:bg-rose-50 dark:hover:bg-rose-950"
                     onClick={handleLogout}
                     role="menuitem"
                     type="button"
@@ -367,7 +359,7 @@ export function AppHeader() {
             <button
               aria-expanded={isMobileMenuOpen}
               aria-label={isMobileMenuOpen ? "메뉴 닫기" : "메뉴 열기"}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700 sm:hidden dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-white text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 sm:hidden dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
               onClick={() => setIsMobileMenuOpen((open) => !open)}
               type="button"
             >
@@ -394,7 +386,7 @@ export function AppHeader() {
       </div>
 
       {isMobileMenuOpen && (
-        <nav className="border-t border-slate-200 bg-white px-4 pb-4 pt-2 sm:hidden dark:border-slate-800 dark:bg-slate-950">
+        <nav className="border-t border-slate-200 bg-white dark:bg-slate-900 px-4 pb-4 pt-2 sm:hidden dark:border-slate-800 dark:bg-slate-950">
           {session.state === "signed-out" && (
             <div className="grid gap-1">
               {!hideGuestNav && (
@@ -459,7 +451,7 @@ export function AppHeader() {
               </Link>
               {projectContext && (
                 <>
-                  <p className="mt-2 truncate px-3 text-xs font-bold text-slate-400">
+                  <p className="mt-2 truncate px-3 text-xs font-bold text-slate-400 dark:text-slate-500">
                     {projectName ?? "프로젝트"}
                   </p>
                   {PROJECT_SECTIONS.map((section) => (
@@ -474,11 +466,11 @@ export function AppHeader() {
                   ))}
                 </>
               )}
-              <p className="mt-2 break-all border-t border-slate-100 px-3 pt-2 text-xs text-slate-500">
+              <p className="mt-2 break-all border-t border-slate-100 dark:border-slate-800 px-3 pt-2 text-xs text-slate-500 dark:text-slate-400">
                 {userEmail ?? "로그인됨"}
               </p>
               <button
-                className="rounded-xl px-3 py-2.5 text-left text-sm font-bold text-rose-600 transition hover:bg-rose-50"
+                className="rounded-xl px-3 py-2.5 text-left text-sm font-bold text-rose-600 dark:text-rose-400 transition hover:bg-rose-50 dark:hover:bg-rose-950"
                 onClick={handleLogout}
                 type="button"
               >

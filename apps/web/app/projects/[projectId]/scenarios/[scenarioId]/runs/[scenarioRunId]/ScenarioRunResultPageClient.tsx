@@ -115,16 +115,16 @@ export function ScenarioRunResultPageClient({
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
-        <header className="flex flex-col gap-6 rounded-3xl border border-slate-200 bg-white p-6">
+        <header className="flex flex-col gap-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700 dark:text-cyan-400">
                 AIM 시나리오 결과
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
                 시나리오 실행 결과
               </h1>
-              <p className="mt-4 text-sm leading-6 text-slate-600">
+              <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
                 시나리오 실행의 단계별 결과와 실패 근거를 보여줍니다. 실행 중에는
                 자동으로 새로고침됩니다.
               </p>
@@ -206,12 +206,12 @@ function StatusSummary({
   lastUpdatedAt: string | null;
 }) {
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">실행 상태</h2>
         <ScenarioRunStatusBadge status={scenarioRun.status} />
       </div>
-      <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
+      <dl className="grid gap-4 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
         <Metric label="트리거" value={triggerSourceLabel(scenarioRun.trigger_source)} />
         <Metric label="소요 시간" value={formatMilliseconds(scenarioRun.duration_ms)} />
         <Metric label="자동 새로고침" value={shouldPoll ? "실행 중" : "중지됨"} />
@@ -224,9 +224,9 @@ function StatusSummary({
 
 function TimelineCard({ scenarioRun }: { scenarioRun: ScenarioRunDetail }) {
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
       <h2 className="mb-5 text-xl font-semibold">타임라인</h2>
-      <dl className="grid gap-4 text-sm text-slate-600">
+      <dl className="grid gap-4 text-sm text-slate-600 dark:text-slate-300">
         <Metric label="대기 시각" value={formatDetailDateTime(scenarioRun.queued_at)} />
         <Metric label="시작 시각" value={formatDetailDateTime(scenarioRun.started_at)} />
         <Metric label="종료 시각" value={formatDetailDateTime(scenarioRun.finished_at)} />
@@ -253,25 +253,25 @@ function StepResultsCard({
   }
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">단계별 결과</h2>
-        <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
+        <span className="rounded-full bg-cyan-50 dark:bg-cyan-950 px-3 py-1 text-xs font-bold text-cyan-700 dark:text-cyan-400 ring-1 ring-cyan-200 dark:ring-cyan-900">
           {stepResults.length}개
         </span>
       </div>
       <ol className="grid gap-3">
         {stepResults.map((stepResult) => (
           <li
-            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"
+            className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-300"
             key={stepResult.id}
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="font-semibold text-slate-900">
+                <p className="font-semibold text-slate-900 dark:text-white">
                   #{stepResult.step_order} {actionLabels[stepResult.action]}
                 </p>
-                <p className="mt-2 break-all font-mono text-xs text-slate-500">
+                <p className="mt-2 break-all font-mono text-xs text-slate-500 dark:text-slate-400">
                   {stepResult.target ?? "대상 없음"}
                 </p>
               </div>
@@ -289,7 +289,7 @@ function StepResultsCard({
               <Metric label="종료 시각" value={formatDetailDateTime(stepResult.finished_at)} />
             </dl>
             {stepResult.error_message && (
-              <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+              <p className="mt-4 rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950 p-3 text-sm text-rose-800 dark:text-rose-300">
                 {stepResult.error_message}
               </p>
             )}
@@ -324,8 +324,8 @@ function EvidenceSummaryCard({
   const totalEvidenceCount = consoleErrors.length + networkFailures.length;
   const hasEvidence = totalEvidenceCount > 0;
   const className = hasEvidence
-    ? "border-rose-200 bg-rose-50 text-rose-800"
-    : "border-emerald-200 bg-emerald-50 text-emerald-800";
+    ? "border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-300"
+    : "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300";
 
   return (
     <article className={`rounded-3xl border p-6 ${className}`}>
@@ -341,7 +341,7 @@ function EvidenceSummaryCard({
             {getEvidenceSummaryDescription(consoleErrors, networkFailures)}
           </p>
         </div>
-        <span className="rounded-full bg-black/20 px-3 py-1 text-xs font-bold ring-1 ring-slate-200">
+        <span className="rounded-full bg-black/20 px-3 py-1 text-xs font-bold ring-1 ring-slate-200 dark:ring-slate-700">
           {totalEvidenceCount}개
         </span>
       </div>
@@ -449,27 +449,27 @@ function EvidenceListCard({
   }[];
 }) {
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-rose-700">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-rose-700 dark:text-rose-300">
             근거
           </p>
           <h2 className="mt-2 text-xl font-semibold">{title}</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{description}</p>
         </div>
-        <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700 ring-1 ring-rose-200">
+        <span className="rounded-full bg-rose-50 dark:bg-rose-950 px-3 py-1 text-xs font-bold text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-900">
           {count}개
         </span>
       </div>
       <ul className="grid gap-3">
         {items.map((item) => (
           <li
-            className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-slate-600"
+            className="rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950 p-4 text-sm text-slate-600 dark:text-slate-300"
             key={item.id}
           >
-            <p className="break-words font-semibold text-slate-900">{item.title}</p>
-            <p className="mt-2 break-all font-mono text-xs text-slate-500">{item.subtitle}</p>
+            <p className="break-words font-semibold text-slate-900 dark:text-white">{item.title}</p>
+            <p className="mt-2 break-all font-mono text-xs text-slate-500 dark:text-slate-400">{item.subtitle}</p>
             <dl className="mt-4 grid gap-3 sm:grid-cols-2">
               {item.details.map(([label, value]) => (
                 <Metric key={label} label={label} value={value} />
@@ -484,23 +484,23 @@ function EvidenceListCard({
 
 function EmptyResultCard({ title, description }: { title: string; description: string }) {
   return (
-    <article className="rounded-3xl border border-dashed border-slate-200 bg-white/60 p-6">
+    <article className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 p-6">
       <h2 className="text-xl font-semibold">{title}</h2>
-      <p className="mt-4 text-sm text-slate-500">{description}</p>
+      <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">{description}</p>
     </article>
   );
 }
 
 function getStepStatusBadgeClassName(status: StepResultStatus) {
   if (status === "PASSED") {
-    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+    return "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-900";
   }
 
   if (status === "FAILED") {
-    return "bg-rose-50 text-rose-700 ring-rose-200";
+    return "bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 ring-rose-200 dark:ring-rose-900";
   }
 
-  return "bg-slate-200 text-slate-600 ring-slate-200";
+  return "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 ring-slate-200 dark:ring-slate-700";
 }
 
 function formatNullable(value: number | null) {

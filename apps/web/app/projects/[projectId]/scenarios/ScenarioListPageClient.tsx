@@ -361,16 +361,16 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
-        <header className="flex flex-col gap-6 rounded-3xl border border-slate-200 bg-white p-6">
+        <header className="flex flex-col gap-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700">
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-700 dark:text-cyan-400">
                 AIM 시나리오
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
                 시나리오 목록
               </h1>
-              <p className="mt-4 text-sm leading-6 text-slate-600">
+              <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
                 로그인·검색 같은 핵심 사용자 흐름을 시나리오로 등록하고, 수동 실행으로
                 실제 브라우저에서 동작을 검증합니다.
               </p>
@@ -472,21 +472,21 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
         )}
 
         {result.state === "success" && (
-          <section className="rounded-3xl border border-slate-200 bg-white p-6">
+          <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-semibold">저장된 시나리오</h2>
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                   마지막 조회: {lastUpdatedAt ?? "아직 없음"}
                 </p>
               </div>
-              <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
+              <span className="rounded-full bg-cyan-50 dark:bg-cyan-950 px-3 py-1 text-xs font-bold text-cyan-700 dark:text-cyan-400 ring-1 ring-cyan-200 dark:ring-cyan-900">
                 {scenarios.length}개
               </span>
             </div>
 
             {scenarios.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-5 text-sm text-slate-500">
+              <p className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 p-5 text-sm text-slate-500 dark:text-slate-400">
                 아직 생성된 scenario가 없습니다. 위 폼으로 첫 critical user flow를 등록하세요.
               </p>
             ) : (
@@ -532,22 +532,22 @@ function ScenarioCreateForm({
 }) {
   return (
     <form
-      className="rounded-3xl border border-cyan-200 bg-cyan-50/60 p-6"
+      className="rounded-3xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 p-6"
       onSubmit={onSubmit}
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400">
             시나리오 빌더
           </p>
           <h2 className="mt-3 text-2xl font-bold">새 시나리오 생성</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
             핵심 사용자 흐름을 단계 단위로 작성합니다. 결제·삭제처럼 되돌리기 어려운 동작은
             피하고, 로그인·검색·주요 페이지 접근처럼 안전하게 반복 가능한 흐름부터 등록하세요.
           </p>
         </div>
         <button
-          className="rounded-2xl border border-cyan-300 px-4 py-2 text-sm font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-50"
+          className="rounded-2xl border border-cyan-300 dark:border-cyan-800 px-4 py-2 text-sm font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-950"
           onClick={onAddStep}
           type="button"
         >
@@ -557,9 +557,9 @@ function ScenarioCreateForm({
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_220px]">
         <label className="block" htmlFor="scenario-name">
-          <span className="text-sm font-semibold text-slate-600">시나리오 이름</span>
+          <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">시나리오 이름</span>
           <input
-            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+            className="mt-2 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none ring-cyan-300/0 transition placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
             id="scenario-name"
             maxLength={120}
             onChange={(event) => onChange({ ...form, name: event.target.value })}
@@ -570,7 +570,7 @@ function ScenarioCreateForm({
           />
         </label>
 
-        <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 lg:mt-7">
+        <label className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 lg:mt-7">
           <input
             checked={form.isActive}
             className="h-4 w-4 accent-cyan-600"
@@ -582,9 +582,9 @@ function ScenarioCreateForm({
       </div>
 
       <label className="mt-4 block" htmlFor="scenario-description">
-        <span className="text-sm font-semibold text-slate-600">설명</span>
+        <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">설명</span>
         <textarea
-          className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+          className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none ring-cyan-300/0 transition placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
           id="scenario-description"
           maxLength={1000}
           onChange={(event) => onChange({ ...form, description: event.target.value })}
@@ -614,7 +614,7 @@ function ScenarioCreateForm({
         >
           {createState === "creating" ? "시나리오 생성 중" : "시나리오 생성"}
         </button>
-        <p className="text-xs leading-5 text-slate-500">
+        <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
           생성 후 목록에 바로 추가됩니다. 활성 상태라면 수동 실행을 시작할 수 있습니다.
         </p>
       </div>
@@ -638,14 +638,14 @@ function ScenarioStepEditor({
   step: ScenarioStepFormState;
 }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <article className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-bold text-slate-900">단계 #{index + 1}</p>
-          <p className="mt-1 text-xs leading-5 text-slate-400">{actionHelp[step.action]}</p>
+          <p className="text-sm font-bold text-slate-900 dark:text-white">단계 #{index + 1}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-400 dark:text-slate-500">{actionHelp[step.action]}</p>
         </div>
         <button
-          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-rose-400 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 transition hover:border-rose-400 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
           disabled={!canRemove}
           onClick={onRemove}
           type="button"
@@ -656,11 +656,11 @@ function ScenarioStepEditor({
 
       <div className="grid gap-3 lg:grid-cols-[220px_1fr_1fr_180px]">
         <label className="block" htmlFor={`scenario-step-action-${step.id}`}>
-          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
             동작
           </span>
           <select
-            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-cyan-500"
+            className="mt-2 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-3 text-sm text-slate-900 dark:text-white outline-none focus:border-cyan-500"
             id={`scenario-step-action-${step.id}`}
             onChange={(event) => onUpdate({ action: event.target.value as TestStepAction })}
             value={step.action}
@@ -694,7 +694,7 @@ function ScenarioStepEditor({
         />
       </div>
 
-      <label className="mt-4 flex items-center gap-3 text-sm text-slate-600">
+      <label className="mt-4 flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
         <input
           checked={step.isCritical}
           className="h-4 w-4 accent-cyan-600"
@@ -722,11 +722,11 @@ function StepInput({
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
         {label}
       </span>
       <input
-        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-cyan-500"
+        className="mt-2 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-3 text-sm text-slate-900 dark:text-white outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-cyan-500"
         min={type === "number" ? 1 : undefined}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
@@ -875,29 +875,29 @@ function ScenarioCard({
 
   if (isEditing) {
     return (
-      <li className="rounded-2xl border border-cyan-200 bg-cyan-50/60 p-5">
+      <li className="rounded-2xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 p-5">
         <form onSubmit={submitUpdate}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400">
                 시나리오 편집
               </p>
-              <h3 className="mt-2 text-lg font-semibold text-slate-900">{scenario.name}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
+              <h3 className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">{scenario.name}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
                 저장하면 단계 목록이 현재 폼 기준으로 교체됩니다. 이미 생성된 시나리오 실행
                 결과는 그대로 보존됩니다.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
-                className="rounded-2xl border border-cyan-300 px-4 py-2 text-sm font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-50"
+                className="rounded-2xl border border-cyan-300 dark:border-cyan-800 px-4 py-2 text-sm font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-950"
                 onClick={addEditStep}
                 type="button"
               >
                 단계 추가
               </button>
               <button
-                className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300 transition hover:border-slate-400 hover:text-slate-900 dark:hover:text-white"
                 onClick={cancelEditing}
                 type="button"
               >
@@ -908,9 +908,9 @@ function ScenarioCard({
 
           <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_220px]">
             <label className="block" htmlFor={`scenario-edit-name-${scenario.id}`}>
-              <span className="text-sm font-semibold text-slate-600">시나리오 이름</span>
+              <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">시나리오 이름</span>
               <input
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+                className="mt-2 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none ring-cyan-300/0 transition placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
                 id={`scenario-edit-name-${scenario.id}`}
                 maxLength={120}
                 onChange={(event) => setForm({ ...form, name: event.target.value })}
@@ -920,7 +920,7 @@ function ScenarioCard({
               />
             </label>
 
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 lg:mt-7">
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 lg:mt-7">
               <input
                 checked={form.isActive}
                 className="h-4 w-4 accent-cyan-600"
@@ -932,9 +932,9 @@ function ScenarioCard({
           </div>
 
           <label className="mt-4 block" htmlFor={`scenario-edit-description-${scenario.id}`}>
-            <span className="text-sm font-semibold text-slate-600">설명</span>
+            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">설명</span>
             <textarea
-              className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+              className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-900 dark:text-white outline-none ring-cyan-300/0 transition placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
               id={`scenario-edit-description-${scenario.id}`}
               maxLength={1000}
               onChange={(event) => setForm({ ...form, description: event.target.value })}
@@ -963,7 +963,7 @@ function ScenarioCard({
             >
               {mutationState === "creating" ? "저장 중" : "시나리오 저장"}
             </button>
-            <p className="text-xs leading-5 text-slate-500">
+            <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
               결제·삭제 같은 파괴적인 동작 없이 반복 가능한 사용자 흐름만 유지하세요.
             </p>
           </div>
@@ -983,22 +983,22 @@ function ScenarioCard({
   }
 
   return (
-    <li className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+    <li className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <h3 className="text-lg font-semibold text-slate-900">{scenario.name}</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{scenario.name}</h3>
             <span
               className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${
                 scenario.is_active
-                  ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                  : "bg-slate-200 text-slate-600 ring-slate-200"
+                  ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-900"
+                  : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 ring-slate-200 dark:ring-slate-700"
               }`}
             >
               {scenario.is_active ? "활성" : "비활성"}
             </span>
           </div>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
             {scenario.description ?? "설명이 없습니다."}
           </p>
         </div>
@@ -1008,14 +1008,14 @@ function ScenarioCard({
             label="실행 이력 보기"
           />
           <button
-            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700"
+            className="rounded-2xl border border-slate-200 dark:border-slate-800 px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300 transition hover:border-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300"
             onClick={startEditing}
             type="button"
           >
             수정
           </button>
           <button
-            className="rounded-2xl border border-rose-200 px-4 py-2 text-sm font-bold text-rose-800 transition hover:border-rose-400 hover:bg-rose-50"
+            className="rounded-2xl border border-rose-200 dark:border-rose-900 px-4 py-2 text-sm font-bold text-rose-800 dark:text-rose-300 transition hover:border-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950"
             onClick={() => {
               setMutationMessage(null);
               setIsConfirmingDelete(true);
@@ -1036,7 +1036,7 @@ function ScenarioCard({
       </div>
 
       {isConfirmingDelete && (
-        <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800">
+        <div className="mt-5 rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950 p-4 text-rose-800 dark:text-rose-300">
           <h4 className="font-semibold">시나리오 삭제 확인</h4>
           <p className="mt-2 text-sm leading-6 opacity-85">
             이 시나리오와 단계 정의를 삭제합니다. 이미 저장된 실행 결과는 별도 기록으로 남아있을
@@ -1052,7 +1052,7 @@ function ScenarioCard({
               {mutationState === "creating" ? "삭제 중" : "삭제 확정"}
             </button>
             <button
-              className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+              className="rounded-2xl border border-slate-200 dark:border-slate-800 px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 transition hover:border-slate-400 hover:text-slate-900 dark:hover:text-white"
               onClick={() => setIsConfirmingDelete(false)}
               type="button"
             >
@@ -1073,7 +1073,7 @@ function ScenarioCard({
       )}
 
       <div className="mt-5">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
           단계
         </p>
         <ol className="grid gap-2">
@@ -1088,16 +1088,16 @@ function ScenarioCard({
 
 function StepRow({ step }: { step: TestStep }) {
   return (
-    <li className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+    <li className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3 text-sm text-slate-600 dark:text-slate-300">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="font-medium text-slate-900">
+        <p className="font-medium text-slate-900 dark:text-white">
           #{step.step_order} {actionLabels[step.action]}
         </p>
         <span
           className={`rounded-full px-2 py-1 text-[11px] font-bold ring-1 ${
             step.is_critical
-              ? "bg-rose-50 text-rose-700 ring-rose-200"
-              : "bg-slate-200 text-slate-600 ring-slate-200"
+              ? "bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 ring-rose-200 dark:ring-rose-900"
+              : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 ring-slate-200 dark:ring-slate-700"
           }`}
         >
           {step.is_critical ? "핵심" : "일반"}

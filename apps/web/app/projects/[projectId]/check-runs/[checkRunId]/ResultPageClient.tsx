@@ -357,7 +357,7 @@ export function ResultPageClient({
           <div className="flex min-w-0 items-center gap-3">
             <Link
               aria-label="검사 이력으로 돌아가기"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:border-cyan-400 hover:text-cyan-700"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 transition hover:border-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300"
               href={`/projects/${projectId}/check-runs`}
               title="검사 이력으로 돌아가기"
             >
@@ -373,14 +373,14 @@ export function ResultPageClient({
             </Link>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">검사 결과</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">검사 결과</h1>
                 {checkRun && <CheckRunStatusBadge status={checkRun.status} />}
                 {shouldPoll && (
-                  <span className="text-xs font-bold text-cyan-600">자동 새로고침 중</span>
+                  <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400">자동 새로고침 중</span>
                 )}
               </div>
               {checkRun && (
-                <p className="mt-0.5 truncate text-xs text-slate-500">
+                <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
                   {triggerSourceLabel(checkRun.trigger_source)}
                   {checkRun.deploy_ref ? ` (${checkRun.deploy_ref.slice(0, 7)})` : ""} ·{" "}
                   {formatDateTime(checkRun.queued_at)} · 소요{" "}
@@ -402,7 +402,7 @@ export function ResultPageClient({
             )}
             {checkRun && ACTIVE_STATUSES.has(checkRun.status) && (
               <button
-                className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-bold text-rose-800 transition hover:border-rose-500 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-2xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950 px-4 py-2 text-sm font-bold text-rose-800 dark:text-rose-300 transition hover:border-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/60 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={isCancelling}
                 onClick={() => void handleCancelCheckRun()}
                 type="button"
@@ -527,8 +527,8 @@ function getVerdictCategoryScore(
 function CategoryBar({ label, score }: { label: string; score: number | null }) {
   return (
     <div className="flex items-center gap-2 py-1">
-      <span className="w-24 shrink-0 break-keep text-xs text-slate-500">{label}</span>
-      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+      <span className="w-24 shrink-0 break-keep text-xs text-slate-500 dark:text-slate-400">{label}</span>
+      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
         {score !== null && score > 0 && (
           <div
             className={`h-full rounded-full ${scoreBarClassName(score)}`}
@@ -536,7 +536,7 @@ function CategoryBar({ label, score }: { label: string; score: number | null }) 
           />
         )}
       </div>
-      <span className="w-8 shrink-0 text-right text-xs font-bold text-slate-700">
+      <span className="w-8 shrink-0 text-right text-xs font-bold text-slate-700 dark:text-slate-200">
         {score === null ? "–" : Math.round(score)}
       </span>
     </div>
@@ -563,7 +563,7 @@ function VerdictCard({
   topAudits: LighthouseTopAudit[] | null;
 }) {
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
       {result ? (
         <div className="flex flex-wrap items-center gap-x-8 gap-y-5">
           <div className="flex items-center gap-5">
@@ -574,7 +574,7 @@ function VerdictCard({
             />
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-3xl font-black tracking-tight text-slate-900">
+                <span className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
                   {result.overall_score}점
                 </span>
                 <span
@@ -584,11 +584,11 @@ function VerdictCard({
                 </span>
               </div>
               {result.gate_reason && (
-                <p className="mt-2 max-w-60 break-keep text-xs leading-5 text-amber-700">
+                <p className="mt-2 max-w-60 break-keep text-xs leading-5 text-amber-700 dark:text-amber-300">
                   {result.gate_reason}
                 </p>
               )}
-              <p className="mt-2 text-[11px] font-semibold text-slate-400">
+              <p className="mt-2 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                 평가 항목 반영 {result.evaluated_weight}%
               </p>
             </div>
@@ -604,26 +604,26 @@ function VerdictCard({
           </div>
         </div>
       ) : (
-        <p className="text-sm leading-6 text-slate-500">
+        <p className="text-sm leading-6 text-slate-500 dark:text-slate-400">
           {ACTIVE_STATUSES.has(status)
             ? "검사가 진행 중입니다. 완료되면 점수와 AI 진단이 여기에 표시됩니다."
             : "이 검사에는 계산된 점수가 없습니다. 실패한 검사는 점수 대신 실패 사유를 확인하세요."}
         </p>
       )}
 
-      <div className="mt-5 border-t border-slate-200 pt-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+      <div className="mt-5 border-t border-slate-200 dark:border-slate-800 pt-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400">
           AI 진단
           <InfoHint text="수집된 근거만을 바탕으로 AI가 작성한 진단 요약입니다. 점수와 이슈 목록은 결정론 규칙이 계산하며 AI는 서술만 작성합니다." />
         </p>
         {aiReport ? (
           <>
-            <p className="mt-2 break-keep text-sm leading-6 text-slate-700">
+            <p className="mt-2 break-keep text-sm leading-6 text-slate-700 dark:text-slate-200">
               {aiReport.summary}
             </p>
             <div className="mt-3">
               <button
-                className="rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl border border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950 px-3 py-1.5 text-xs font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={isLoadingDetail}
                 onClick={onLoadDetail}
                 type="button"
@@ -636,17 +636,17 @@ function VerdictCard({
               </button>
             </div>
             {detailResult?.state === "unauthorized" && (
-              <p className="mt-3 text-xs font-semibold text-rose-600">
+              <p className="mt-3 text-xs font-semibold text-rose-600 dark:text-rose-400">
                 토큰이 없거나 만료되었거나, 이 리포트에 접근할 권한이 없습니다.
               </p>
             )}
             {detailResult?.state === "not-found" && (
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                 요약은 있지만 전체 리포트가 아직 저장되지 않았습니다.
               </p>
             )}
             {detailResult?.state === "unavailable" && (
-              <p className="mt-3 text-xs font-semibold text-rose-600">
+              <p className="mt-3 text-xs font-semibold text-rose-600 dark:text-rose-400">
                 AI 리포트 요청이 실패했습니다. API 서버 상태를 확인한 뒤 다시 시도하세요.
               </p>
             )}
@@ -655,11 +655,11 @@ function VerdictCard({
             )}
           </>
         ) : isGeneratingReport ? (
-          <p className="mt-2 text-sm leading-6 text-cyan-700">
+          <p className="mt-2 text-sm leading-6 text-cyan-700 dark:text-cyan-400">
             AI 진단 리포트를 생성하고 있습니다. 준비되는 대로 자동으로 표시됩니다.
           </p>
         ) : (
-          <p className="mt-2 text-sm leading-6 text-slate-500">
+          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
             아직 저장된 AI 진단 요약이 없습니다. 검사가 종료된 뒤 리포트가 생성됩니다.
           </p>
         )}
@@ -681,8 +681,8 @@ function DeltaChip({
 }) {
   const isImprovement = invert ? value < 0 : value > 0;
   const chipClassName = isImprovement
-    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-    : "bg-rose-50 text-rose-700 ring-rose-200";
+    ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-900"
+    : "bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 ring-rose-200 dark:ring-rose-900";
   const formatted = value > 0 ? `+${value}` : `${value}`;
 
   return (
@@ -731,7 +731,7 @@ function DeltaChipRow({
   const hasResponseChip = responseTimeDeltaMs !== null && responseTimeDeltaMs !== 0;
 
   if (entries.length === 0 && !hasResponseChip && !riskChanged) {
-    return <span className="text-xs text-slate-400">변화 없음</span>;
+    return <span className="text-xs text-slate-400 dark:text-slate-500">변화 없음</span>;
   }
 
   return (
@@ -743,7 +743,7 @@ function DeltaChipRow({
         <DeltaChip invert label="응답" unit="ms" value={responseTimeDeltaMs} />
       )}
       {riskChanged && (
-        <span className="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
+        <span className="whitespace-nowrap rounded-full bg-amber-50 dark:bg-amber-950 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300 ring-1 ring-amber-200 dark:ring-amber-900">
           위험 단계 변화
         </span>
       )}
@@ -779,10 +779,10 @@ function HeaderBaselineAction({
 
   if (isCurrentBaseline) {
     return (
-      <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
+      <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-4 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-400">
         📌 현재 기준점
         <button
-          className="text-xs font-bold text-rose-600 underline underline-offset-2 transition hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="text-xs font-bold text-rose-600 dark:text-rose-400 underline underline-offset-2 transition hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isMutating}
           onClick={onClearBaseline}
           type="button"
@@ -809,7 +809,7 @@ function HeaderBaselineAction({
 
   return (
     <button
-      className="whitespace-nowrap rounded-2xl border border-cyan-300 bg-white px-4 py-2 text-sm font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
+      className="whitespace-nowrap rounded-2xl border border-cyan-300 dark:border-cyan-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-950 disabled:cursor-not-allowed disabled:opacity-50"
       disabled={!canPin || isMutating}
       onClick={onSetBaseline}
       title={disabledReason}
@@ -842,7 +842,7 @@ function BaselineRow({
   project: Project | null;
 }) {
   if (!project) {
-    return <span className="text-xs text-slate-400">프로젝트 정보를 불러오는 중입니다</span>;
+    return <span className="text-xs text-slate-400 dark:text-slate-500">프로젝트 정보를 불러오는 중입니다</span>;
   }
 
   const baselineCheckRunId = project.baseline_check_run_id;
@@ -851,7 +851,7 @@ function BaselineRow({
 
   if (isCurrentBaseline) {
     return (
-      <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
+      <span className="whitespace-nowrap rounded-full bg-emerald-50 dark:bg-emerald-950 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-200 dark:ring-emerald-900">
         📌 이 검사가 현재 기준점
       </span>
     );
@@ -859,7 +859,7 @@ function BaselineRow({
 
   if (!baselineCheckRunId) {
     return (
-      <span className="break-keep rounded-xl bg-cyan-50 px-3 py-1.5 text-xs leading-5 text-cyan-900">
+      <span className="break-keep rounded-xl bg-cyan-50 dark:bg-cyan-950 px-3 py-1.5 text-xs leading-5 text-cyan-900">
         기준점이 없습니다 — 지정하면 이후 모든 검사가 이 검사와 자동 비교됩니다. 우측 상단
         📌 버튼으로 지정하세요.
       </span>
@@ -868,17 +868,17 @@ function BaselineRow({
 
   if (!isTerminal) {
     return (
-      <span className="text-xs text-slate-400">검사가 종료되면 기준점 비교를 계산합니다</span>
+      <span className="text-xs text-slate-400 dark:text-slate-500">검사가 종료되면 기준점 비교를 계산합니다</span>
     );
   }
 
   if (!baselineComparisonResult) {
-    return <span className="text-xs text-slate-400">기준점 비교를 불러오는 중입니다</span>;
+    return <span className="text-xs text-slate-400 dark:text-slate-500">기준점 비교를 불러오는 중입니다</span>;
   }
 
   if (baselineComparisonResult.state !== "success") {
     return (
-      <span className="text-xs font-semibold text-rose-600">
+      <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">
         {baselineErrorMessages[baselineComparisonResult.state]}
       </span>
     );
@@ -891,7 +891,7 @@ function BaselineRow({
   return (
     <>
       <Link
-        className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-xs font-bold text-cyan-700 transition hover:border-cyan-400 hover:text-cyan-800"
+        className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-cyan-200 dark:border-cyan-900 bg-cyan-50 dark:bg-cyan-950 px-2.5 py-0.5 text-xs font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-400 hover:text-cyan-800"
         href={`/projects/${project.id}/check-runs/${baselineCheckRunId}`}
         title="기준점 검사 결과로 이동"
       >
@@ -903,7 +903,7 @@ function BaselineRow({
         riskChanged={false}
       />
       {riskChanged && (
-        <span className="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
+        <span className="whitespace-nowrap rounded-full bg-amber-50 dark:bg-amber-950 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300 ring-1 ring-amber-200 dark:ring-amber-900">
           위험 {riskLabels[comparison.baseline_deployment_risk]} →{" "}
           {riskLabels[comparison.current_deployment_risk]}
         </span>
@@ -926,9 +926,9 @@ function DeltaStripCard({
   project: Project | null;
 }) {
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-5">
+    <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-        <span className="w-20 shrink-0 text-xs font-semibold text-slate-400">직전 대비</span>
+        <span className="w-20 shrink-0 text-xs font-semibold text-slate-400 dark:text-slate-500">직전 대비</span>
         {comparison ? (
           <DeltaChipRow
             entries={buildScoreDeltaEntries(comparison)}
@@ -936,11 +936,11 @@ function DeltaStripCard({
             riskChanged={comparison.deployment_risk_changed}
           />
         ) : (
-          <span className="text-xs text-slate-400">비교 가능한 이전 검사가 없습니다</span>
+          <span className="text-xs text-slate-400 dark:text-slate-500">비교 가능한 이전 검사가 없습니다</span>
         )}
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2 border-t border-slate-100 pt-3">
-        <span className="w-20 shrink-0 text-xs font-semibold text-slate-400">기준점 대비</span>
+      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+        <span className="w-20 shrink-0 text-xs font-semibold text-slate-400 dark:text-slate-500">기준점 대비</span>
         <BaselineRow
           baselineComparisonResult={baselineComparisonResult}
           checkRun={checkRun}
@@ -948,7 +948,7 @@ function DeltaStripCard({
         />
       </div>
       {actionError && (
-        <p className="mt-3 text-xs font-semibold text-rose-600">{actionError}</p>
+        <p className="mt-3 text-xs font-semibold text-rose-600 dark:text-rose-400">{actionError}</p>
       )}
     </article>
   );
@@ -995,11 +995,11 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
 
   return (
     <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
       id="score-card"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400">
           Deterministic score
           <InfoHint text="수집된 검사 데이터에 고정된 규칙을 적용해 자동 계산한 점수입니다." />
         </p>
@@ -1015,18 +1015,18 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
           score={result.overall_score}
         />
         <div className="min-w-56 max-w-md flex-1">
-          <p className="break-keep text-sm leading-6 text-slate-600">
+          <p className="break-keep text-sm leading-6 text-slate-600 dark:text-slate-300">
             전체 평가 항목 중{" "}
-            <span className="font-bold text-slate-900">{result.evaluated_weight}%</span>가 이번
+            <span className="font-bold text-slate-900 dark:text-white">{result.evaluated_weight}%</span>가 이번
             점수에 반영되었습니다.
           </p>
-          <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-slate-200">
+          <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
             <div
               className="h-full rounded-full bg-cyan-500"
               style={{ width: `${result.evaluated_weight}%` }}
             />
           </div>
-          <p className="mt-1.5 text-[11px] font-semibold text-slate-400">
+          <p className="mt-1.5 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
             반영 {result.evaluated_weight}% · 제외 {100 - result.evaluated_weight}%
           </p>
         </div>
@@ -1056,7 +1056,7 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
 
       {result.score_breakdown && <ScoreBreakdownSection breakdown={result.score_breakdown} />}
 
-      <p className="mt-5 text-xs text-slate-500">
+      <p className="mt-5 text-xs text-slate-500 dark:text-slate-400">
         갱신 시각: {formatDetailDateTime(result.updated_at)}
       </p>
     </article>
@@ -1065,16 +1065,16 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
 
 function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
   return (
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+    <div className="mt-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400">
         점수는 이렇게 계산됐어요
       </p>
-      <p className="mt-2 break-keep text-sm leading-6 text-slate-600">
+      <p className="mt-2 break-keep text-sm leading-6 text-slate-600 dark:text-slate-300">
         {buildBreakdownSummary(breakdown)}
       </p>
 
       {breakdown.gate && (
-        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+        <p className="mt-3 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-800 dark:text-amber-300">
           등급 제한: {scoreGateLabel(breakdown.gate)} → 최대 {breakdown.gate.grade_cap}
         </p>
       )}
@@ -1083,23 +1083,23 @@ function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
         {breakdown.categories.map((category) => (
           <li key={category.key}>
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="font-semibold text-slate-700">
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
                 {scoreCategoryLabel(category.key)}
-                <span className="ml-2 text-xs font-semibold text-slate-400">
+                <span className="ml-2 text-xs font-semibold text-slate-400 dark:text-slate-500">
                   {category.weight}%
                 </span>
               </span>
               <span
                 className={
                   category.score === null
-                    ? "text-xs font-semibold text-slate-400"
-                    : "font-bold text-slate-900"
+                    ? "text-xs font-semibold text-slate-400 dark:text-slate-500"
+                    : "font-bold text-slate-900 dark:text-white"
                 }
               >
                 {category.score === null ? "평가 제외" : `${category.score}점`}
               </span>
             </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-200">
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
               {category.score !== null && category.score > 0 && (
                 <div
                   className={`h-full rounded-full ${scoreBarClassName(category.score)}`}
@@ -1107,7 +1107,7 @@ function ScoreBreakdownSection({ breakdown }: { breakdown: ScoreBreakdown }) {
                 />
               )}
             </div>
-            <p className="mt-1.5 break-keep text-xs leading-5 text-slate-500">
+            <p className="mt-1.5 break-keep text-xs leading-5 text-slate-500 dark:text-slate-400">
               {category.reasons.map((reason) => scoreReasonText(reason)).join(" · ")}
             </p>
           </li>
@@ -1148,15 +1148,15 @@ export function AIReportSummaryCard({
   const riskClassName = getRiskBadgeClassName(report.deployment_risk);
 
   return (
-    <article className="rounded-3xl border border-cyan-200 bg-cyan-50/60 p-6">
+    <article className="rounded-3xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400">
             AI 진단
             <InfoHint text="수집된 근거만을 바탕으로 AI가 작성한 진단 요약입니다." />
           </p>
           <h2 className="mt-3 text-2xl font-bold">근거 기반 진단 요약</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{report.summary}</p>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">{report.summary}</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${riskClassName}`}>
           {riskLabels[report.deployment_risk]}
@@ -1173,7 +1173,7 @@ export function AIReportSummaryCard({
         </div>
       )}
 
-      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="mt-5 grid gap-4 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2 lg:grid-cols-4">
         <Metric
           hint="종합 점수의 등급입니다 — 90점 이상 A, 80 이상 B, 70 이상 C, 50 이상 D, 그 미만 F."
           label="등급"
@@ -1188,14 +1188,14 @@ export function AIReportSummaryCard({
         <Metric label="갱신 시각" value={formatDetailDateTime(report.updated_at)} />
       </dl>
 
-      <p className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-500">
+      <p className="mt-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4 text-xs leading-5 text-slate-500 dark:text-slate-400">
         이 요약은 AIM이 수집한 점수, 스캔 결과, 시나리오 근거를 바탕으로 생성됩니다.
         내부 원인이나 소스 코드 위치를 확정 사실처럼 표시하지 않습니다.
       </p>
 
       <div className="mt-5">
         <button
-          className="rounded-2xl border border-cyan-300 bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-2xl border border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950 px-4 py-3 text-sm font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={isLoadingDetail}
           onClick={onLoadDetail}
           type="button"
@@ -1275,15 +1275,15 @@ function DetailSection({
   return (
     <div>
       <button
-        className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-slate-50"
+        className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800/60"
         onClick={() => setManualOpen(!isOpen)}
         type="button"
       >
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${detailToneDotClassName[tone]}`} />
-        <span className="w-24 shrink-0 text-sm font-bold text-slate-900">{title}</span>
-        <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{summary}</span>
+        <span className="w-24 shrink-0 text-sm font-bold text-slate-900 dark:text-white">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-xs text-slate-500 dark:text-slate-400">{summary}</span>
         <svg
-          className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition ${isOpen ? "rotate-180" : ""}`}
+          className={`h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500 transition ${isOpen ? "rotate-180" : ""}`}
           fill="none"
           viewBox="0 0 16 16"
         >
@@ -1296,7 +1296,7 @@ function DetailSection({
           />
         </svg>
       </button>
-      {isOpen && <div className="border-t border-slate-100 bg-slate-50/60 p-4">{children}</div>}
+      {isOpen && <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 p-4">{children}</div>}
     </div>
   );
 }
@@ -1442,7 +1442,7 @@ function DetailSections({
     : "아직 계산된 점수가 없습니다";
 
   return (
-    <section className="divide-y divide-slate-100 overflow-hidden rounded-3xl border border-slate-200 bg-white">
+    <section className="divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
       <DetailSection
         defaultOpen={availability.tone === "danger"}
         summary={availability.summary}
@@ -1498,12 +1498,12 @@ function DetailSections({
         tone={score?.score_breakdown?.gate ? "warn" : "neutral"}
       >
         {score?.score_breakdown ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
             <ScoreBreakdownSection breakdown={score.score_breakdown} />
             <ScoreBandLegend showExcluded />
           </div>
         ) : (
-          <p className="text-sm text-slate-500">아직 계산된 점수가 없습니다.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">아직 계산된 점수가 없습니다.</p>
         )}
       </DetailSection>
       <DetailSection
@@ -1511,8 +1511,8 @@ function DetailSections({
         title="실행 정보"
         tone="neutral"
       >
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <dl className="grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <dl className="grid gap-4 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
             <Metric label="대기 시각" value={formatDetailDateTime(checkRun.queued_at)} />
             <Metric label="시작 시각" value={formatDetailDateTime(checkRun.started_at)} />
             <Metric label="종료 시각" value={formatDetailDateTime(checkRun.finished_at)} />
@@ -1543,16 +1543,16 @@ function LinkedScenarioRunsCard({
   if (scenarioRuns.length === 0) {
     return (
       <article
-        className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+        className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
         id="scenario-runs-card"
       >
-        <h2 className="text-xl font-semibold text-slate-900">연결된 시나리오 실행</h2>
-        <p className="mt-3 text-sm leading-6 text-slate-500">
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">연결된 시나리오 실행</h2>
+        <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
           이 검사에 연결된 시나리오 실행이 없습니다. 프로젝트의 시나리오 목록에서 수동 실행
           이력과 설정을 확인할 수 있습니다.
         </p>
         <Link
-          className="mt-5 inline-flex rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100"
+          className="mt-5 inline-flex rounded-xl border border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-100 dark:hover:bg-cyan-900/60"
           href={`/projects/${projectId}/scenarios`}
         >
           시나리오 목록 보기
@@ -1563,17 +1563,17 @@ function LinkedScenarioRunsCard({
 
   return (
     <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
       id="scenario-runs-card"
     >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400">
             기능 검사
           </p>
           <h2 className="mt-2 text-xl font-semibold">연결된 시나리오 실행</h2>
         </div>
-        <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
+        <span className="rounded-full bg-cyan-50 dark:bg-cyan-950 px-3 py-1 text-xs font-bold text-cyan-700 dark:text-cyan-400 ring-1 ring-cyan-200 dark:ring-cyan-900">
           {scenarioRuns.length}개
         </span>
       </div>
@@ -1596,19 +1596,19 @@ function LinkedScenarioRunsCard({
 
           return (
             <li
-              className={`rounded-2xl border p-4 text-sm text-slate-600 ${
+              className={`rounded-2xl border p-4 text-sm text-slate-600 dark:text-slate-300 ${
                 isFailed
-                  ? "border-rose-200 bg-rose-50"
-                  : "border-slate-200 bg-slate-50"
+                  ? "border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950"
+                  : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50"
               }`}
               key={scenarioRun.id}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <p className="font-semibold text-slate-900">시나리오 실행</p>
+                <p className="font-semibold text-slate-900 dark:text-white">시나리오 실행</p>
                 <ScenarioRunStatusBadge status={scenarioRun.status} />
               </div>
               {isFailed && (
-                <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-100 p-3 text-sm text-rose-800">
+                <p className="mt-4 rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-100 p-3 text-sm text-rose-800 dark:text-rose-300">
                   우선 확인 필요: {scenarioRun.failure_reason ?? "실패 사유가 기록되지 않았습니다."}
                 </p>
               )}
@@ -1622,13 +1622,13 @@ function LinkedScenarioRunsCard({
               </dl>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link
-                  className="inline-flex rounded-xl border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-100"
+                  className="inline-flex rounded-xl border border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-100 dark:hover:bg-cyan-900/60"
                   href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs/${scenarioRun.id}`}
                 >
                   실행 결과 보기
                 </Link>
                 <Link
-                  className="inline-flex rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
+                  className="inline-flex rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 transition hover:border-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300"
                   href={`/projects/${projectId}/scenarios/${scenarioRun.scenario_id}/runs`}
                 >
                   실행 목록 보기
@@ -1715,18 +1715,18 @@ function getScenarioSummaryDescription(summary: ScenarioRunSummary) {
 
 function getScenarioSummaryClassName(summary: ScenarioRunSummary) {
   if (summary.failed > 0) {
-    return "border-rose-200 bg-rose-50 text-rose-800";
+    return "border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-300";
   }
 
   if (summary.active > 0) {
-    return "border-cyan-200 bg-cyan-50 text-cyan-700";
+    return "border-cyan-200 dark:border-cyan-900 bg-cyan-50 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-400";
   }
 
   if (summary.cancelled > 0) {
-    return "border-amber-200 bg-amber-50 text-amber-800";
+    return "border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300";
   }
 
-  return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  return "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300";
 }
 
 export function AvailabilityCard({
@@ -1749,7 +1749,7 @@ export function AvailabilityCard({
 
   return (
     <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
       id="availability-card"
     >
       <ResultHeader
@@ -1758,7 +1758,7 @@ export function AvailabilityCard({
         healthyLabel="사용 가능"
         unhealthyLabel="사용 불가"
       />
-      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
+      <dl className="mt-5 grid gap-4 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
         <Metric
           hint="서버가 반환한 HTTP 상태 코드입니다 — 200이면 정상 응답."
           label="상태 코드"
@@ -1789,7 +1789,7 @@ export function AvailabilityCard({
         <Metric label="실패 사유" value={result.failure_reason ?? "없음"} />
       </dl>
       {showResponseTimeBar && (
-        <div className="mt-5 border-t border-slate-200 pt-4">
+        <div className="mt-5 border-t border-slate-200 dark:border-slate-800 pt-4">
           <ThresholdBar
             goodLabel={`임계값 ${formatMilliseconds(thresholdMs)}`}
             goodTo={thresholdMs}
@@ -1806,7 +1806,7 @@ export function AvailabilityCard({
         </div>
       )}
       <AdviceList items={buildAvailabilityAdvice(result, responseTimeThresholdMs)} />
-      <p className="mt-5 break-all text-xs text-slate-500">
+      <p className="mt-5 break-all text-xs text-slate-500 dark:text-slate-400">
         최종 URL: {result.final_url ?? "없음"}
       </p>
     </article>
@@ -1822,7 +1822,7 @@ function SslCard({ result }: { result: SslResult | null }) {
 
   return (
     <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
       id="ssl-card"
     >
       <ResultHeader
@@ -1831,7 +1831,7 @@ function SslCard({ result }: { result: SslResult | null }) {
         healthyLabel={result.is_applicable ? "유효" : "대상 아님"}
         unhealthyLabel="문제 있음"
       />
-      <dl className="mt-5 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
+      <dl className="mt-5 grid gap-4 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
         <Metric
           hint="HTTPS를 사용하는 서비스만 인증서 검사 대상이 됩니다."
           label="검사 대상"
@@ -1854,7 +1854,7 @@ function SslCard({ result }: { result: SslResult | null }) {
         <Metric label="실패 사유" value={result.failure_reason ?? "없음"} />
       </dl>
       <AdviceList items={buildSslAdvice(result)} />
-      <p className="mt-5 break-all text-xs text-slate-500">서비스 URL: {result.service_url}</p>
+      <p className="mt-5 break-all text-xs text-slate-500 dark:text-slate-400">서비스 URL: {result.service_url}</p>
     </article>
   );
 }
@@ -1865,8 +1865,8 @@ function AdviceList({ items }: { items: string[] }) {
   }
 
   return (
-    <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">권장 조치</p>
+    <div className="mt-5 rounded-2xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">권장 조치</p>
       <ul className="mt-2 grid gap-2 text-sm leading-6 text-amber-900">
         {items.map((item) => (
           <li key={item}>{item}</li>
@@ -1885,7 +1885,7 @@ export function LighthouseCard({ result }: { result: LighthouseResult | null }) 
 
   return (
     <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6"
+      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
       id="lighthouse-card"
     >
       <ResultHeader
@@ -1920,7 +1920,7 @@ export function LighthouseCard({ result }: { result: LighthouseResult | null }) 
       {(result.largest_contentful_paint_ms !== null ||
         result.cumulative_layout_shift !== null ||
         result.total_blocking_time_ms !== null) && (
-        <div className="mt-6 grid gap-5 border-t border-slate-200 pt-5">
+        <div className="mt-6 grid gap-5 border-t border-slate-200 dark:border-slate-800 pt-5">
           <ThresholdBar
             goodLabel="2.5초"
             goodTo={2500}
@@ -1957,12 +1957,12 @@ export function LighthouseCard({ result }: { result: LighthouseResult | null }) 
         </div>
       )}
       {result.failure_reason && (
-        <p className="mt-5 break-keep rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm leading-6 text-rose-800">
+        <p className="mt-5 break-keep rounded-2xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950 p-3 text-sm leading-6 text-rose-800 dark:text-rose-300">
           실패 사유: {result.failure_reason}
         </p>
       )}
       <LighthouseTopAuditList audits={result.top_audits} isSuccessful={result.is_successful} />
-      <p className="mt-5 break-all text-xs text-slate-500">서비스 URL: {result.service_url}</p>
+      <p className="mt-5 break-all text-xs text-slate-500 dark:text-slate-400">서비스 URL: {result.service_url}</p>
     </article>
   );
 }
@@ -1984,15 +1984,15 @@ function LighthouseTopAuditList({
     }
 
     return (
-      <p className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+      <p className="mt-5 rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 p-3 text-sm text-emerald-800 dark:text-emerald-300">
         Lighthouse가 발견한 주요 개선 기회가 없습니다.
       </p>
     );
   }
 
   return (
-    <div className="mt-5 border-t border-slate-200 pt-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+    <div className="mt-5 border-t border-slate-200 dark:border-slate-800 pt-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400">
         개선 Top {audits.length}
       </p>
       <ol className="mt-3 grid gap-2">
@@ -2000,14 +2000,14 @@ function LighthouseTopAuditList({
           const impact = formatAuditImpact(audit);
 
           return (
-            <li className="rounded-2xl border border-slate-200 bg-slate-50 p-3" key={audit.id}>
+            <li className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-3" key={audit.id}>
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <p className="text-sm font-semibold leading-5 text-slate-900">
+                <p className="text-sm font-semibold leading-5 text-slate-900 dark:text-white">
                   {index + 1}. {audit.title}
                 </p>
                 <Badge label={formatAuditCategory(audit.category)} />
               </div>
-              {impact && <p className="mt-1 text-xs text-slate-500">{impact}</p>}
+              {impact && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{impact}</p>}
             </li>
           );
         })}
@@ -2028,20 +2028,20 @@ function ArtifactCard({
   }
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6">
+    <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">산출물</h2>
-        <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-700 ring-1 ring-cyan-200">
+        <span className="rounded-full bg-cyan-50 dark:bg-cyan-950 px-3 py-1 text-xs font-bold text-cyan-700 dark:text-cyan-400 ring-1 ring-cyan-200 dark:ring-cyan-900">
           {artifacts.length}개
         </span>
       </div>
       <ul className="grid gap-3">
         {artifacts.map((artifact) => (
           <li
-            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"
+            className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4 text-sm text-slate-600 dark:text-slate-300"
             key={artifact.id}
           >
-            <p className="font-semibold text-slate-900">{artifact.artifact_type}</p>
+            <p className="font-semibold text-slate-900 dark:text-white">{artifact.artifact_type}</p>
             <dl className="mt-3 grid gap-3 sm:grid-cols-2">
               <Metric label="크기" value={formatBytes(artifact.size_bytes)} />
               <Metric label="생성 시각" value={formatDetailDateTime(artifact.created_at)} />
@@ -2058,9 +2058,9 @@ function ArtifactCard({
 
 function EmptyResultCard({ title, description }: { title: string; description: string }) {
   return (
-    <article className="rounded-3xl border border-dashed border-slate-200 bg-white/60 p-6">
+    <article className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 p-6">
       <h2 className="text-xl font-semibold">{title}</h2>
-      <p className="mt-4 text-sm text-slate-500">{description}</p>
+      <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">{description}</p>
     </article>
   );
 }
@@ -2082,8 +2082,8 @@ function ResultHeader({
       <span
         className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${
           isHealthy
-            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-            : "bg-rose-50 text-rose-700 ring-rose-200"
+            ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-900"
+            : "bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 ring-rose-200 dark:ring-rose-900"
         }`}
       >
         {isHealthy ? healthyLabel : unhealthyLabel}
@@ -2094,14 +2094,14 @@ function ResultHeader({
 
 function getRiskBadgeClassName(risk: ScoreResult["deployment_risk"]) {
   if (risk === "STABLE") {
-    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+    return "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 ring-emerald-200 dark:ring-emerald-900";
   }
 
   if (risk === "RISK") {
-    return "bg-rose-50 text-rose-700 ring-rose-200";
+    return "bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 ring-rose-200 dark:ring-rose-900";
   }
 
-  return "bg-amber-50 text-amber-700 ring-amber-200";
+  return "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 ring-amber-200 dark:ring-amber-900";
 }
 
 function formatNullable(value: number | null) {

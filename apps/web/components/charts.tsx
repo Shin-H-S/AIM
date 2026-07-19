@@ -29,10 +29,10 @@ const bandRingClassName: Record<ScoreBand, string> = {
 };
 
 const bandTextClassName: Record<ScoreBand, string> = {
-  good: "text-emerald-600",
+  good: "text-emerald-600 dark:text-emerald-400",
   mid: "text-amber-600",
-  bad: "text-rose-600",
-  none: "text-slate-400"
+  bad: "text-rose-600 dark:text-rose-400",
+  none: "text-slate-400 dark:text-slate-500"
 };
 
 const bandBarClassName: Record<ScoreBand, string> = {
@@ -92,8 +92,8 @@ export function ScoreDonut({
         )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-4xl font-black tracking-tight text-slate-900">{grade}</span>
-        <span className="text-xs font-semibold text-slate-500">{score}/100</span>
+        <span className="text-4xl font-black tracking-tight text-slate-900 dark:text-white">{grade}</span>
+        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{score}/100</span>
       </div>
     </div>
   );
@@ -138,7 +138,7 @@ export function MiniDonut({
           />
         )}
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-900">
+      <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-900 dark:text-white">
         {grade}
       </span>
     </div>
@@ -244,7 +244,7 @@ export function ScoreTrendPanel({ series }: { series: ScoreTrendSeries[] }) {
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
               entry.key === activeSeries.key
                 ? "bg-cyan-700 text-white"
-                : "border border-slate-200 text-slate-600 hover:border-cyan-400 hover:text-cyan-700"
+                : "border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300"
             }`}
             key={entry.key}
             onClick={() => setActiveKey(entry.key)}
@@ -293,7 +293,7 @@ export function ScoreTrendChart({ points }: { points: ScoreTrendPoint[] }) {
       ))}
       {points.length > 1 && (
         <polyline
-          className="text-cyan-600"
+          className="text-cyan-600 dark:text-cyan-400"
           fill="none"
           points={linePoints}
           stroke="currentColor"
@@ -390,7 +390,7 @@ export function RingGauge({
           {score === null ? "–" : Math.round(score)}
         </span>
       </div>
-      <p className="mt-1.5 break-keep text-center text-[11px] font-semibold leading-4 text-slate-500">
+      <p className="mt-1.5 break-keep text-center text-[11px] font-semibold leading-4 text-slate-500 dark:text-slate-400">
         {label}
         {hint && <InfoHint text={hint} />}
       </p>
@@ -400,7 +400,7 @@ export function RingGauge({
 
 export function ScoreBandLegend({ showExcluded = false }: { showExcluded?: boolean }) {
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-semibold text-slate-400">
+    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
       <span className="flex items-center gap-1.5">
         <span className="h-2 w-2 rounded-full bg-emerald-500" />
         90–100 좋음
@@ -450,7 +450,7 @@ export function ThresholdBar({
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
           {label}
           {hint && <InfoHint text={hint} />}
         </p>
@@ -472,7 +472,7 @@ export function ThresholdBar({
           />
         )}
       </div>
-      <div className="relative mt-1 h-4 text-[10px] font-semibold text-slate-400">
+      <div className="relative mt-1 h-4 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
         <span
           className="absolute -translate-x-1/2 whitespace-nowrap"
           style={{ left: `${(goodTo / max) * 100}%` }}

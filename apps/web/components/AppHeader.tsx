@@ -118,6 +118,14 @@ export function AppHeader() {
     };
   }, [isUserMenuOpen]);
 
+  // 다크모드 1단계는 공개 화면 한정 — 앱 내부(로그인 후) 화면은 아직 라이트
+  // 전용이라 로그인 상태에서는 다크 클래스를 해제한다. 2단계에서 확장 예정.
+  useEffect(() => {
+    if (session.state === "signed-in") {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [session.state]);
+
   const isSignedIn = session.state === "signed-in";
   const projectContext = isSignedIn ? parseProjectContext(pathname) : null;
   const contextProjectId = projectContext?.projectId ?? null;
@@ -155,6 +163,15 @@ export function AppHeader() {
     setIsMobileMenuOpen(false);
   }
 
+  function handleThemeToggle() {
+    const isDark = document.documentElement.classList.toggle("dark");
+    try {
+      localStorage.setItem("aim-theme", isDark ? "dark" : "light");
+    } catch {
+      // 저장 실패는 무시 — 현재 세션에서만 유지된다.
+    }
+  }
+
   function handleLogout() {
     const accessToken = getStoredAccessToken();
 
@@ -170,21 +187,21 @@ export function AppHeader() {
   const avatarInitial = userEmail ? userEmail[0].toUpperCase() : "U";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
         <div className="flex min-w-0 items-center gap-5">
           <Link
-            className="flex shrink-0 items-center gap-2.5 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl"
+            className="flex shrink-0 items-center gap-2.5 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl dark:text-white"
             href={isSignedIn ? "/dashboard" : "/"}
           >
             <AimMark className="h-7 w-7 sm:h-8 sm:w-8" />
             <span>
-              AIM<span className="text-cyan-600">.</span>
+              AIM<span className="text-cyan-600 dark:text-cyan-400">.</span>
             </span>
           </Link>
 
           {session.state === "signed-out" && !hideGuestNav && (
-            <nav className="hidden items-center gap-1 text-sm font-semibold text-slate-600 sm:flex">
+            <nav className="hidden items-center gap-1 text-sm font-semibold text-slate-600 sm:flex dark:text-slate-300">
               <Link className={navLinkClassName(false)} href="/#flow">
                 사용 흐름
               </Link>
@@ -203,7 +220,7 @@ export function AppHeader() {
           )}
 
           {isSignedIn && !projectContext && (
-            <nav className="hidden items-center gap-1 text-sm font-semibold text-slate-600 sm:flex">
+            <nav className="hidden items-center gap-1 text-sm font-semibold text-slate-600 sm:flex dark:text-slate-300">
               <Link className={navLinkClassName(pathname === "/dashboard")} href="/dashboard">
                 Dashboard
               </Link>
@@ -260,15 +277,44 @@ export function AppHeader() {
             </span>
           )}
           {session.state === "signed-out" && (
+            <button
+              aria-label="다크 모드 전환"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 shadow-sm transition hover:border-cyan-400 hover:text-cyan-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-cyan-500 dark:hover:text-cyan-300"
+              onClick={handleThemeToggle}
+              type="button"
+            >
+              {/* 라이트에선 달(→다크로), 다크에선 해(→라이트로) — CSS로 상태 표시 */}
+              <svg aria-hidden className="h-4 w-4 dark:hidden" viewBox="0 0 16 16">
+                <path
+                  d="M13.8 9.6A6 6 0 1 1 6.4 2.2a4.8 4.8 0 0 0 7.4 7.4Z"
+                  fill="currentColor"
+                />
+              </svg>
+              <svg aria-hidden className="hidden h-4 w-4 dark:block" fill="none" viewBox="0 0 16 16">
+                <circle cx="8" cy="8" fill="currentColor" r="3" />
+                <g stroke="currentColor" strokeLinecap="round" strokeWidth="1.5">
+                  <line x1="8" x2="8" y1="1" y2="2.6" />
+                  <line x1="8" x2="8" y1="13.4" y2="15" />
+                  <line x1="1" x2="2.6" y1="8" y2="8" />
+                  <line x1="13.4" x2="15" y1="8" y2="8" />
+                  <line x1="3.05" x2="4.18" y1="3.05" y2="4.18" />
+                  <line x1="11.82" x2="12.95" y1="11.82" y2="12.95" />
+                  <line x1="12.95" x2="11.82" y1="3.05" y2="4.18" />
+                  <line x1="4.18" x2="3.05" y1="11.82" y2="12.95" />
+                </g>
+              </svg>
+            </button>
+          )}
+          {session.state === "signed-out" && (
             <div className="hidden items-center gap-2 sm:flex">
               <Link
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-400 hover:text-cyan-700"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-400 hover:text-cyan-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                 href="/login"
               >
                 로그인
               </Link>
               <Link
-                className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-cyan-700"
+                className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500"
                 href="/signup"
               >
                 무료로 시작
@@ -321,7 +367,7 @@ export function AppHeader() {
             <button
               aria-expanded={isMobileMenuOpen}
               aria-label={isMobileMenuOpen ? "메뉴 닫기" : "메뉴 열기"}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700 sm:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700 sm:hidden dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
               onClick={() => setIsMobileMenuOpen((open) => !open)}
               type="button"
             >
@@ -348,7 +394,7 @@ export function AppHeader() {
       </div>
 
       {isMobileMenuOpen && (
-        <nav className="border-t border-slate-200 bg-white px-4 pb-4 pt-2 sm:hidden">
+        <nav className="border-t border-slate-200 bg-white px-4 pb-4 pt-2 sm:hidden dark:border-slate-800 dark:bg-slate-950">
           {session.state === "signed-out" && (
             <div className="grid gap-1">
               {!hideGuestNav && (
@@ -448,12 +494,16 @@ export function AppHeader() {
 
 function navLinkClassName(isActive: boolean) {
   return `rounded-xl px-3.5 py-2 transition ${
-    isActive ? "bg-cyan-50 text-cyan-800" : "hover:bg-slate-100 hover:text-cyan-700"
+    isActive
+      ? "bg-cyan-50 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300"
+      : "hover:bg-slate-100 hover:text-cyan-700 dark:hover:bg-slate-800 dark:hover:text-cyan-300"
   }`;
 }
 
 function mobileLinkClassName(isActive: boolean) {
   return `rounded-xl px-3 py-2.5 text-sm font-bold transition ${
-    isActive ? "bg-cyan-50 text-cyan-800" : "text-slate-600 hover:bg-slate-100 hover:text-cyan-700"
+    isActive
+      ? "bg-cyan-50 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300"
+      : "text-slate-600 hover:bg-slate-100 hover:text-cyan-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-cyan-300"
   }`;
 }

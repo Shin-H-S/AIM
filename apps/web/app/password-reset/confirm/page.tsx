@@ -56,8 +56,8 @@ function PasswordResetConfirmForm() {
   if (!token) {
     return (
       <PageShell>
-        <h1 className="text-2xl font-bold text-slate-900">재설정 링크가 올바르지 않습니다</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">재설정 링크가 올바르지 않습니다</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
           메일에 포함된 링크로 다시 접속하거나, 재설정 메일을 새로 요청하세요.
         </p>
         <Link
@@ -73,8 +73,8 @@ function PasswordResetConfirmForm() {
   if (confirmState === "success") {
     return (
       <PageShell>
-        <h1 className="text-2xl font-bold text-slate-900">비밀번호가 변경되었습니다</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">비밀번호가 변경되었습니다</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
           새 비밀번호로 다시 로그인하세요.
         </p>
         <Link
@@ -90,17 +90,17 @@ function PasswordResetConfirmForm() {
   return (
     <PageShell>
       <form onSubmit={handleSubmit}>
-        <h1 className="text-2xl font-bold text-slate-900">새 비밀번호 설정</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">새 비밀번호 설정</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
           사용할 새 비밀번호를 입력하세요. 8자 이상이어야 합니다.
         </p>
 
         <div className="mt-6 space-y-4">
           <label className="block" htmlFor="new-password">
-            <span className="text-sm font-semibold text-slate-600">새 비밀번호</span>
+            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">새 비밀번호</span>
             <input
               autoComplete="new-password"
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
               id="new-password"
               name="new-password"
               onChange={(event) => setNewPassword(event.target.value)}
@@ -111,10 +111,10 @@ function PasswordResetConfirmForm() {
           </label>
 
           <label className="block" htmlFor="confirm-password">
-            <span className="text-sm font-semibold text-slate-600">새 비밀번호 확인</span>
+            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">새 비밀번호 확인</span>
             <input
               autoComplete="new-password"
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
               id="confirm-password"
               name="confirm-password"
               onChange={(event) => setConfirmPassword(event.target.value)}
@@ -143,7 +143,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl justify-center px-6 py-12">
-        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/40">
           {children}
         </div>
       </section>
@@ -166,7 +166,7 @@ function ConfirmNotice({ confirmState }: { confirmState: ConfirmState }) {
           : "요청에 실패했습니다. 잠시 후 다시 시도하세요.";
 
   return (
-    <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
+    <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
       {message}
     </p>
   );

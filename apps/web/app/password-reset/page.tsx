@@ -27,19 +27,19 @@ export default function PasswordResetRequestPage() {
     <main>
       <section className="mx-auto flex w-full max-w-6xl justify-center px-6 py-12">
         <form
-          className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60"
+          className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/40"
           onSubmit={handleSubmit}
         >
-          <h1 className="text-2xl font-bold text-slate-900">비밀번호 재설정</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-500">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">비밀번호 재설정</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
             가입한 이메일 주소를 입력하면 재설정 링크를 보내드립니다.
           </p>
 
           <label className="mt-6 block" htmlFor="email">
-            <span className="text-sm font-semibold text-slate-600">이메일</span>
+            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">이메일</span>
             <input
               autoComplete="email"
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
               id="email"
               name="email"
               onChange={(event) => setEmail(event.target.value)}
@@ -57,9 +57,9 @@ export default function PasswordResetRequestPage() {
             {requestState === "submitting" ? "요청 중" : "재설정 메일 보내기"}
           </button>
 
-          <p className="mt-4 text-center text-sm text-slate-500">
+          <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
             비밀번호가 기억나셨나요?{" "}
-            <Link className="font-bold text-cyan-700 hover:text-cyan-700" href="/login">
+            <Link className="font-bold text-cyan-700 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300" href="/login">
               로그인으로 돌아가기
             </Link>
           </p>
@@ -78,7 +78,7 @@ function RequestNotice({ requestState }: { requestState: RequestState }) {
 
   if (requestState === "accepted") {
     return (
-      <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">
+      <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
         입력한 주소가 가입된 이메일이라면 재설정 링크를 보냈습니다. 메일함(스팸함 포함)을
         확인하세요. 링크는 30분 동안 유효합니다.
       </p>
@@ -87,14 +87,14 @@ function RequestNotice({ requestState }: { requestState: RequestState }) {
 
   if (requestState === "invalid") {
     return (
-      <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
+      <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
         이메일 주소를 입력하세요.
       </p>
     );
   }
 
   return (
-    <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
+    <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
       요청에 실패했습니다. 잠시 후 다시 시도하세요.
     </p>
   );

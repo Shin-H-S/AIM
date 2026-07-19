@@ -58,8 +58,8 @@ function TokenConfirm({ token }: { token: string }) {
   if (confirmState === "verifying") {
     return (
       <>
-        <h1 className="text-2xl font-bold text-slate-900">이메일 인증 중</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">잠시만 기다려주세요.</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">이메일 인증 중</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">잠시만 기다려주세요.</p>
       </>
     );
   }
@@ -67,8 +67,8 @@ function TokenConfirm({ token }: { token: string }) {
   if (confirmState === "success") {
     return (
       <>
-        <h1 className="text-2xl font-bold text-slate-900">이메일 인증이 완료되었습니다</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">이메일 인증이 완료되었습니다</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
           이제 로그인해서 첫 Project를 만들 수 있습니다.
         </p>
         <Link
@@ -92,8 +92,8 @@ function TokenConfirm({ token }: { token: string }) {
 
   return (
     <>
-      <h1 className="text-2xl font-bold text-slate-900">인증 요청에 실패했습니다</h1>
-      <p className="mt-2 text-sm leading-6 text-slate-500">
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">인증 요청에 실패했습니다</h1>
+      <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
         잠시 후 페이지를 새로고침해 다시 시도하세요.
       </p>
     </>
@@ -122,14 +122,14 @@ function ResendForm({ description, title }: { description: string; title: string
 
   return (
     <form onSubmit={handleSubmit}>
-      <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{title}</h1>
+      <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{description}</p>
 
       <label className="mt-6 block" htmlFor="verify-email-address">
-        <span className="text-sm font-semibold text-slate-600">이메일</span>
+        <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">이메일</span>
         <input
           autoComplete="email"
-          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
           id="verify-email-address"
           name="email"
           onChange={(event) => setEmail(event.target.value)}
@@ -160,7 +160,7 @@ function ResendNotice({ resendState }: { resendState: ResendState }) {
 
   if (resendState === "accepted") {
     return (
-      <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">
+      <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
         등록된 미인증 계정이라면 인증 메일이 발송됩니다. 메일함을 확인하세요.
       </p>
     );
@@ -172,7 +172,7 @@ function ResendNotice({ resendState }: { resendState: ResendState }) {
       : "요청에 실패했습니다. 잠시 후 다시 시도하세요.";
 
   return (
-    <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
+    <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
       {message}
     </p>
   );
@@ -182,7 +182,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
   return (
     <main>
       <section className="mx-auto flex w-full max-w-6xl justify-center px-6 py-12">
-        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/40">
           {children}
         </div>
       </section>

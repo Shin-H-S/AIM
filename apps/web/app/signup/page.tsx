@@ -81,19 +81,19 @@ export default function SignupPage() {
       <section className="mx-auto flex w-full max-w-6xl items-center px-6 py-12">
         <div className="grid w-full gap-8 lg:grid-cols-[1fr_460px] lg:items-center">
           <div>
-            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700">
+            <p className="mb-4 text-sm font-semibold uppercase tracking-[0.32em] text-cyan-700 dark:text-cyan-400">
               AIM Signup
             </p>
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
               계정을 만들고 첫 서비스를 바로 등록하세요
             </h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
               AIM은 가입 후 첫 Project를 만들고, domain verification을 거친 뒤 CheckRun을
               시작하는 흐름을 기준으로 설계되어 있습니다. 가입하면 인증 메일이 발송되고,
               이메일 인증을 마치면 로그인할 수 있습니다.
             </p>
 
-            <div className="mt-8 grid gap-3 text-sm text-slate-600">
+            <div className="mt-8 grid gap-3 text-sm text-slate-600 dark:text-slate-300">
               <OnboardingStep index={1} text="Email/password 계정을 생성합니다." />
               <OnboardingStep index={2} text="인증 메일의 링크로 이메일을 인증합니다." />
               <OnboardingStep index={3} text="로그인 후 첫 Project를 생성합니다." />
@@ -105,7 +105,7 @@ export default function SignupPage() {
 
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                className="inline-flex rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700"
+                className="inline-flex rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-cyan-400 hover:text-cyan-700 dark:border-slate-700 dark:text-slate-200"
                 href="/login"
               >
                 이미 계정이 있어요
@@ -114,22 +114,22 @@ export default function SignupPage() {
           </div>
 
           <form
-            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/40"
             onSubmit={handleSubmit}
           >
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">회원가입</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">회원가입</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
                 비밀번호는 저장되지 않고 인증에만 사용됩니다.
               </p>
             </div>
 
             <div className="mt-6 space-y-4">
               <label className="block" htmlFor="signup-email">
-                <span className="text-sm font-semibold text-slate-600">이메일</span>
+                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">이메일</span>
                 <input
                   autoComplete="email"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                   id="signup-email"
                   name="email"
                   onChange={(event) => setEmail(event.target.value)}
@@ -141,10 +141,10 @@ export default function SignupPage() {
               </label>
 
               <label className="block" htmlFor="signup-password">
-                <span className="text-sm font-semibold text-slate-600">비밀번호</span>
+                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">비밀번호</span>
                 <input
                   autoComplete="new-password"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                   id="signup-password"
                   minLength={MIN_PASSWORD_LENGTH}
                   name="password"
@@ -157,10 +157,10 @@ export default function SignupPage() {
               </label>
 
               <label className="block" htmlFor="signup-confirm-password">
-                <span className="text-sm font-semibold text-slate-600">비밀번호 확인</span>
+                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">비밀번호 확인</span>
                 <input
                   autoComplete="new-password"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                   id="signup-confirm-password"
                   minLength={MIN_PASSWORD_LENGTH}
                   name="confirm_password"
@@ -191,7 +191,7 @@ export default function SignupPage() {
 
 function OnboardingStep({ index, text }: { index: number; text: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-700 text-xs font-black text-white">
         {index}
       </span>
@@ -211,8 +211,8 @@ function SignupNotice({ signupState }: { signupState: SignupState }) {
     <p
       className={`mt-4 rounded-2xl border p-4 text-sm leading-6 ${
         signupState === "success" || signupState === "verify-email-sent"
-          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-          : "border-rose-200 bg-rose-50 text-rose-800"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+          : "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300"
       }`}
     >
       {notice}

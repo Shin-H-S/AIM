@@ -18,12 +18,12 @@ export default function Home() {
   }, [router]);
 
   return (
-    <main className="bg-[#f4f9fb]">
+    <main className="bg-[#f4f9fb] dark:bg-slate-950">
       <Hero />
       <FlowSection />
       <FeatureSection />
       <CtaBand />
-      <footer className="mx-auto flex w-full max-w-6xl flex-wrap justify-between gap-4 px-6 pb-12 pt-9 text-sm text-slate-500">
+      <footer className="mx-auto flex w-full max-w-6xl flex-wrap justify-between gap-4 px-6 pb-12 pt-9 text-sm text-slate-500 dark:text-slate-400">
         <span>AIM — AI Quality Monitor</span>
         <a
           className="transition hover:text-cyan-700"
@@ -44,28 +44,37 @@ function Hero() {
       {/* 모눈 배경: 모니터링 좌표계 모티프 */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-35 [mask-image:radial-gradient(ellipse_90%_70%_at_50%_0%,#000_30%,transparent_75%)]"
+        className="pointer-events-none absolute inset-0 opacity-35 [mask-image:radial-gradient(ellipse_90%_70%_at_50%_0%,#000_30%,transparent_75%)] dark:hidden"
         style={{
           backgroundImage:
             "linear-gradient(#d9e6ec 1px, transparent 1px), linear-gradient(90deg, #d9e6ec 1px, transparent 1px)",
           backgroundSize: "48px 48px"
         }}
       />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 hidden opacity-40 [mask-image:radial-gradient(ellipse_90%_70%_at_50%_0%,#000_30%,transparent_75%)] dark:block"
+        style={{
+          backgroundImage:
+            "linear-gradient(#1e293b 1px, transparent 1px), linear-gradient(90deg, #1e293b 1px, transparent 1px)",
+          backgroundSize: "48px 48px"
+        }}
+      />
       <div className="relative mx-auto grid w-full max-w-6xl items-center gap-14 px-6 pb-20 pt-16 lg:grid-cols-[1.05fr_0.95fr]">
         <div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-cyan-600/30 bg-cyan-50 px-3 py-1.5 text-xs font-bold tracking-wider text-cyan-800">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 ring-3 ring-emerald-100" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-cyan-600/30 bg-cyan-50 px-3 py-1.5 text-xs font-bold tracking-wider text-cyan-800 dark:border-cyan-400/30 dark:bg-cyan-950/60 dark:text-cyan-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 ring-3 ring-emerald-100 dark:ring-emerald-900" />
             실서비스 가동 중 · qaaimsync.com
           </span>
-          <h1 className="mt-5 break-keep text-balance text-4xl font-black leading-tight tracking-tight text-slate-900 sm:text-5xl">
-            <span className="mb-2 block text-2xl font-bold tracking-tight text-slate-500 sm:text-3xl">
+          <h1 className="mt-5 break-keep text-balance text-4xl font-black leading-tight tracking-tight text-slate-900 sm:text-5xl dark:text-white">
+            <span className="mb-2 block text-2xl font-bold tracking-tight text-slate-500 sm:text-3xl dark:text-slate-400">
               이번 배포, 이전보다 나아졌을까?
             </span>
-            감이 아니라 <em className="not-italic text-cyan-600">근거로</em> 답하는
+            감이 아니라 <em className="not-italic text-cyan-600 dark:text-cyan-400">근거로</em> 답하는
             <br />
             배포 품질 모니터링
           </h1>
-          <p className="mt-5 max-w-xl break-keep text-lg leading-8 text-slate-600">
+          <p className="mt-5 max-w-xl break-keep text-lg leading-8 text-slate-600 dark:text-slate-300">
             가용성 · SSL · Lighthouse 성능 · 핵심 사용자 흐름을 검사 한 번에 측정하고, 이전
             배포와 자동 비교해 점수와 AI 진단으로 알려드립니다.
           </p>
@@ -77,45 +86,45 @@ function Hero() {
               무료로 시작하기 →
             </Link>
             <a
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-400 hover:text-cyan-700"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-400 hover:text-cyan-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               href="#flow"
             >
               사용 흐름 보기 <span aria-hidden>↓</span>
             </a>
           </div>
-          <div className="mt-7 flex flex-wrap gap-5 text-sm text-slate-500">
+          <div className="mt-7 flex flex-wrap gap-5 text-sm text-slate-500 dark:text-slate-400">
             <span>
-              측정 카테고리 <b className="font-mono font-bold text-slate-900">6</b>종
+              측정 카테고리 <b className="font-mono font-bold text-slate-900 dark:text-white">6</b>종
             </span>
             <span>
-              시나리오 스텝 <b className="font-mono font-bold text-slate-900">8</b>종
+              시나리오 스텝 <b className="font-mono font-bold text-slate-900 dark:text-white">8</b>종
             </span>
             <span>
-              배포 훅 연동 <b className="font-mono font-bold text-slate-900">1</b>줄
+              배포 훅 연동 <b className="font-mono font-bold text-slate-900 dark:text-white">1</b>줄
             </span>
           </div>
         </div>
 
         <div aria-label="검사 리포트 미리보기" className="grid gap-3.5">
           <ScorePreviewCard />
-          <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-xl shadow-slate-900/5">
-            <div className="flex items-center gap-2 text-xs font-extrabold text-cyan-800">
+          <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-xl shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-2 text-xs font-extrabold text-cyan-800 dark:text-cyan-300">
               <span className="inline-block h-2 w-2 rounded-sm bg-cyan-600" />
               AI 진단
             </div>
-            <p className="mt-2 break-keep text-sm leading-6 text-slate-600">
-              <b className="text-slate-900">배포 후 성능이 소폭 개선되었습니다.</b> LCP가
+            <p className="mt-2 break-keep text-sm leading-6 text-slate-600 dark:text-slate-300">
+              <b className="text-slate-900 dark:text-white">배포 후 성능이 소폭 개선되었습니다.</b> LCP가
               1.8s→1.6s로 줄었고, 로그인 흐름 8단계가 모두 통과했습니다. 조치가 필요한 이슈는
               없습니다.
             </p>
           </div>
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-xl shadow-slate-900/5">
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-xl shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#5865f2] text-base font-black text-white">
               D
             </span>
-            <p className="text-slate-600">
-              <b className="text-slate-900">#aim-alerts</b> — ✅ 배포 검사 완료 · 종합{" "}
-              <b className="text-slate-900">97 A</b> · 회귀 없음
+            <p className="text-slate-600 dark:text-slate-300">
+              <b className="text-slate-900 dark:text-white">#aim-alerts</b> — ✅ 배포 검사 완료 · 종합{" "}
+              <b className="text-slate-900 dark:text-white">97 A</b> · 회귀 없음
             </p>
           </div>
         </div>
@@ -126,13 +135,13 @@ function Hero() {
 
 function ScorePreviewCard() {
   return (
-    <div className="flex items-center gap-5 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-xl shadow-slate-900/5">
+    <div className="flex items-center gap-5 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-xl shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900">
       <div
         className="grid h-21 w-21 shrink-0 place-items-center rounded-full"
         style={{ background: "conic-gradient(#10b981 349deg, #e2e8f0 0)" }}
       >
-        <div className="grid h-16 w-16 place-items-center rounded-full bg-white text-center font-mono">
-          <span className="text-2xl font-extrabold leading-none text-slate-900">
+        <div className="grid h-16 w-16 place-items-center rounded-full bg-white text-center font-mono dark:bg-slate-900">
+          <span className="text-2xl font-extrabold leading-none text-slate-900 dark:text-white">
             97
             <small className="block text-[11px] font-extrabold text-emerald-600">A</small>
           </span>
@@ -140,21 +149,21 @@ function ScorePreviewCard() {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-extrabold text-slate-900">qaaimsync.com · 검사 리포트</h3>
-          <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-600">
+          <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">qaaimsync.com · 검사 리포트</h3>
+          <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
             회귀 없음
           </span>
         </div>
-        <div className="mt-2.5 flex flex-wrap gap-2 font-mono text-[11.5px] tabular-nums text-slate-500">
-          <span className="rounded-lg border border-slate-200 px-2 py-1">
-            성능 <b className="text-emerald-600">+2 ▲</b>
+        <div className="mt-2.5 flex flex-wrap gap-2 font-mono text-[11.5px] tabular-nums text-slate-500 dark:text-slate-400">
+          <span className="rounded-lg border border-slate-200 px-2 py-1 dark:border-slate-700">
+            성능 <b className="text-emerald-600 dark:text-emerald-400">+2 ▲</b>
           </span>
-          <span className="rounded-lg border border-slate-200 px-2 py-1">
-            응답 <b className="text-emerald-600">-31ms ▲</b>
+          <span className="rounded-lg border border-slate-200 px-2 py-1 dark:border-slate-700">
+            응답 <b className="text-emerald-600 dark:text-emerald-400">-31ms ▲</b>
           </span>
-          <span className="rounded-lg border border-slate-200 px-2 py-1">접근성 100</span>
-          <span className="rounded-lg border border-slate-200 px-2 py-1">
-            시나리오 <b className="text-emerald-600">8/8 ✓</b>
+          <span className="rounded-lg border border-slate-200 px-2 py-1 dark:border-slate-700">접근성 100</span>
+          <span className="rounded-lg border border-slate-200 px-2 py-1 dark:border-slate-700">
+            시나리오 <b className="text-emerald-600 dark:text-emerald-400">8/8 ✓</b>
           </span>
         </div>
       </div>
@@ -197,11 +206,11 @@ function FlowSection() {
   return (
     <section className="mx-auto w-full max-w-6xl px-6 py-20" id="flow">
       <div className="max-w-xl">
-        <div className="text-xs font-extrabold tracking-[0.14em] text-cyan-800">사용 흐름</div>
-        <h2 className="mt-2 break-keep text-balance text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+        <div className="text-xs font-extrabold tracking-[0.14em] text-cyan-800 dark:text-cyan-300">사용 흐름</div>
+        <h2 className="mt-2 break-keep text-balance text-3xl font-black tracking-tight text-slate-900 sm:text-4xl dark:text-white">
           가입부터 첫 리포트까지, 4단계면 끝납니다
         </h2>
-        <p className="mt-3 break-keep text-slate-600">
+        <p className="mt-3 break-keep text-slate-600 dark:text-slate-300">
           각 단계에서 실제로 보게 될 화면입니다. 처음 오셔도 다음에 뭘 해야 하는지 헤매지
           않도록 설계했습니다.
         </p>
@@ -217,17 +226,17 @@ function FlowSection() {
             className="grid grid-cols-[56px_1fr] items-start gap-5 lg:grid-cols-[56px_1fr_1.15fr]"
             key={step.no}
           >
-            <div className="relative z-10 grid h-14 w-14 place-items-center rounded-2xl border border-slate-200 bg-white font-mono text-lg font-extrabold text-cyan-800 shadow-md shadow-slate-900/10">
+            <div className="relative z-10 grid h-14 w-14 place-items-center rounded-2xl border border-slate-200 bg-white font-mono text-lg font-extrabold text-cyan-800 shadow-md shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900 dark:text-cyan-300">
               {step.no}
             </div>
             <div>
-              <h3 className="text-lg font-extrabold tracking-tight text-slate-900">
+              <h3 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
                 {step.title}
-                <span className="ml-2 rounded-md bg-cyan-50 px-1.5 py-0.5 align-[2px] font-mono text-[11px] font-bold text-cyan-800">
+                <span className="ml-2 rounded-md bg-cyan-50 px-1.5 py-0.5 align-[2px] font-mono text-[11px] font-bold text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
                   {step.time}
                 </span>
               </h3>
-              <p className="mt-2 max-w-md break-keep text-sm leading-6 text-slate-600">
+              <p className="mt-2 max-w-md break-keep text-sm leading-6 text-slate-600 dark:text-slate-300">
                 {step.body}
               </p>
             </div>
@@ -241,12 +250,12 @@ function FlowSection() {
 
 function MockFrame({ children, url }: { children: React.ReactNode; url: string }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-xs shadow-2xl shadow-slate-900/10">
-      <div className="flex items-center gap-1.5 border-b border-slate-200 bg-slate-50 px-3 py-2">
-        <i className="h-2 w-2 rounded-full bg-slate-200" />
-        <i className="h-2 w-2 rounded-full bg-slate-200" />
-        <i className="h-2 w-2 rounded-full bg-slate-200" />
-        <span className="ml-2 rounded-md border border-slate-200 bg-white px-2.5 py-0.5 font-mono text-[10.5px] text-slate-400">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-xs shadow-2xl shadow-slate-900/10 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center gap-1.5 border-b border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/60">
+        <i className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-600" />
+        <i className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-600" />
+        <i className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-600" />
+        <span className="ml-2 rounded-md border border-slate-200 bg-white px-2.5 py-0.5 font-mono text-[10.5px] text-slate-400 dark:border-slate-700 dark:bg-slate-900">
           {url}
         </span>
       </div>
@@ -258,14 +267,14 @@ function MockFrame({ children, url }: { children: React.ReactNode; url: string }
 function SignupMock() {
   return (
     <MockFrame url="qaaimsync.com/signup">
-      <div className="text-[11px] font-bold text-slate-400">이메일</div>
-      <div className="mt-1 rounded-lg border border-slate-200 px-3 py-2 text-slate-500">
+      <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500">이메일</div>
+      <div className="mt-1 rounded-lg border border-slate-200 px-3 py-2 text-slate-500 dark:border-slate-700 dark:text-slate-400">
         you@example.com
       </div>
       <div className="mt-3 rounded-lg bg-cyan-600 py-2 text-center font-extrabold text-white">
         가입하기
       </div>
-      <div className="mt-2.5 rounded-lg bg-emerald-50 px-3 py-2 font-semibold text-emerald-600">
+      <div className="mt-2.5 rounded-lg bg-emerald-50 px-3 py-2 font-semibold text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
         ✉️ 인증 메일을 보냈습니다 — 링크를 열면 완료됩니다.
       </div>
     </MockFrame>
@@ -275,15 +284,15 @@ function SignupMock() {
 function ProjectMock() {
   return (
     <MockFrame url="projects/new">
-      <div className="text-[11px] font-bold text-slate-400">서비스 URL</div>
-      <div className="mt-1 rounded-lg border border-slate-200 px-3 py-2 font-mono text-slate-500">
+      <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500">서비스 URL</div>
+      <div className="mt-1 rounded-lg border border-slate-200 px-3 py-2 font-mono text-slate-500 dark:border-slate-700 dark:text-slate-400">
         https://myservice.io
       </div>
-      <div className="mt-2.5 text-[11px] font-bold text-slate-400">소유 확인 — head에 한 줄</div>
-      <div className="mt-1 overflow-x-auto rounded-lg border border-slate-200 px-3 py-2 font-mono text-[10.5px] text-slate-500">
+      <div className="mt-2.5 text-[11px] font-bold text-slate-400 dark:text-slate-500">소유 확인 — head에 한 줄</div>
+      <div className="mt-1 overflow-x-auto rounded-lg border border-slate-200 px-3 py-2 font-mono text-[10.5px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
         {'<meta name="aim-verification" content="a1b2…">'}
       </div>
-      <div className="mt-2.5 rounded-lg bg-emerald-50 px-3 py-2 font-semibold text-emerald-600">
+      <div className="mt-2.5 rounded-lg bg-emerald-50 px-3 py-2 font-semibold text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
         ✓ 도메인 확인 완료 — 검사를 시작할 수 있습니다.
       </div>
     </MockFrame>
@@ -293,21 +302,21 @@ function ProjectMock() {
 function CheckRunMock() {
   return (
     <MockFrame url="check-runs">
-      <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2">
-        <span className="text-slate-600">가용성 · SSL</span>
-        <span className="rounded-md border border-cyan-600/25 bg-cyan-50 px-2 py-0.5 font-mono text-[10.5px] text-cyan-800">
+      <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2 dark:border-slate-700">
+        <span className="text-slate-600 dark:text-slate-300">가용성 · SSL</span>
+        <span className="rounded-md border border-cyan-600/25 bg-cyan-50 px-2 py-0.5 font-mono text-[10.5px] text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
           완료 200 OK
         </span>
       </div>
-      <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2">
-        <span className="text-slate-600">Lighthouse 모바일</span>
-        <span className="rounded-md border border-cyan-600/25 bg-cyan-50 px-2 py-0.5 font-mono text-[10.5px] text-cyan-800">
+      <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2 dark:border-slate-700">
+        <span className="text-slate-600 dark:text-slate-300">Lighthouse 모바일</span>
+        <span className="rounded-md border border-cyan-600/25 bg-cyan-50 px-2 py-0.5 font-mono text-[10.5px] text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
           측정 중…
         </span>
       </div>
       <div className="flex items-center justify-between py-2">
-        <span className="text-slate-600">사용자 흐름 8단계</span>
-        <span className="rounded-md border border-slate-200 px-2 py-0.5 font-mono text-[10.5px] text-slate-400">
+        <span className="text-slate-600 dark:text-slate-300">사용자 흐름 8단계</span>
+        <span className="rounded-md border border-slate-200 px-2 py-0.5 font-mono text-[10.5px] text-slate-400 dark:border-slate-700">
           대기
         </span>
       </div>
@@ -321,9 +330,9 @@ function CheckRunMock() {
 function ResultMock() {
   return (
     <MockFrame url="runs/164">
-      <div className="flex items-center justify-between border-b border-dashed border-slate-200 pb-2">
-        <b className="font-mono text-xl text-slate-900">
-          97 <span className="text-emerald-600">A</span>
+      <div className="flex items-center justify-between border-b border-dashed border-slate-200 pb-2 dark:border-slate-700">
+        <b className="font-mono text-xl text-slate-900 dark:text-white">
+          97 <span className="text-emerald-600 dark:text-emerald-400">A</span>
         </b>
         <svg aria-hidden className="block" height="34" viewBox="0 0 150 34" width="150">
           <polyline
@@ -336,8 +345,8 @@ function ResultMock() {
           <circle cx="150" cy="6" fill="#0891b2" r="3.5" />
         </svg>
       </div>
-      <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2">
-        <span className="font-mono tabular-nums text-slate-600">
+      <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2 dark:border-slate-700">
+        <span className="font-mono tabular-nums text-slate-600 dark:text-slate-300">
           성능 86 · 접근성 100 · SEO 100
         </span>
         <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-600">
@@ -345,7 +354,7 @@ function ResultMock() {
         </span>
       </div>
       <div className="flex items-center justify-between pt-2">
-        <span className="text-slate-600">직전 배포 대비</span>
+        <span className="text-slate-600 dark:text-slate-300">직전 배포 대비</span>
         <span className="font-mono font-bold text-emerald-600">+2.0 ▲</span>
       </div>
     </MockFrame>
@@ -389,22 +398,22 @@ function FeatureSection() {
   return (
     <section className="mx-auto w-full max-w-6xl px-6 pb-20" id="features">
       <div className="max-w-xl">
-        <div className="text-xs font-extrabold tracking-[0.14em] text-cyan-800">
+        <div className="text-xs font-extrabold tracking-[0.14em] text-cyan-800 dark:text-cyan-300">
           무엇을 측정하나
         </div>
-        <h2 className="mt-2 break-keep text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+        <h2 className="mt-2 break-keep text-3xl font-black tracking-tight text-slate-900 sm:text-4xl dark:text-white">
           uptime 체커가 놓치는 것까지
         </h2>
       </div>
       <div className="mt-10 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((feature) => (
           <div
-            className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-cyan-600/45"
+            className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-cyan-600/45 dark:border-slate-800 dark:bg-slate-900"
             key={feature.k}
           >
-            <div className="font-mono text-[11px] font-bold text-cyan-800">{feature.k}</div>
-            <h3 className="mt-2 text-base font-extrabold text-slate-900">{feature.title}</h3>
-            <p className="mt-1.5 break-keep text-sm leading-6 text-slate-600">{feature.body}</p>
+            <div className="font-mono text-[11px] font-bold text-cyan-800 dark:text-cyan-300">{feature.k}</div>
+            <h3 className="mt-2 text-base font-extrabold text-slate-900 dark:text-white">{feature.title}</h3>
+            <p className="mt-1.5 break-keep text-sm leading-6 text-slate-600 dark:text-slate-300">{feature.body}</p>
           </div>
         ))}
       </div>
@@ -415,7 +424,7 @@ function FeatureSection() {
 function CtaBand() {
   return (
     <section className="mx-auto w-full max-w-6xl px-6 pb-4">
-      <div className="relative flex flex-wrap items-center justify-between gap-6 overflow-hidden rounded-3xl bg-slate-900 px-10 py-12 text-white">
+      <div className="relative flex flex-wrap items-center justify-between gap-6 overflow-hidden rounded-3xl bg-slate-900 px-10 py-12 text-white dark:ring-1 dark:ring-slate-800">
         <div
           aria-hidden
           className="absolute -right-16 -top-16 h-64 w-64 rounded-full"

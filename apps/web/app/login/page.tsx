@@ -54,22 +54,22 @@ export default function LoginPage() {
     <main>
       <section className="mx-auto flex w-full max-w-6xl justify-center px-6 py-12">
         <form
-          className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60"
+          className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/40"
           onSubmit={handleSubmit}
         >
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">로그인</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">로그인</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
               비밀번호는 저장되지 않고 인증에만 사용됩니다.
             </p>
           </div>
 
           <div className="mt-6 space-y-4">
             <label className="block" htmlFor="email">
-              <span className="text-sm font-semibold text-slate-600">이메일</span>
+              <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">이메일</span>
               <input
                 autoComplete="email"
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                 id="email"
                 name="email"
                 onChange={(event) => setEmail(event.target.value)}
@@ -80,10 +80,10 @@ export default function LoginPage() {
             </label>
 
             <label className="block" htmlFor="password">
-              <span className="text-sm font-semibold text-slate-600">비밀번호</span>
+              <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">비밀번호</span>
               <input
                 autoComplete="current-password"
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20"
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none ring-cyan-300/0 transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"
                 id="password"
                 name="password"
                 onChange={(event) => setPassword(event.target.value)}
@@ -102,13 +102,13 @@ export default function LoginPage() {
             {loginState === "submitting" ? "로그인 중" : "로그인"}
           </button>
 
-          <p className="mt-4 text-center text-sm text-slate-500">
+          <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
             계정이 없나요?{" "}
-            <Link className="font-bold text-cyan-700 hover:text-cyan-700" href="/signup">
+            <Link className="font-bold text-cyan-700 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300" href="/signup">
               회원가입
             </Link>
-            <span className="mx-2 text-slate-300">·</span>
-            <Link className="font-bold text-cyan-700 hover:text-cyan-700" href="/password-reset">
+            <span className="mx-2 text-slate-300 dark:text-slate-600">·</span>
+            <Link className="font-bold text-cyan-700 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300" href="/password-reset">
               비밀번호를 잊으셨나요?
             </Link>
           </p>
@@ -127,7 +127,7 @@ function LoginNotice({ loginState }: { loginState: LoginState }) {
 
   if (loginState === "success") {
     return (
-      <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">
+      <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
         로그인되었습니다. Dashboard로 이동합니다.
       </p>
     );
@@ -135,7 +135,7 @@ function LoginNotice({ loginState }: { loginState: LoginState }) {
 
   if (loginState === "invalid-credentials") {
     return (
-      <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
+      <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
         이메일 또는 비밀번호를 확인하세요.
       </p>
     );
@@ -143,7 +143,7 @@ function LoginNotice({ loginState }: { loginState: LoginState }) {
 
   if (loginState === "email-not-verified") {
     return (
-      <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+      <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
         이메일 인증이 아직 완료되지 않았습니다. 가입 시 받은 인증 메일을 확인하거나,{" "}
         <Link className="font-bold underline underline-offset-2" href="/verify-email">
           인증 메일을 다시 받으세요
@@ -154,7 +154,7 @@ function LoginNotice({ loginState }: { loginState: LoginState }) {
   }
 
   return (
-    <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
+    <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
       로그인 요청에 실패했습니다. 잠시 후 다시 시도하세요.
     </p>
   );

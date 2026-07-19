@@ -1,7 +1,15 @@
 @import "tailwindcss";
 
+/* 클래스 기반 다크모드: html.dark 하위에서만 dark: 변형이 활성화된다.
+   (헤더 토글 + 시스템 설정 기본값 — 초기화 스크립트는 layout.tsx 참조) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
 }
 
 * {
@@ -20,6 +28,10 @@ body {
     Helvetica,
     sans-serif;
   background: #f1f5f9;
+}
+
+:root.dark body {
+  background: #020617;
 }
 
 button,

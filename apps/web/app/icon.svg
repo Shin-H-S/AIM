@@ -1,4 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
-  <circle cx="24" cy="24" r="15.5" stroke="#0891b2" stroke-width="5"/>
-  <circle cx="24" cy="24" r="7" fill="#0891b2"/>
+  <!-- 펄스 타겟 compact: 십자선 생략, 파형 진폭·두께 확대 (16px 판독용) -->
+  <style>
+    .ring { stroke: #0891b2; }
+    .pulse { stroke: #0f172a; }
+    @media (prefers-color-scheme: dark) {
+      .ring { stroke: #22d3ee; }
+      .pulse { stroke: #e2f8fd; }
+    }
+  </style>
+  <circle class="ring" cx="24" cy="24" r="16" stroke-width="5"/>
+  <clipPath id="lens"><circle cx="24" cy="24" r="13"/></clipPath>
+  <g clip-path="url(#lens)">
+    <polyline class="pulse" points="5,24 15,24 21,11 28,36 33,24 43,24" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>

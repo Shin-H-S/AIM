@@ -1,3 +1,7 @@
+<p align="center">
+  <img alt="AIM 심볼 — 조준선 위를 지나는 서비스의 심박" src="docs/assets/aim-mark.svg" width="84">
+</p>
+
 # AIM — AI Quality Monitor
 
 > **"이번 배포, 이전보다 정말 나아졌을까?"**

@@ -52,8 +52,12 @@ def test_labels_carry_discriminating_evidence() -> None:
         fixtures = case.fixtures
         if case.root_cause == RootCause.SERVICE_DOWN:
             assert not fixtures.check_run.availability_ok
+            # 다운은 TCP 자체가 안 되므로 SSL 검사도 판단 불가여야 한다
+            assert fixtures.check_run.ssl_valid is None
         if case.root_cause == RootCause.SSL_INVALID:
             assert fixtures.check_run.ssl_valid is False
+            # 실제 스캐너 의미론: 무효 인증서는 TLS 실패로 가용성도 죽는다
+            assert not fixtures.check_run.availability_ok
         if case.root_cause == RootCause.MEASUREMENT_NOISE:
             assert not fixtures.recheck.reproduced
         else:
@@ -64,6 +68,18 @@ def test_labels_carry_discriminating_evidence() -> None:
             assert fixtures.artifacts.relocation_hint is not None
         if case.root_cause == RootCause.UI_REGRESSION:
             assert fixtures.artifacts.relocation_hint is None
+
+
+def test_noise_includes_availability_blips() -> None:
+    """운영 최다 노이즈(일시 연결 실패 — 겉모습은 다운과 동일)가 실재해야
+    '다운 확정 전 재검사' 라우팅이 평가로 검증된다."""
+    blips = [
+        case
+        for case in generate_cases()
+        if case.root_cause == RootCause.MEASUREMENT_NOISE
+        and not case.fixtures.check_run.availability_ok
+    ]
+    assert len(blips) == 5
 
 
 def _failed_error_kind(case: EvalCase) -> str | None:

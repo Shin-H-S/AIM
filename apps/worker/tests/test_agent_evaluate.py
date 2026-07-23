@@ -43,6 +43,30 @@ def test_report_serializes_to_json() -> None:
     assert '"accuracy": 1.0' in report.to_json()
 
 
+def test_report_flags_dangerous_direction() -> None:
+    """파손을 정상류로 판정한 오류(거짓 안심)는 G2로 별도 집계된다."""
+    cases = take_cases(2, RootCause.UI_REGRESSION) + take_cases(1, RootCause.SERVER_SLOW)
+    report = evaluate(FixedInvestigator(RootCause.MEASUREMENT_NOISE), cases)
+
+    assert len(report.misclassified_case_ids) == 3
+    # ui→noise 2건만 위험 방향이다 — slow→noise는 오분류지만 파손→정상류가 아니다
+    assert report.dangerous_misclassified_case_ids == (
+        "ui_regression-00",
+        "ui_regression-01",
+    )
+    assert '"dangerous_count": 2' in report.to_json()
+
+
+def test_rule_baseline_has_zero_dangerous_misclassifications() -> None:
+    """베이스라인의 오류는 전부 안전 방향 — G2(위험 방향 0건)는 베이스라인이
+    이미 만족하는 선이고, 에이전트도 이 선을 유지해야 한다."""
+    dev, test = split_cases(generate_cases())
+    baseline = RuleBaselineInvestigator()
+
+    assert evaluate(baseline, dev).dangerous_misclassified_case_ids == ()
+    assert evaluate(baseline, test).dangerous_misclassified_case_ids == ()
+
+
 def test_rule_baseline_nails_strong_signal_causes() -> None:
     """강한 신호 유형(다운·SSL·노이즈)은 규칙만으로 만점이어야 한다."""
     baseline = RuleBaselineInvestigator()

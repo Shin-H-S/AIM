@@ -105,35 +105,52 @@ def build_service_down(rng: random.Random, index: int) -> EvalCase:
 
 
 def build_ssl_invalid(rng: random.Random, index: int) -> EvalCase:
+    # 실제 스캐너 의미론(availability.py): httpx가 기본 verify=True라 무효
+    # 인증서는 TLS 핸드셰이크에서 실패한다 — 가용성 검사도 함께 죽고
+    # Lighthouse·시나리오도 진행 불가. 판별 증거는 별도 핸드셰이크로 검증
+    # 실패 후에도 인증서를 읽어내는 SSL 검사기의 ssl_valid=False(+사유)다.
+    # (다운은 TCP 자체가 안 되므로 ssl_valid=None)
     days = rng.randint(1, 30)
-    failure = rng.choice(
-        [f"certificate expired {days} days ago", "self-signed certificate in chain"]
+    flavor = index % 3
+    if flavor == 0:
+        ssl_failure = f"certificate expired {days} days ago"
+        navigate_error = "net::ERR_CERT_DATE_INVALID"
+    elif flavor == 1:
+        ssl_failure = "self-signed certificate in chain"
+        navigate_error = "net::ERR_CERT_AUTHORITY_INVALID"
+    else:
+        ssl_failure = "hostname mismatch: certificate is not valid for myservice.example"
+        navigate_error = "net::ERR_CERT_COMMON_NAME_INVALID"
+    steps = (
+        ScenarioStepResult(1, "navigate", f"{SERVICE_URL}/login", "FAILED", navigate_error),
+        ScenarioStepResult(2, "fill", "#email", "SKIPPED", None),
+        ScenarioStepResult(3, "click", 'button[type="submit"]', "SKIPPED", None),
     )
     fixtures = ToolFixtures(
         check_run=CheckRunSnapshot(
-            overall_score=round(rng.uniform(55.0, 75.0), 1),
-            grade="D",
+            overall_score=round(rng.uniform(5.0, 25.0), 1),
+            grade="F",
             deployment_risk="RISK",
-            gate_reason=failure,
-            availability_ok=True,
-            availability_failure=None,
-            response_time_ms=rng.randint(90, 280),
+            gate_reason=f"SSL certificate is invalid: {ssl_failure}",
+            availability_ok=False,
+            availability_failure="Service request failed.",
+            response_time_ms=None,
             response_time_threshold_ms=DEFAULT_THRESHOLD_MS,
             ssl_valid=False,
-            ssl_failure=failure,
-            lighthouse_performance=rng.randint(85, 99),
+            ssl_failure=ssl_failure,
+            lighthouse_performance=None,
             trigger_source="scheduled",
             deploy_ref=None,
         ),
-        scenario_results=passing_steps(rng),
-        artifacts=ArtifactsSnapshot(),
-        baseline=BaselineComparison(round(rng.uniform(-40.0, -20.0), 1), 0, rng.randint(-20, 20)),
+        scenario_results=steps,
+        artifacts=ArtifactsSnapshot(network_failures=(navigate_error,)),
+        baseline=BaselineComparison(round(rng.uniform(-90.0, -60.0), 1), None, None),
         recent_runs=healthy_recent_runs(rng),
         project_config=default_config(),
-        recheck=RecheckResult(reproduced=True, overall_score=round(rng.uniform(55.0, 75.0), 1)),
+        recheck=RecheckResult(reproduced=True, overall_score=round(rng.uniform(5.0, 25.0), 1)),
     )
     return EvalCase(
-        f"ssl_invalid-{index:02d}", RootCause.SSL_INVALID, f"SSL 무효({failure})", fixtures
+        f"ssl_invalid-{index:02d}", RootCause.SSL_INVALID, f"SSL 무효({ssl_failure})", fixtures
     )
 
 
@@ -349,8 +366,41 @@ def build_scenario_stale(rng: random.Random, index: int) -> EvalCase:
 
 
 def build_measurement_noise(rng: random.Random, index: int) -> EvalCase:
-    flavor = rng.choice(["timeout-blip", "lighthouse-dip"])
-    if flavor == "timeout-blip":
+    flavor = ("availability-blip", "timeout-blip", "lighthouse-dip")[index % 3]
+    steps = passing_steps(rng)
+    artifacts = ArtifactsSnapshot()
+    baseline = BaselineComparison(
+        round(rng.uniform(-20.0, -8.0), 1), rng.randint(-20, 0), rng.randint(0, 900)
+    )
+    if flavor == "availability-blip":
+        # 운영에서 가장 흔한 노이즈: 일시적 연결 실패. 겉모습은 다운과
+        # 완전히 같고, 재검사 미재현만이 가른다 — "다운 확정 전 재검사"
+        # 라우팅 규칙이 존재해야 하는 이유.
+        failure = rng.choice(["connect timeout", "connection refused"])
+        check = CheckRunSnapshot(
+            overall_score=round(rng.uniform(5.0, 25.0), 1),
+            grade="F",
+            deployment_risk="RISK",
+            gate_reason=f"Service is unavailable: {failure}",
+            availability_ok=False,
+            availability_failure=failure,
+            response_time_ms=None,
+            response_time_threshold_ms=DEFAULT_THRESHOLD_MS,
+            ssl_valid=None,
+            ssl_failure=None,
+            lighthouse_performance=None,
+            trigger_source="scheduled",
+            deploy_ref=None,
+        )
+        steps = (
+            ScenarioStepResult(1, "navigate", f"{SERVICE_URL}/login", "FAILED", failure),
+            ScenarioStepResult(2, "fill", "#email", "SKIPPED", None),
+            ScenarioStepResult(3, "click", 'button[type="submit"]', "SKIPPED", None),
+        )
+        artifacts = ArtifactsSnapshot(network_failures=(failure,))
+        baseline = BaselineComparison(None, None, None)
+        title = "일시적 연결 실패 — 재검사 시 정상"
+    elif flavor == "timeout-blip":
         check = CheckRunSnapshot(
             overall_score=round(rng.uniform(60.0, 80.0), 1),
             grade="C",
@@ -386,11 +436,9 @@ def build_measurement_noise(rng: random.Random, index: int) -> EvalCase:
         title = "일시적 성능 점수 하락 — 재검사 시 정상"
     fixtures = ToolFixtures(
         check_run=check,
-        scenario_results=passing_steps(rng),
-        artifacts=ArtifactsSnapshot(),
-        baseline=BaselineComparison(
-            round(rng.uniform(-20.0, -8.0), 1), rng.randint(-20, 0), rng.randint(0, 900)
-        ),
+        scenario_results=steps,
+        artifacts=artifacts,
+        baseline=baseline,
         recent_runs=healthy_recent_runs(rng),
         project_config=default_config(),
         recheck=RecheckResult(reproduced=False, overall_score=round(rng.uniform(95.0, 100.0), 1)),

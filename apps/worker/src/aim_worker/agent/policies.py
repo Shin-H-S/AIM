@@ -17,7 +17,14 @@ from aim_worker.agent.cases import (
     RecheckResult,
     ScenarioStepResult,
 )
-from aim_worker.agent.loop import AgentAction, CallTool, Conclude, Observations
+from aim_worker.agent.loop import (
+    AgentAction,
+    CallTool,
+    Conclude,
+    Observations,
+    Policy,
+    policy_name,
+)
 from aim_worker.agent.root_causes import ROOT_CAUSE_DESCRIPTIONS, RootCause
 from aim_worker.agent.toolbox import RECHECK_TOOL
 
@@ -40,81 +47,130 @@ def conclude(cause: RootCause, evidence: str) -> Conclude:
     )
 
 
-class RulePolicy:
-    """강한 신호를 순서대로 확인하는 결정적 정책.
+def _failed_step(observations: Observations) -> ScenarioStepResult | None:
+    steps = observations.get("get_scenario_results")
+    if not isinstance(steps, tuple):
+        return None
+    return next(
+        (
+            step
+            for step in steps
+            if isinstance(step, ScenarioStepResult) and step.status == "FAILED"
+        ),
+        None,
+    )
 
-    판정 순서는 베이스라인과 동일: SSL 무효 먼저(무효 인증서는 가용성
-    검사까지 죽이므로 더 확정적 증거), 가용성 실패는 재검사 재현을 확인한
-    뒤에만 다운으로 확정(일시적 연결 실패 = 운영 최다 노이즈).
+
+def definitive_action(observations: Observations) -> AgentAction | None:
+    """확정 분기 — 강한 신호만으로 결론 가능한 범위 (평가셋 실측 66%).
+
+    판정 순서: SSL 무효 먼저(무효 인증서는 가용성 검사까지 죽이므로 더
+    확정적 증거) → 가용성 실패는 재검사 재현 확인 후 다운/노이즈 →
+    미재현 노이즈 → [실패 스텝이 있으면 None 반환: 판단 위임 필요] →
+    응답 2x 지연 → 성능 델타 → 노이즈.
+    """
+    check = observations.get("get_check_run")
+    if not isinstance(check, CheckRunSnapshot):
+        return CallTool("get_check_run")
+    if check.ssl_valid is False:
+        return conclude(RootCause.SSL_INVALID, f"인증서 검증 실패({check.ssl_failure})")
+
+    recheck = observations.get(RECHECK_TOOL)
+    if not check.availability_ok:
+        if not isinstance(recheck, RecheckResult):
+            return CallTool(RECHECK_TOOL)
+        if recheck.reproduced:
+            return conclude(
+                RootCause.SERVICE_DOWN,
+                f"가용성 실패 재현({check.availability_failure})",
+            )
+        return conclude(
+            RootCause.MEASUREMENT_NOISE,
+            f"가용성 실패가 재검사 미재현(점수 {recheck.overall_score})",
+        )
+
+    if not isinstance(recheck, RecheckResult):
+        return CallTool(RECHECK_TOOL)
+    if not recheck.reproduced:
+        return conclude(
+            RootCause.MEASUREMENT_NOISE, f"재검사 점수 {recheck.overall_score} — 재현 안 됨"
+        )
+
+    steps = observations.get("get_scenario_results")
+    if not isinstance(steps, tuple):
+        return CallTool("get_scenario_results")
+    if _failed_step(observations) is not None:
+        return None  # 파손/스테일/지연 파손의 3자 판별 — 확정 불가, 위임
+
+    if (
+        check.response_time_ms is not None
+        and check.response_time_ms > check.response_time_threshold_ms * 2
+    ):
+        return conclude(
+            RootCause.SERVER_SLOW,
+            f"응답 {check.response_time_ms}ms > 임계 {check.response_time_threshold_ms}ms×2",
+        )
+
+    baseline = observations.get("compare_with_baseline")
+    if not isinstance(baseline, BaselineComparison):
+        return CallTool("compare_with_baseline")
+    if baseline.performance_delta is not None and baseline.performance_delta <= -10:
+        return conclude(RootCause.FRONTEND_REGRESSION, f"성능 델타 {baseline.performance_delta}")
+
+    return conclude(RootCause.MEASUREMENT_NOISE, "강한 신호 없음")
+
+
+class RulePolicy:
+    """강한 신호를 순서대로 확인하는 결정적 정책 (베이스라인의 도구 판).
+
+    확정 분기(definitive_action) + 실패 스텝은 리다이렉트 유무만 보는
+    단순 판별 — 경계 사례에서 틀리는 의도된 빈틈이다.
     """
 
     name = "rule"  # trace.generator 라벨 — 폴백으로 쓰이면 "rule-fallback"
 
     def decide(self, observations: Observations) -> AgentAction:
-        check = observations.get("get_check_run")
-        if not isinstance(check, CheckRunSnapshot):
-            return CallTool("get_check_run")
-        if check.ssl_valid is False:
-            return conclude(RootCause.SSL_INVALID, f"인증서 검증 실패({check.ssl_failure})")
+        action = definitive_action(observations)
+        if action is not None:
+            return action
 
-        recheck = observations.get(RECHECK_TOOL)
-        if not check.availability_ok:
-            if not isinstance(recheck, RecheckResult):
-                return CallTool(RECHECK_TOOL)
-            if recheck.reproduced:
-                return conclude(
-                    RootCause.SERVICE_DOWN,
-                    f"가용성 실패 재현({check.availability_failure})",
-                )
+        artifacts = observations.get("get_artifacts")
+        if not isinstance(artifacts, ArtifactsSnapshot):
+            return CallTool("get_artifacts")
+        if artifacts.redirect_detected_to is not None:
             return conclude(
-                RootCause.MEASUREMENT_NOISE,
-                f"가용성 실패가 재검사 미재현(점수 {recheck.overall_score})",
+                RootCause.SCENARIO_STALE,
+                f"navigate가 {artifacts.redirect_detected_to}로 이동됨",
             )
+        failed = _failed_step(observations)
+        error = failed.error if failed is not None else "원인 미상"
+        return conclude(RootCause.UI_REGRESSION, f"스텝 실패({error})")
 
-        if not isinstance(recheck, RecheckResult):
-            return CallTool(RECHECK_TOOL)
-        if not recheck.reproduced:
-            return conclude(
-                RootCause.MEASUREMENT_NOISE, f"재검사 점수 {recheck.overall_score} — 재현 안 됨"
-            )
 
-        steps = observations.get("get_scenario_results")
-        if not isinstance(steps, tuple):
-            return CallTool("get_scenario_results")
-        failed_step = next(
-            (
-                step
-                for step in steps
-                if isinstance(step, ScenarioStepResult) and step.status == "FAILED"
-            ),
-            None,
-        )
-        if failed_step is not None:
-            artifacts = observations.get("get_artifacts")
-            if not isinstance(artifacts, ArtifactsSnapshot):
-                return CallTool("get_artifacts")
-            if artifacts.redirect_detected_to is not None:
-                return conclude(
-                    RootCause.SCENARIO_STALE,
-                    f"navigate가 {artifacts.redirect_detected_to}로 이동됨",
-                )
-            return conclude(RootCause.UI_REGRESSION, f"스텝 실패({failed_step.error})")
+class RouterPolicy:
+    """rule-first 라우터 — 확정 신호는 규칙으로 즉시 결론(LLM 0콜),
+    실패 스텝 케이스만 위임 정책(W3의 LLM)에게 3자 판별로 넘긴다.
 
-        if (
-            check.response_time_ms is not None
-            and check.response_time_ms > check.response_time_threshold_ms * 2
-        ):
-            return conclude(
-                RootCause.SERVER_SLOW,
-                f"응답 {check.response_time_ms}ms > 임계 {check.response_time_threshold_ms}ms×2",
-            )
+    평가셋 실측: 확정 분기가 175건 중 116건(66%)을 전부 정답으로 처리하고,
+    위임 대상은 실패 스텝 59건(ui 25·stale 25·slow 9)뿐이다. generator에는
+    실제로 결론낸 쪽(rule 또는 위임 정책 이름)이 남는다.
+    """
 
-        baseline = observations.get("compare_with_baseline")
-        if not isinstance(baseline, BaselineComparison):
-            return CallTool("compare_with_baseline")
-        if baseline.performance_delta is not None and baseline.performance_delta <= -10:
-            return conclude(
-                RootCause.FRONTEND_REGRESSION, f"성능 델타 {baseline.performance_delta}"
-            )
+    def __init__(self, delegate: Policy) -> None:
+        self._delegate = delegate
+        self._concluded_by_delegate = False
 
-        return conclude(RootCause.MEASUREMENT_NOISE, "강한 신호 없음")
+    @property
+    def name(self) -> str:
+        if self._concluded_by_delegate:
+            return policy_name(self._delegate)
+        return "rule"
+
+    def decide(self, observations: Observations) -> AgentAction:
+        action = definitive_action(observations)
+        if action is not None:
+            return action
+        delegated = self._delegate.decide(observations)
+        if isinstance(delegated, Conclude):
+            self._concluded_by_delegate = True
+        return delegated

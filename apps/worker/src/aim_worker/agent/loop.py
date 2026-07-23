@@ -14,9 +14,10 @@ from types import MappingProxyType
 from typing import Protocol
 
 from aim_worker.agent.cases import ToolFixtures
+from aim_worker.agent.render import render_observation
 from aim_worker.agent.root_causes import RootCause
 from aim_worker.agent.toolbox import RECHECK_TOOL, TOOL_DISPATCH, FixturesToolbox, Toolbox
-from aim_worker.agent.trace import InvestigationTrace, ToolCall, summarize_result
+from aim_worker.agent.trace import InvestigationTrace, ToolCall, clip_summary
 
 MAX_STEPS = 12
 # 폴백 정책에게 주는 추가 스텝 — 규칙 정책의 최악 경로(check_run·recheck·
@@ -68,7 +69,7 @@ class StepLimitExceeded(Exception):
     """스텝 상한까지 결론을 내지 못했다."""
 
 
-def _policy_name(policy: Policy) -> str:
+def policy_name(policy: Policy) -> str:
     """generator 라벨 — 정책이 name을 선언하면 그것을, 아니면 클래스명."""
     name = getattr(policy, "name", None)
     return name if isinstance(name, str) else type(policy).__name__
@@ -111,7 +112,7 @@ class InvestigationLoop:
                 observations,
                 violations,
                 conclusion,
-                generator=_policy_name(self._policy),
+                generator=policy_name(self._policy),
             )
 
         if self._fallback_policy is None:
@@ -127,7 +128,7 @@ class InvestigationLoop:
             observations,
             violations,
             conclusion,
-            generator=f"{_policy_name(self._fallback_policy)}-fallback",
+            generator=f"{policy_name(self._fallback_policy)}-fallback",
         )
 
     def _drive(
@@ -174,7 +175,9 @@ class InvestigationLoop:
         else:
             result = dispatch(self._toolbox)
             observations[action.tool] = result
-        tool_calls.append(ToolCall(step, action.tool, summarize_result(result)))
+        tool_calls.append(
+            ToolCall(step, action.tool, clip_summary(render_observation(action.tool, result)))
+        )
 
     def _close(
         self,

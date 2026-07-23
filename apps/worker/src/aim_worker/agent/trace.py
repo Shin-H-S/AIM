@@ -15,11 +15,14 @@ from aim_worker.agent.root_causes import RootCause
 RESULT_SUMMARY_MAX_CHARS = 300
 
 
-def summarize_result(result: object) -> str:
-    text = repr(result)
+def clip_summary(text: str) -> str:
     if len(text) <= RESULT_SUMMARY_MAX_CHARS:
         return text
     return text[: RESULT_SUMMARY_MAX_CHARS - 1] + "…"
+
+
+def summarize_result(result: object) -> str:
+    return clip_summary(repr(result))
 
 
 @dataclass(frozen=True)

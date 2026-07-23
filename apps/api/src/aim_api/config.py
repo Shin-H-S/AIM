@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     # 1회 에스컬레이션(G3 라우팅). 사용자 확정 설계(비용-정확도 곡선).
     aim_agent_model: str = "claude-haiku-4-5"
     aim_agent_escalation_model: str = "claude-sonnet-5"
+    # 같은 프로젝트 조사 사이의 최소 간격 — 인시던트 연쇄로 인한 조사 폭주 방지
+    aim_agent_cooldown_minutes: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",

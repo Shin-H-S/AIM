@@ -20,6 +20,7 @@ from aim_api.services import scenarios as scenario_service
 from aim_api.services import score_results as score_result_service
 from aim_api.services.scan_queue import (
     DELIVER_EMAIL_ALERTS_TASK_NAME,
+    RUN_AGENT_INVESTIGATION_TASK_NAME,
     RUN_AI_REPORT_TASK_NAME,
     RUN_CHECK_RUN_TASK_NAME,
     RUN_SCENARIO_RUN_TASK_NAME,
@@ -27,6 +28,7 @@ from aim_api.services.scan_queue import (
 )
 from sqlalchemy.orm import Session
 
+from aim_worker.agent import investigation as agent_investigation_service
 from aim_worker.artifacts import StoredArtifact, store_binary_artifact, store_json_artifact
 from aim_worker.availability import scan_http_availability
 from aim_worker.celery_app import celery_app
@@ -44,6 +46,8 @@ EMAIL_ALERT_DELIVERY_FAILED_MESSAGE = "Failed to deliver pending email alerts."
 EMAIL_ALERT_DELIVERY_ENQUEUE_FAILED_MESSAGE = "Failed to enqueue email alert delivery task."
 SCHEDULED_CHECK_RUN_SCAN_FAILED_MESSAGE = "Failed to schedule due check runs."
 SCHEDULED_CHECK_RUN_ENQUEUE_FAILED_REASON = "Scan queue is unavailable."
+AGENT_INVESTIGATION_FAILED_MESSAGE = "Failed to run agent investigation for check run."
+AGENT_INVESTIGATION_ENQUEUE_FAILED_MESSAGE = "Failed to enqueue agent investigation task."
 logger = logging.getLogger(__name__)
 
 
@@ -168,6 +172,19 @@ def sync_check_run_incidents(
         )
         if sync_result.alerts or deploy_summary_alerts:
             enqueue_email_alert_delivery_for_check_run(check_run_id=check_run_id)
+        # 인시던트가 새로 열리면 조사 에이전트를 붙인다 — 실패해도 기존
+        # 인시던트·알림 흐름에는 영향이 없어야 한다.
+        if sync_result.opened_incidents:
+            try:
+                scan_queue.enqueue_agent_investigation(
+                    check_run_id=check_run_id,
+                    incident_id=sync_result.opened_incidents[0].id,
+                )
+            except scan_queue.ScanQueueUnavailableError:
+                logger.exception(
+                    AGENT_INVESTIGATION_ENQUEUE_FAILED_MESSAGE,
+                    extra={"check_run_id": str(check_run_id)},
+                )
     except Exception:
         session.rollback()
         logger.exception(
@@ -279,6 +296,31 @@ def generate_ai_report(check_run_id: str) -> None:
             session.rollback()
             logger.exception(
                 AI_REPORT_GENERATION_FAILED_MESSAGE,
+                extra={"check_run_id": str(parsed_check_run_id)},
+            )
+            raise
+
+
+@celery_app.task(  # type: ignore[untyped-decorator]
+    name=RUN_AGENT_INVESTIGATION_TASK_NAME,
+    # 재검사(ACT 도구)가 검사 1회를 폴링으로 기다릴 수 있어 여유를 둔다.
+    soft_time_limit=420,
+    time_limit=480,
+)
+def run_agent_investigation(check_run_id: str, incident_id: str | None = None) -> None:
+    parsed_check_run_id = UUID(check_run_id)
+    parsed_incident_id = UUID(incident_id) if incident_id else None
+    with SessionLocal() as session:
+        try:
+            agent_investigation_service.run_agent_investigation_for_check_run(
+                session,
+                check_run_id=parsed_check_run_id,
+                incident_id=parsed_incident_id,
+            )
+        except Exception:
+            session.rollback()
+            logger.exception(
+                AGENT_INVESTIGATION_FAILED_MESSAGE,
                 extra={"check_run_id": str(parsed_check_run_id)},
             )
             raise

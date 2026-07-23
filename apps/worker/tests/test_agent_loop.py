@@ -96,6 +96,8 @@ def test_conclusion_without_tools_is_allowed() -> None:
     assert trace.steps_used == 0
     assert trace.recheck_used is False
     assert trace.tool_calls == ()
+    assert trace.generator == "ScriptedPolicy"  # name 미선언 정책은 클래스명
+    assert trace.confidence == "high"
 
 
 def test_repeated_recheck_is_idempotent() -> None:
@@ -177,6 +179,71 @@ def test_trace_serializes_to_json() -> None:
         "get_check_run",
         "trigger_recheck",
     ]
+    assert payload["generator"] == "rule"
+    assert payload["confidence"] == "high"
+
+
+class ExplodingPolicy:
+    """항상 실패하는 주 정책 — LLM 장애 시뮬레이션."""
+
+    def decide(self, observations: Observations) -> AgentAction:
+        raise RuntimeError("LLM unavailable")
+
+
+def test_fallback_concludes_when_primary_never_does() -> None:
+    """주 정책이 상한까지 결론을 못 내면 폴백이 이어받아 종결한다 — G4."""
+    case = case_by_id("curated-gcp-vm-stopped")
+    primary = ScriptedPolicy([CallTool("get_check_run")] * 13)
+    loop = InvestigationLoop(primary, FixturesToolbox(case.fixtures), fallback_policy=RulePolicy())
+
+    trace = loop.run()
+
+    assert trace.root_cause == RootCause.SERVICE_DOWN
+    assert trace.generator == "rule-fallback"
+    assert trace.steps_used == 13  # 주 정책 12 + 폴백의 재검사 1
+
+
+def test_fallback_takes_over_on_policy_exception() -> None:
+    case = case_by_id("service_down-00")
+    loop = InvestigationLoop(
+        ExplodingPolicy(), FixturesToolbox(case.fixtures), fallback_policy=RulePolicy()
+    )
+
+    trace = loop.run()
+
+    assert trace.root_cause == RootCause.SERVICE_DOWN
+    assert trace.generator == "rule-fallback"
+
+
+def test_policy_exception_without_fallback_propagates() -> None:
+    case = case_by_id("service_down-00")
+    loop = InvestigationLoop(ExplodingPolicy(), FixturesToolbox(case.fixtures))
+
+    with pytest.raises(RuntimeError):
+        loop.run()
+
+
+def test_nonconcluding_fallback_still_fails() -> None:
+    """폴백마저 결론을 못 내면 배선 결함 — 조용히 넘기지 않는다."""
+    case = case_by_id("service_down-00")
+    primary = ScriptedPolicy([CallTool("get_check_run")] * 13)
+    fallback = ScriptedPolicy([CallTool("get_check_run")] * 10)
+    loop = InvestigationLoop(primary, FixturesToolbox(case.fixtures), fallback_policy=fallback)
+
+    with pytest.raises(StepLimitExceeded):
+        loop.run()
+
+
+def test_evaluation_survives_broken_policy_via_fallback() -> None:
+    """주 정책이 전멸해도 평가는 베이스라인 수준으로 완주한다 — G4의 평가 증명."""
+    cases = generate_cases()
+    agent = AgentInvestigator(ExplodingPolicy, fallback_factory=RulePolicy)
+
+    report = evaluate(agent, cases)
+    baseline_report = evaluate(RuleBaselineInvestigator(), cases)
+
+    assert report.accuracy == baseline_report.accuracy
+    assert report.misclassified_case_ids == baseline_report.misclassified_case_ids
 
 
 def test_rule_policy_through_loop_matches_w1_baseline() -> None:

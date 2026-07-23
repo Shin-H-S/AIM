@@ -19,6 +19,7 @@ from aim_worker.agent.cases import (
 )
 from aim_worker.agent.loop import AgentAction, CallTool, Conclude, Observations
 from aim_worker.agent.root_causes import ROOT_CAUSE_DESCRIPTIONS, RootCause
+from aim_worker.agent.toolbox import RECHECK_TOOL
 
 RECOMMENDED_ACTIONS: dict[RootCause, str] = {
     RootCause.SERVICE_DOWN: "서버·컨테이너 상태를 확인하고 재기동 후 재검사로 복구를 확인하세요.",
@@ -47,6 +48,8 @@ class RulePolicy:
     뒤에만 다운으로 확정(일시적 연결 실패 = 운영 최다 노이즈).
     """
 
+    name = "rule"  # trace.generator 라벨 — 폴백으로 쓰이면 "rule-fallback"
+
     def decide(self, observations: Observations) -> AgentAction:
         check = observations.get("get_check_run")
         if not isinstance(check, CheckRunSnapshot):
@@ -54,10 +57,10 @@ class RulePolicy:
         if check.ssl_valid is False:
             return conclude(RootCause.SSL_INVALID, f"인증서 검증 실패({check.ssl_failure})")
 
-        recheck = observations.get("trigger_recheck")
+        recheck = observations.get(RECHECK_TOOL)
         if not check.availability_ok:
             if not isinstance(recheck, RecheckResult):
-                return CallTool("trigger_recheck")
+                return CallTool(RECHECK_TOOL)
             if recheck.reproduced:
                 return conclude(
                     RootCause.SERVICE_DOWN,
@@ -69,7 +72,7 @@ class RulePolicy:
             )
 
         if not isinstance(recheck, RecheckResult):
-            return CallTool("trigger_recheck")
+            return CallTool(RECHECK_TOOL)
         if not recheck.reproduced:
             return conclude(
                 RootCause.MEASUREMENT_NOISE, f"재검사 점수 {recheck.overall_score} — 재현 안 됨"

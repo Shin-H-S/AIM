@@ -25,7 +25,7 @@ from aim_api.models.user import User
 from aim_api.services import scan_queue
 from aim_worker import tasks
 from aim_worker.agent import investigation as investigation_module
-from aim_worker.agent.db_toolbox import DbToolbox
+from aim_worker.agent.db_toolbox import DbToolbox, is_bad_result
 from aim_worker.agent.investigation import run_agent_investigation_for_check_run
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -257,6 +257,24 @@ def test_db_toolbox_recent_runs(session: Session) -> None:
     assert len(recents) == 2
     assert {summary.overall_score for summary in recents} == {97.0, 99.0}
     assert all(summary.all_scenarios_passed for summary in recents)
+
+
+def test_warning_recheck_counts_as_reproduced(session: Session) -> None:
+    """도그푸딩 실측(7/24): 시나리오 없는 재검사는 가용성 -40이 전체
+    점수에서 희석돼(응답 임계 6배에도 91점) 점수 하한을 통과했다 —
+    위험도 WARNING이면 점수와 무관하게 재현으로 판정해야 한다."""
+    project = seed_project(session)
+    warning_score = ScoreResult(
+        check_run_id=uuid4(),
+        overall_score=91,
+        evaluated_weight=100,
+        grade="A",
+        deployment_risk="WARNING",
+        gate_reason="Response time is over twice the configured threshold.",
+        scoring_version="v1",
+    )
+
+    assert is_bad_result(warning_score, project=project) is True
 
 
 def test_trigger_recheck_polls_to_completion(

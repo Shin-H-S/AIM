@@ -57,10 +57,17 @@ AGENT_RECHECK_TRIGGER_SOURCE = "agent_recheck"
 
 
 def is_bad_result(score: ScoreResult | None, *, project: Project) -> bool:
-    """검사 결과가 '나쁜가' — 재검사 재현 판정의 기준."""
+    """검사 결과가 '나쁜가' — 재검사 재현 판정의 기준.
+
+    위험도가 안정(STABLE)이 아니면 점수와 무관하게 재현으로 본다.
+    재검사는 시나리오 없이 돌아 카테고리 가중치가 재분배되므로, 가용성
+    -40 같은 큰 감점도 전체 점수에서는 한 자릿수로 희석된다(도그푸딩
+    실측: 응답이 임계 6배인데 91점). 점수 하한만 보면 지속 장애를
+    '재현 안 됨'으로 놓친다 — 거짓 안심(G2)보다 보수 판정이 낫다.
+    """
     if score is None:
         return True
-    if score.deployment_risk == "RISK":
+    if score.deployment_risk != "STABLE":
         return True
     return score.overall_score < project.quality_score_threshold
 

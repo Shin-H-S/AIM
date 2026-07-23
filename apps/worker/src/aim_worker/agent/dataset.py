@@ -327,6 +327,11 @@ def build_scenario_stale(rng: random.Random, index: int) -> EvalCase:
             network_failures=(),
             failing_page_rendered_ok=True,
             redirect_detected_to=moved_to if with_redirect else None,
+            relocation_hint=(
+                f"navigate가 {moved_to}로 리다이렉트됨 — 새 페이지는 정상, 셀렉터만 불일치"
+                if with_redirect
+                else f"기존 페이지 정상 렌더 — 로그인 진입점이 {moved_to} 링크로 이동한 흔적"
+            ),
         ),
         baseline=BaselineComparison(
             round(rng.uniform(-45.0, -28.0), 1), rng.randint(-3, 5), rng.randint(-30, 30)
@@ -500,6 +505,10 @@ def curated_cases() -> tuple[EvalCase, ...]:
                 network_failures=(),
                 failing_page_rendered_ok=True,
                 redirect_detected_to=None,
+                # 실제 진단 근거 그대로: 새 홈은 멀쩡히 렌더됐고 폼만 이사했다.
+                relocation_hint=(
+                    "새 홈이 정상 렌더 — 로그인 폼 대신 /login으로 가는 로그인 CTA 존재"
+                ),
             ),
             baseline=BaselineComparison(-38.0, 2, -10),
             recent_runs=(

@@ -30,7 +30,8 @@ class RuleBaselineInvestigator:
 
     fixtures의 강한 신호만 순서대로 본다. 경계 사례(조용한 UI 파손,
     리다이렉트 흔적 없는 스테일, 지연이 스텝을 깨는 케이스)에서 틀리도록
-    일부러 단순하게 유지한다 — 이 빈틈이 곧 에이전트의 개선 여지다.
+    일부러 단순하게 유지한다 — artifacts의 이동 흔적(relocation_hint)도
+    읽지 않는다. 이 빈틈이 곧 에이전트의 개선 여지다.
     """
 
     def investigate(self, fixtures: ToolFixtures) -> RootCause:

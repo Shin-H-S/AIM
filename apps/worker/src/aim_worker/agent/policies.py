@@ -40,18 +40,34 @@ def conclude(cause: RootCause, evidence: str) -> Conclude:
 
 
 class RulePolicy:
-    """강한 신호를 순서대로 확인하는 결정적 정책."""
+    """강한 신호를 순서대로 확인하는 결정적 정책.
+
+    판정 순서는 베이스라인과 동일: SSL 무효 먼저(무효 인증서는 가용성
+    검사까지 죽이므로 더 확정적 증거), 가용성 실패는 재검사 재현을 확인한
+    뒤에만 다운으로 확정(일시적 연결 실패 = 운영 최다 노이즈).
+    """
 
     def decide(self, observations: Observations) -> AgentAction:
         check = observations.get("get_check_run")
         if not isinstance(check, CheckRunSnapshot):
             return CallTool("get_check_run")
-        if not check.availability_ok:
-            return conclude(RootCause.SERVICE_DOWN, f"가용성 실패({check.availability_failure})")
         if check.ssl_valid is False:
             return conclude(RootCause.SSL_INVALID, f"인증서 검증 실패({check.ssl_failure})")
 
         recheck = observations.get("trigger_recheck")
+        if not check.availability_ok:
+            if not isinstance(recheck, RecheckResult):
+                return CallTool("trigger_recheck")
+            if recheck.reproduced:
+                return conclude(
+                    RootCause.SERVICE_DOWN,
+                    f"가용성 실패 재현({check.availability_failure})",
+                )
+            return conclude(
+                RootCause.MEASUREMENT_NOISE,
+                f"가용성 실패가 재검사 미재현(점수 {recheck.overall_score})",
+            )
+
         if not isinstance(recheck, RecheckResult):
             return CallTool("trigger_recheck")
         if not recheck.reproduced:

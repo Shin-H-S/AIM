@@ -149,8 +149,12 @@ def test_trace_serializes_to_json() -> None:
     payload = json.loads(trace.to_json())
     assert payload["case_ref"] == "curated-gcp-vm-stopped"
     assert payload["root_cause"] == "service_down"
-    assert payload["steps_used"] == 1
-    assert payload["tool_calls"][0]["tool"] == "get_check_run"
+    # 다운은 재검사 재현을 확인한 뒤에만 확정 — 2스텝
+    assert payload["steps_used"] == 2
+    assert [call["tool"] for call in payload["tool_calls"]] == [
+        "get_check_run",
+        "trigger_recheck",
+    ]
 
 
 def test_rule_policy_through_loop_matches_w1_baseline() -> None:

@@ -45,10 +45,13 @@ class AlertType(StrEnum):
     INCIDENT_OPENED = "INCIDENT_OPENED"
     INCIDENT_RECOVERED = "INCIDENT_RECOVERED"
     DEPLOY_SUMMARY = "DEPLOY_SUMMARY"
+    AGENT_INVESTIGATION = "AGENT_INVESTIGATION"
 
 
 # incident와 무관한 배포 요약 알림이 alerts.trigger_type에 기록하는 값.
 DEPLOY_SUMMARY_TRIGGER_TYPE = "DEPLOY_CHECK_COMPLETED"
+# 조사 에이전트 결과 알림이 alerts.trigger_type에 기록하는 값.
+AGENT_INVESTIGATION_TRIGGER_TYPE = "AGENT_INVESTIGATION_COMPLETED"
 
 
 class AlertChannel(StrEnum):
@@ -140,7 +143,10 @@ class Alert(Base):
     __tablename__ = "alerts"
     __table_args__ = (
         CheckConstraint(
-            "alert_type IN ('INCIDENT_OPENED', 'INCIDENT_RECOVERED', 'DEPLOY_SUMMARY')",
+            (
+                "alert_type IN ('INCIDENT_OPENED', 'INCIDENT_RECOVERED', "
+                "'DEPLOY_SUMMARY', 'AGENT_INVESTIGATION')"
+            ),
             name="ck_alerts_alert_type",
         ),
         CheckConstraint(
@@ -151,7 +157,8 @@ class Alert(Base):
                 "'CRITICAL_SCENARIO_FAILURE', "
                 "'PERFORMANCE_SCORE_BELOW_THRESHOLD', "
                 "'RESPONSE_TIME_ABOVE_THRESHOLD', "
-                "'DEPLOY_CHECK_COMPLETED')"
+                "'DEPLOY_CHECK_COMPLETED', "
+                "'AGENT_INVESTIGATION_COMPLETED')"
             ),
             name="ck_alerts_trigger_type",
         ),

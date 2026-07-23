@@ -21,6 +21,17 @@ class RootCause(StrEnum):
     MEASUREMENT_NOISE = "measurement_noise"
 
 
+# 알림·UI에 쓰는 짧은 한글 라벨.
+ROOT_CAUSE_LABELS: dict[RootCause, str] = {
+    RootCause.SERVICE_DOWN: "서비스 다운",
+    RootCause.SSL_INVALID: "SSL 무효",
+    RootCause.SERVER_SLOW: "서버 지연",
+    RootCause.FRONTEND_REGRESSION: "프런트 성능 회귀",
+    RootCause.UI_REGRESSION: "UI 파손",
+    RootCause.SCENARIO_STALE: "시나리오 스테일",
+    RootCause.MEASUREMENT_NOISE: "측정 노이즈",
+}
+
 ROOT_CAUSE_DESCRIPTIONS: dict[RootCause, str] = {
     RootCause.SERVICE_DOWN: "서비스 다운·네트워크 불달 — 가용성 검사 자체가 실패",
     RootCause.SSL_INVALID: "SSL 인증서 만료·무효",

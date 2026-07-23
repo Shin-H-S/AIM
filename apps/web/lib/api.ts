@@ -3056,3 +3056,173 @@ export async function revokeProjectApiToken({
     return { state: "unavailable" };
   }
 }
+
+
+export type AgentToolCall = {
+  step: number;
+  tool: string;
+  result_summary: string;
+};
+
+export type AgentLlmCall = {
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  latency_ms: number;
+};
+
+export type AgentInvestigation = {
+  id: string;
+  check_run_id: string;
+  incident_id: string | null;
+  trigger: string;
+  root_cause: string;
+  confidence: string;
+  summary: string;
+  recommendation: string;
+  generator: string;
+  recheck_used: boolean;
+  recheck_check_run_id: string | null;
+  tool_calls: AgentToolCall[];
+  violations: string[];
+  llm_calls: AgentLlmCall[];
+  duration_ms: number;
+  created_at: string;
+};
+
+export type AgentInvestigationResult =
+  | {
+      state: "success";
+      investigation: AgentInvestigation;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export type AgentInvestigationRequestResult =
+  | {
+      state: "accepted";
+    }
+  | {
+      state: "conflict";
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
+
+export function getCheckRunInvestigationUrl(
+  projectId: string,
+  checkRunId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return new URL(
+    `/projects/${encodeURIComponent(projectId)}/check-runs/${encodeURIComponent(
+      checkRunId
+    )}/investigation`,
+    getApiBaseUrl(apiBaseUrl)
+  ).toString();
+}
+
+export async function fetchAgentInvestigation({
+  projectId,
+  checkRunId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  checkRunId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<AgentInvestigationResult> {
+  try {
+    const response = await fetcher(
+      getCheckRunInvestigationUrl(projectId, checkRunId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      investigation: (await response.json()) as AgentInvestigation
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
+}
+
+export async function requestAgentInvestigation({
+  projectId,
+  checkRunId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  checkRunId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<AgentInvestigationRequestResult> {
+  try {
+    const response = await fetcher(
+      getCheckRunInvestigationUrl(projectId, checkRunId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (response.status === 401) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (response.status === 409) {
+      return { state: "conflict" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return { state: "accepted" };
+  } catch {
+    return { state: "unavailable" };
+  }
+}

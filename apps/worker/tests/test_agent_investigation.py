@@ -362,6 +362,45 @@ def test_run_investigation_is_idempotent_and_cooled_down(session: Session) -> No
     assert manual is not None  # 수동 트리거는 쿨다운을 무시한다
 
 
+def test_investigation_creates_webhook_alert(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """webhook이 설정된 프로젝트면 조사 결과가 Discord/Slack 알림으로 남는다."""
+    from aim_api.models.alert import Alert
+
+    delivered: list[UUID] = []
+
+    def fake_delivery(*, check_run_id: UUID) -> str:
+        delivered.append(check_run_id)
+        return "task"
+
+    monkeypatch.setattr(scan_queue, "enqueue_email_alert_delivery", fake_delivery)
+    project = seed_project(session)
+    project.alert_webhook_url = "https://discord.com/api/webhooks/1/x"
+    session.commit()
+    check_run = seed_check_run(
+        session,
+        project,
+        ssl_valid=False,
+        ssl_failure="certificate expired 3 days ago",
+        lighthouse_performance=None,
+        available=False,
+        availability_failure="Service request failed.",
+        response_time_ms=None,
+        overall_score=12,
+    )
+
+    investigation = run_agent_investigation_for_check_run(session, check_run_id=check_run.id)
+
+    assert investigation is not None
+    alert = session.scalars(select(Alert)).one()
+    assert alert.alert_type == "AGENT_INVESTIGATION"
+    assert alert.channel == "WEBHOOK"
+    assert "SSL 무효" in alert.subject
+    assert "조치 제안" in alert.body
+    assert delivered == [check_run.id]
+
+
 def test_incident_open_enqueues_investigation(
     session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -307,7 +307,11 @@ def generate_ai_report(check_run_id: str) -> None:
     soft_time_limit=420,
     time_limit=480,
 )
-def run_agent_investigation(check_run_id: str, incident_id: str | None = None) -> None:
+def run_agent_investigation(
+    check_run_id: str,
+    incident_id: str | None = None,
+    trigger: str = "incident",
+) -> None:
     parsed_check_run_id = UUID(check_run_id)
     parsed_incident_id = UUID(incident_id) if incident_id else None
     with SessionLocal() as session:
@@ -316,6 +320,7 @@ def run_agent_investigation(check_run_id: str, incident_id: str | None = None) -
                 session,
                 check_run_id=parsed_check_run_id,
                 incident_id=parsed_incident_id,
+                trigger=trigger,
             )
         except Exception:
             session.rollback()

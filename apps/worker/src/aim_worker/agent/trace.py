@@ -40,7 +40,10 @@ class InvestigationTrace:
     root_cause: RootCause
     summary: str
     recommendation: str
+    confidence: str  # high | medium | low — 에스컬레이션 라우팅의 입력
     recheck_used: bool
+    # 누가 결론냈나 — "rule", "llm:<model>", 폴백이면 "<이름>-fallback" (G4 추적)
+    generator: str
     # 미허용 도구 호출 시도(도구명, 시도 순) — "무단 변경 시도 0건" 지표의 근거
     violations: tuple[str, ...] = ()
 
@@ -59,7 +62,9 @@ class InvestigationTrace:
                 "root_cause": self.root_cause.value,
                 "summary": self.summary,
                 "recommendation": self.recommendation,
+                "confidence": self.confidence,
                 "recheck_used": self.recheck_used,
+                "generator": self.generator,
                 "steps_used": self.steps_used,
                 "violation_count": len(self.violations),
                 "violations": list(self.violations),

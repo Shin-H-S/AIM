@@ -8,6 +8,7 @@ from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.models.scanner_result import ScoreResult
 from aim_api.models.scenario import (
+    ConsoleError,
     ScenarioRun,
     ScenarioRunStatus,
     StepResult,
@@ -475,3 +476,117 @@ def test_record_score_result_updates_existing_result(session: Session) -> None:
     assert session.scalars(select(ScoreResult)).all() == [second_result]
     assert second_result.overall_score == 100
     assert second_result.deployment_risk == "STABLE"
+
+
+def make_detached_run(status: ScenarioRunStatus) -> ScenarioRun:
+    return ScenarioRun(id=uuid4(), status=status.value)
+
+
+def test_functional_stability_deducts_console_errors() -> None:
+    run = make_detached_run(ScenarioRunStatus.COMPLETED)
+
+    score, reasons = score_results.functional_stability_score_with_reasons(
+        scenario_runs=[run],
+        step_results_by_run_id={},
+        console_error_counts_by_run_id={run.id: 2},
+    )
+
+    assert score == 90
+    assert reasons == [
+        {"code": "scenario_runs_scored", "failed": 0, "with_failed_steps": 0, "clean": 1},
+        {"code": "console_errors_deducted", "errors": 2, "points": 10},
+    ]
+
+
+def test_functional_stability_caps_console_error_deduction_per_run() -> None:
+    run = make_detached_run(ScenarioRunStatus.COMPLETED)
+
+    score, reasons = score_results.functional_stability_score_with_reasons(
+        scenario_runs=[run],
+        step_results_by_run_id={},
+        console_error_counts_by_run_id={run.id: 10},
+    )
+
+    assert score == 80
+    assert reasons[1] == {"code": "console_errors_deducted", "errors": 10, "points": 20}
+
+
+def test_functional_stability_deducts_console_errors_after_step_failure() -> None:
+    run = make_detached_run(ScenarioRunStatus.COMPLETED)
+    failed_step = StepResult(status=StepResultStatus.FAILED.value)
+
+    score, _ = score_results.functional_stability_score_with_reasons(
+        scenario_runs=[run],
+        step_results_by_run_id={run.id: [failed_step]},
+        console_error_counts_by_run_id={run.id: 1},
+    )
+
+    assert score == 75
+
+
+def test_functional_stability_without_console_errors_has_no_deduction_reason() -> None:
+    run = make_detached_run(ScenarioRunStatus.COMPLETED)
+
+    score, reasons = score_results.functional_stability_score_with_reasons(
+        scenario_runs=[run],
+        step_results_by_run_id={},
+        console_error_counts_by_run_id={},
+    )
+
+    assert score == 100
+    assert [reason["code"] for reason in reasons] == ["scenario_runs_scored"]
+
+
+def test_record_score_result_deducts_console_errors_from_functional_stability(
+    session: Session,
+) -> None:
+    project, check_run = create_check_run(session)
+    scenario_run = create_scenario_run(
+        session,
+        project=project,
+        status=ScenarioRunStatus.COMPLETED,
+        step_status=StepResultStatus.PASSED,
+    )
+    for index in range(2):
+        session.add(
+            ConsoleError(
+                scenario_run_id=scenario_run.id,
+                level="error",
+                message=f"Uncaught TypeError #{index}",
+                source_url="https://example.com/app.js",
+                line_number=10,
+                column_number=3,
+            )
+        )
+    session.commit()
+    availability_result = scanner_results.record_availability_result(
+        session,
+        check_run_id=check_run.id,
+        service_url="https://example.com",
+        final_url="https://example.com",
+        is_available=True,
+        status_code=200,
+        response_time_ms=500,
+        redirect_count=0,
+        uses_https=True,
+        timed_out=False,
+        failure_reason=None,
+    )
+
+    result = score_results.record_score_result(
+        session,
+        check_run_id=check_run.id,
+        project=project,
+        availability_result=availability_result,
+        ssl_result=None,
+        lighthouse_result=None,
+    )
+
+    assert result.functional_stability_score == 90
+    assert result.score_breakdown is not None
+    breakdown_by_key = {
+        category["key"]: category for category in result.score_breakdown["categories"]
+    }
+    assert {"code": "console_errors_deducted", "errors": 2, "points": 10} in breakdown_by_key[
+        "functional_stability"
+    ]["reasons"]

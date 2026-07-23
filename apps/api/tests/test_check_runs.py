@@ -588,7 +588,7 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
         "grade": "A",
         "deployment_risk": "STABLE",
         "gate_reason": None,
-        "scoring_version": "2026-06-28.scenario-v1",
+        "scoring_version": score_results.SCORING_VERSION,
         "created_at": body["score_result"]["created_at"],
         "updated_at": body["score_result"]["updated_at"],
     }

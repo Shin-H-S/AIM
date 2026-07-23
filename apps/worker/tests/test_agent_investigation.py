@@ -277,6 +277,38 @@ def test_warning_recheck_counts_as_reproduced(session: Session) -> None:
     assert is_bad_result(warning_score, project=project) is True
 
 
+def test_stable_recheck_over_incident_threshold_counts_as_reproduced(
+    session: Session,
+) -> None:
+    """도그푸딩 2차(7/24): 임계 1~2배 사이 응답은 위험도 게이트(2배)에
+    안 걸려 STABLE·고득점으로 산정되지만 인시던트 개시 조건(1배)은
+    여전히 참이다 — 인시던트가 열린 채 '재현 안 됨'이면 모순."""
+    project = seed_project(session)  # 응답 임계 500ms
+    stable_score = ScoreResult(
+        check_run_id=uuid4(),
+        overall_score=92,
+        evaluated_weight=100,
+        grade="A",
+        deployment_risk="STABLE",
+        scoring_version="v1",
+    )
+
+    def probe(response_time_ms: int) -> AvailabilityResult:
+        return AvailabilityResult(
+            check_run_id=uuid4(),
+            service_url=SERVICE_URL,
+            is_available=True,
+            status_code=200,
+            response_time_ms=response_time_ms,
+            redirect_count=0,
+            uses_https=True,
+            timed_out=False,
+        )
+
+    assert is_bad_result(stable_score, project=project, availability=probe(700)) is True
+    assert is_bad_result(stable_score, project=project, availability=probe(300)) is False
+
+
 def test_trigger_recheck_polls_to_completion(
     session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:

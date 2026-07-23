@@ -56,20 +56,33 @@ RECENT_RUN_LIMIT = 5
 AGENT_RECHECK_TRIGGER_SOURCE = "agent_recheck"
 
 
-def is_bad_result(score: ScoreResult | None, *, project: Project) -> bool:
+def is_bad_result(
+    score: ScoreResult | None,
+    *,
+    project: Project,
+    availability: AvailabilityResult | None = None,
+) -> bool:
     """검사 결과가 '나쁜가' — 재검사 재현 판정의 기준.
 
-    위험도가 안정(STABLE)이 아니면 점수와 무관하게 재현으로 본다.
-    재검사는 시나리오 없이 돌아 카테고리 가중치가 재분배되므로, 가용성
-    -40 같은 큰 감점도 전체 점수에서는 한 자릿수로 희석된다(도그푸딩
-    실측: 응답이 임계 6배인데 91점). 점수 하한만 보면 지속 장애를
-    '재현 안 됨'으로 놓친다 — 거짓 안심(G2)보다 보수 판정이 낫다.
+    세 신호 중 하나라도 걸리면 재현이다: ①위험도 비-STABLE(재검사는
+    시나리오 없이 돌아 가중치가 재분배되므로 가용성 -40도 전체 점수에선
+    한 자릿수로 희석된다 — 점수 하한만으론 놓친다) ②점수 하한 미달
+    ③응답이 인시던트 개시 임계(1배) 초과 — 위험도 게이트는 2배부터라
+    1~2배 사이의 지속 저하가 STABLE로 산정되는데, 그 응답이면 인시던트는
+    계속 열려 있으므로 '재현 안 됨'과 모순된다(도그푸딩 실측: 임계 800에
+    본검사 3078ms → 재검사 1547ms가 STABLE 92점으로 노이즈 오판).
     """
     if score is None:
         return True
     if score.deployment_risk != "STABLE":
         return True
-    return score.overall_score < project.quality_score_threshold
+    if score.overall_score < project.quality_score_threshold:
+        return True
+    return (
+        availability is not None
+        and availability.response_time_ms is not None
+        and availability.response_time_ms > project.response_time_threshold_ms
+    )
 
 
 class DbToolbox:
@@ -329,7 +342,11 @@ class DbToolbox:
                 continue
             recheck_score = self._score(recheck_run.id)
             return RecheckResult(
-                reproduced=is_bad_result(recheck_score, project=self._project),
+                reproduced=is_bad_result(
+                    recheck_score,
+                    project=self._project,
+                    availability=self._availability(recheck_run.id),
+                ),
                 overall_score=(
                     float(recheck_score.overall_score) if recheck_score is not None else 0.0
                 ),

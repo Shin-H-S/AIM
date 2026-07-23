@@ -20,6 +20,7 @@ from aim_api.models.alert import (
 )
 from aim_api.models.check_run import CheckRun
 from aim_api.models.project import Project
+from aim_api.models.scanner_result import ScoreResult
 from aim_api.services import scan_queue
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -129,15 +130,18 @@ def run_agent_investigation_for_check_run(
             "generator": investigation.generator,
         },
     )
-    try:
-        create_investigation_alert(session, project=project, investigation=investigation)
-    except Exception:
-        # 알림은 부가 기능 — 실패해도 조사 기록은 유지한다.
-        session.rollback()
-        logger.exception(
-            "Failed to create agent investigation alert.",
-            extra={"check_run_id": str(check_run_id)},
-        )
+    # 수동 조사는 사용자가 화면에서 보고 있으므로 알림을 보내지 않는다 —
+    # Discord 알림은 인시던트 자동 조사의 결론에만 따라붙는다.
+    if trigger == INVESTIGATION_TRIGGER_INCIDENT:
+        try:
+            create_investigation_alert(session, project=project, investigation=investigation)
+        except Exception:
+            # 알림은 부가 기능 — 실패해도 조사 기록은 유지한다.
+            session.rollback()
+            logger.exception(
+                "Failed to create agent investigation alert.",
+                extra={"check_run_id": str(check_run_id)},
+            )
     return investigation
 
 
@@ -157,6 +161,24 @@ def create_investigation_alert(
     label = ROOT_CAUSE_LABELS[RootCause(investigation.root_cause)]
     confidence_label = "높음" if investigation.confidence == "high" else "낮음"
     recheck_note = " · 재검사 1회 수행" if investigation.recheck_used else ""
+
+    lines = [investigation.summary, f"조치: {investigation.recommendation}"]
+    score = session.scalars(
+        select(ScoreResult).where(ScoreResult.check_run_id == investigation.check_run_id)
+    ).first()
+    if score is not None:
+        risk_label = {"STABLE": "안정", "WARNING": "주의", "RISK": "위험"}.get(
+            score.deployment_risk, score.deployment_risk
+        )
+        lines.append(f"검사: {score.overall_score}점 {score.grade} · {risk_label}")
+    web_base_url = get_settings().web_base_url
+    if web_base_url:
+        base = web_base_url.rstrip("/")
+        lines.append(
+            f"근거 타임라인: {base}/projects/{project.id}/check-runs/{investigation.check_run_id}"
+        )
+    lines.append(f"(결론 주체 {investigation.generator}{recheck_note})")
+
     alert = Alert(
         project_id=project.id,
         incident_id=investigation.incident_id,
@@ -166,11 +188,7 @@ def create_investigation_alert(
         channel=AlertChannel.WEBHOOK.value,
         recipient_email=None,
         subject=f"🕵️ [{project.name}] 조사 결과: {label} (신뢰 {confidence_label})",
-        body=(
-            f"{investigation.summary}\n"
-            f"조치 제안: {investigation.recommendation}\n"
-            f"(결론 주체 {investigation.generator}{recheck_note})"
-        ),
+        body="\n".join(lines),
     )
     session.add(alert)
     session.commit()

@@ -44,6 +44,10 @@ class RuleBaselineInvestigator:
 
     def investigate(self, fixtures: ToolFixtures) -> RootCause:
         check = fixtures.check_run
+        # 건강 게이트: '안정' 판정 검사는 조사할 이상 징후가 없다 —
+        # 노이즈로 종결(평가셋에는 STABLE 케이스가 없어 수치 불변).
+        if check.deployment_risk == "STABLE":
+            return RootCause.MEASUREMENT_NOISE
         # SSL 판정이 가용성보다 먼저다 — 무효 인증서는 TLS 실패로 가용성
         # 검사까지 함께 죽이므로, ssl_valid=False가 더 확정적인 증거다.
         if check.ssl_valid is False:

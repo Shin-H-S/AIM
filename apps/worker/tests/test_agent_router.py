@@ -75,6 +75,27 @@ def test_definitive_cases_never_reach_delegate() -> None:
         assert trace.generator == "rule", case_id
 
 
+def test_stable_check_concludes_no_issue_without_recheck() -> None:
+    """건강 게이트: '안정' 판정 검사는 재검사·위임 없이 '이상 없음'으로
+    즉시 종결한다 — 정상 검사 수동 조사가 5분·검사 1회를 낭비하지 않게."""
+    from dataclasses import replace
+
+    case = case_by_id("frontend_regression-00")
+    stable_check = replace(case.fixtures.check_run, deployment_risk="STABLE")
+    fixtures = replace(case.fixtures, check_run=stable_check)
+    delegate = SpyDelegate()
+
+    trace = InvestigationLoop(RouterPolicy(delegate), FixturesToolbox(fixtures)).run()
+
+    assert trace.root_cause == RootCause.MEASUREMENT_NOISE
+    assert "이상 징후 없음" in trace.summary
+    assert trace.recheck_used is False
+    assert [call.tool for call in trace.tool_calls] == ["get_check_run"]
+    assert delegate.consulted is False
+    # 베이스라인도 같은 게이트를 갖는다(동치 유지)
+    assert RuleBaselineInvestigator().investigate(fixtures) == RootCause.MEASUREMENT_NOISE
+
+
 def test_failed_step_cases_are_delegated_with_generator() -> None:
     delegate = SpyDelegate()
     case = case_by_id("curated-login-moved-stale")

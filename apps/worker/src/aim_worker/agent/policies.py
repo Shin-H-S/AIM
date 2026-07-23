@@ -25,7 +25,7 @@ from aim_worker.agent.loop import (
     Policy,
     policy_name,
 )
-from aim_worker.agent.root_causes import ROOT_CAUSE_DESCRIPTIONS, RootCause
+from aim_worker.agent.root_causes import RootCause
 from aim_worker.agent.toolbox import RECHECK_TOOL
 
 RECOMMENDED_ACTIONS: dict[RootCause, str] = {
@@ -40,9 +40,11 @@ RECOMMENDED_ACTIONS: dict[RootCause, str] = {
 
 
 def conclude(cause: RootCause, evidence: str) -> Conclude:
+    # summary는 사람이 읽는 근거 문장 하나 — 라벨은 알림 제목·UI 배지가
+    # 이미 보여주므로 여기서 반복하지 않는다.
     return Conclude(
         root_cause=cause,
-        summary=f"{ROOT_CAUSE_DESCRIPTIONS[cause]} — {evidence}",
+        summary=evidence,
         recommendation=RECOMMENDED_ACTIONS[cause],
     )
 
@@ -72,8 +74,22 @@ def definitive_action(observations: Observations) -> AgentAction | None:
     check = observations.get("get_check_run")
     if not isinstance(check, CheckRunSnapshot):
         return CallTool("get_check_run")
+    if check.deployment_risk == "STABLE":
+        # 건강 게이트: 시스템 스스로 '안정' 판정한 검사에는 조사할 이상
+        # 징후가 없다 — 재검사·LLM 없이 즉시 종결한다(수동 조사 대비).
+        return Conclude(
+            root_cause=RootCause.MEASUREMENT_NOISE,
+            summary=(
+                f"이상 징후 없음 — 종합 {check.overall_score:.0f}점({check.grade})에 "
+                "안정(STABLE) 판정입니다. 지표 변동은 정상 범위입니다."
+            ),
+            recommendation="조치가 필요 없습니다.",
+        )
     if check.ssl_valid is False:
-        return conclude(RootCause.SSL_INVALID, f"인증서 검증 실패({check.ssl_failure})")
+        return conclude(
+            RootCause.SSL_INVALID,
+            f"SSL 인증서가 유효하지 않습니다({check.ssl_failure}).",
+        )
 
     recheck = observations.get(RECHECK_TOOL)
     if not check.availability_ok:
@@ -82,18 +98,21 @@ def definitive_action(observations: Observations) -> AgentAction | None:
         if recheck.reproduced:
             return conclude(
                 RootCause.SERVICE_DOWN,
-                f"가용성 실패 재현({check.availability_failure})",
+                f"서비스에 연결할 수 없고 재검사에서도 재현됐습니다({check.availability_failure}).",
             )
         return conclude(
             RootCause.MEASUREMENT_NOISE,
-            f"가용성 실패가 재검사 미재현(점수 {recheck.overall_score})",
+            f"가용성 실패가 재검사(점수 {recheck.overall_score:.0f})에서 재현되지 않았습니다"
+            " — 일시적 연결 문제였습니다.",
         )
 
     if not isinstance(recheck, RecheckResult):
         return CallTool(RECHECK_TOOL)
     if not recheck.reproduced:
         return conclude(
-            RootCause.MEASUREMENT_NOISE, f"재검사 점수 {recheck.overall_score} — 재현 안 됨"
+            RootCause.MEASUREMENT_NOISE,
+            f"재검사(점수 {recheck.overall_score:.0f})에서 재현되지 않았습니다"
+            " — 일시적 변동입니다.",
         )
 
     steps = observations.get("get_scenario_results")
@@ -108,16 +127,23 @@ def definitive_action(observations: Observations) -> AgentAction | None:
     ):
         return conclude(
             RootCause.SERVER_SLOW,
-            f"응답 {check.response_time_ms}ms > 임계 {check.response_time_threshold_ms}ms×2",
+            f"응답 {check.response_time_ms}ms — 임계 {check.response_time_threshold_ms}ms의"
+            " 2배를 넘는 지연이 지속됩니다.",
         )
 
     baseline = observations.get("compare_with_baseline")
     if not isinstance(baseline, BaselineComparison):
         return CallTool("compare_with_baseline")
     if baseline.performance_delta is not None and baseline.performance_delta <= -10:
-        return conclude(RootCause.FRONTEND_REGRESSION, f"성능 델타 {baseline.performance_delta}")
+        return conclude(
+            RootCause.FRONTEND_REGRESSION,
+            f"Lighthouse 성능이 기준 대비 {baseline.performance_delta} 하락했습니다.",
+        )
 
-    return conclude(RootCause.MEASUREMENT_NOISE, "강한 신호 없음")
+    return conclude(
+        RootCause.MEASUREMENT_NOISE,
+        "강한 이상 신호가 없습니다 — 일시적 변동으로 판단합니다.",
+    )
 
 
 class RulePolicy:
@@ -140,11 +166,15 @@ class RulePolicy:
         if artifacts.redirect_detected_to is not None:
             return conclude(
                 RootCause.SCENARIO_STALE,
-                f"navigate가 {artifacts.redirect_detected_to}로 이동됨",
+                "서비스는 정상이지만 시나리오가 옛 위치를 보고 있습니다 — navigate가 "
+                f"{artifacts.redirect_detected_to}로 이동됐습니다.",
             )
         failed = _failed_step(observations)
         error = failed.error if failed is not None else "원인 미상"
-        return conclude(RootCause.UI_REGRESSION, f"스텝 실패({error})")
+        return conclude(
+            RootCause.UI_REGRESSION,
+            f"시나리오 스텝이 실제로 깨졌습니다 — {error}",
+        )
 
 
 class RouterPolicy:

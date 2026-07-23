@@ -397,8 +397,36 @@ def test_investigation_creates_webhook_alert(
     assert alert.alert_type == "AGENT_INVESTIGATION"
     assert alert.channel == "WEBHOOK"
     assert "SSL 무효" in alert.subject
-    assert "조치 제안" in alert.body
+    assert "조치: " in alert.body
+    assert "검사: 12점 F · 위험" in alert.body  # 점수 맥락이 실린다
     assert delivered == [check_run.id]
+
+
+def test_manual_investigation_skips_alert(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """수동 조사는 사용자가 화면에서 보므로 Discord 알림을 만들지 않는다."""
+    from aim_api.models.alert import Alert
+
+    monkeypatch.setattr(scan_queue, "enqueue_email_alert_delivery", lambda *, check_run_id: "task")
+    project = seed_project(session)
+    project.alert_webhook_url = "https://discord.com/api/webhooks/1/x"
+    session.commit()
+    check_run = seed_check_run(
+        session,
+        project,
+        ssl_valid=False,
+        available=False,
+        lighthouse_performance=None,
+        response_time_ms=None,
+    )
+
+    investigation = run_agent_investigation_for_check_run(
+        session, check_run_id=check_run.id, trigger="manual"
+    )
+
+    assert investigation is not None
+    assert session.scalars(select(Alert)).first() is None
 
 
 def test_incident_open_enqueues_investigation(

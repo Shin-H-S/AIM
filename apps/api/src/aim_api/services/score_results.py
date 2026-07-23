@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from aim_api.models.project import Project
@@ -12,9 +12,15 @@ from aim_api.models.scanner_result import (
     ScoreResult,
     SslResult,
 )
-from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus, StepResult, StepResultStatus
+from aim_api.models.scenario import (
+    ConsoleError,
+    ScenarioRun,
+    ScenarioRunStatus,
+    StepResult,
+    StepResultStatus,
+)
 
-SCORING_VERSION = "2026-06-28.scenario-v1"
+SCORING_VERSION = "2026-07-20.console-errors-v1"
 SCORE_BREAKDOWN_VERSION = 1
 
 # 서비스 성격별 카테고리 가중치 프리셋 (각 합 100).
@@ -97,10 +103,12 @@ def calculate_score(
     lighthouse_result: LighthouseResult | None,
     scenario_runs: list[ScenarioRun] | None = None,
     step_results_by_run_id: dict[UUID, list[StepResult]] | None = None,
+    console_error_counts_by_run_id: dict[UUID, int] | None = None,
     previous_score_result: ScoreResult | None = None,
 ) -> CalculatedScore:
     scenario_runs = scenario_runs or []
     step_results_by_run_id = step_results_by_run_id or {}
+    console_error_counts_by_run_id = console_error_counts_by_run_id or {}
     availability_score, availability_reasons = availability_score_with_reasons(
         availability_result=availability_result,
         response_time_threshold_ms=project.response_time_threshold_ms,
@@ -108,6 +116,7 @@ def calculate_score(
     functional_stability_score, functional_reasons = functional_stability_score_with_reasons(
         scenario_runs=scenario_runs,
         step_results_by_run_id=step_results_by_run_id,
+        console_error_counts_by_run_id=console_error_counts_by_run_id,
     )
     web_performance_score, web_performance_reasons = lighthouse_category_score_with_reasons(
         lighthouse_result,
@@ -341,10 +350,17 @@ def calculate_seo_basic_quality_score(lighthouse_result: LighthouseResult | None
     return seo_basic_quality_score_with_reasons(lighthouse_result)[0]
 
 
+# 콘솔 에러 감점: 시나리오가 통과했어도 브라우저 콘솔 error는 사용자 흐름의 품질 신호다.
+# 실행별로 1건당 5점, 실행당 최대 20점까지 감점한다(반복 에러가 점수를 지배하지 않도록 상한).
+CONSOLE_ERROR_PENALTY = 5
+CONSOLE_ERROR_PENALTY_CAP = 20
+
+
 def functional_stability_score_with_reasons(
     *,
     scenario_runs: list[ScenarioRun],
     step_results_by_run_id: dict[UUID, list[StepResult]],
+    console_error_counts_by_run_id: dict[UUID, int],
 ) -> tuple[int | None, ScoreReasons]:
     if not scenario_runs:
         return None, [{"code": "no_scenario_runs"}]
@@ -353,6 +369,8 @@ def functional_stability_score_with_reasons(
     failed_runs = 0
     runs_with_failed_steps = 0
     clean_runs = 0
+    total_console_errors = 0
+    total_console_error_points = 0
     for scenario_run in scenario_runs:
         if scenario_run.status == ScenarioRunStatus.FAILED.value:
             run_scores.append(0)
@@ -370,12 +388,20 @@ def functional_stability_score_with_reasons(
             runs_with_failed_steps += 1
         else:
             clean_runs += 1
-        run_scores.append(80 if has_failed_step else 100)
+        run_score = 80 if has_failed_step else 100
+
+        console_error_count = console_error_counts_by_run_id.get(scenario_run.id, 0)
+        if console_error_count > 0:
+            deduction = min(CONSOLE_ERROR_PENALTY_CAP, CONSOLE_ERROR_PENALTY * console_error_count)
+            run_score = max(0, run_score - deduction)
+            total_console_errors += console_error_count
+            total_console_error_points += deduction
+        run_scores.append(run_score)
 
     if not run_scores:
         return None, [{"code": "no_scored_scenario_runs"}]
 
-    return round(sum(run_scores) / len(run_scores)), [
+    reasons: ScoreReasons = [
         {
             "code": "scenario_runs_scored",
             "failed": failed_runs,
@@ -383,16 +409,27 @@ def functional_stability_score_with_reasons(
             "clean": clean_runs,
         }
     ]
+    if total_console_errors > 0:
+        reasons.append(
+            {
+                "code": "console_errors_deducted",
+                "errors": total_console_errors,
+                "points": total_console_error_points,
+            }
+        )
+    return round(sum(run_scores) / len(run_scores)), reasons
 
 
 def calculate_functional_stability_score(
     *,
     scenario_runs: list[ScenarioRun],
     step_results_by_run_id: dict[UUID, list[StepResult]],
+    console_error_counts_by_run_id: dict[UUID, int],
 ) -> int | None:
     return functional_stability_score_with_reasons(
         scenario_runs=scenario_runs,
         step_results_by_run_id=step_results_by_run_id,
+        console_error_counts_by_run_id=console_error_counts_by_run_id,
     )[0]
 
 
@@ -595,6 +632,10 @@ def record_score_result(
         session,
         scenario_run_ids=[scenario_run.id for scenario_run in scenario_runs],
     )
+    console_error_counts_by_run_id = count_console_errors_by_scenario_run_id(
+        session,
+        scenario_run_ids=[scenario_run.id for scenario_run in scenario_runs],
+    )
     calculated_score = calculate_score(
         project=project,
         availability_result=availability_result,
@@ -602,6 +643,7 @@ def record_score_result(
         lighthouse_result=lighthouse_result,
         scenario_runs=scenario_runs,
         step_results_by_run_id=step_results_by_run_id,
+        console_error_counts_by_run_id=console_error_counts_by_run_id,
         previous_score_result=get_previous_score_result(
             session,
             project_id=project.id,
@@ -747,3 +789,19 @@ def list_step_results_by_scenario_run_id(
         grouped_results.setdefault(step_result.scenario_run_id, []).append(step_result)
 
     return grouped_results
+
+
+def count_console_errors_by_scenario_run_id(
+    session: Session,
+    *,
+    scenario_run_ids: list[UUID],
+) -> dict[UUID, int]:
+    if not scenario_run_ids:
+        return {}
+
+    rows = session.execute(
+        select(ConsoleError.scenario_run_id, func.count())
+        .where(ConsoleError.scenario_run_id.in_(scenario_run_ids))
+        .group_by(ConsoleError.scenario_run_id)
+    ).all()
+    return {scenario_run_id: count for scenario_run_id, count in rows}

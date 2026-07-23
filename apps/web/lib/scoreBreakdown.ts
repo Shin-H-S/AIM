@@ -75,6 +75,10 @@ export function scoreReasonText(reason: ScoreBreakdownReason): string {
       return `시나리오 실행 결과 반영 (실패 ${reason.failed ?? 0} · step 실패 포함 ${
         reason.with_failed_steps ?? 0
       } · 성공 ${reason.clean ?? 0})`;
+    case "console_errors_deducted":
+      return `브라우저 콘솔 에러 ${reason.errors ?? 0}건 — 실행 점수에서 ${
+        reason.points ?? 0
+      }점 감점 (1건당 5점, 실행당 최대 20점)`;
     case "no_previous_run":
       return "비교할 이전 검사가 없어 평가 제외 — 두 번째 검사부터 반영됩니다";
     case "no_comparable_categories":

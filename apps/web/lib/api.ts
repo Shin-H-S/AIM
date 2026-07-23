@@ -211,6 +211,7 @@ export type ScoreBreakdownReason = {
   failed?: number;
   with_failed_steps?: number;
   clean?: number;
+  errors?: number;
   seo?: number | null;
   best_practices?: number | null;
   compared?: number;

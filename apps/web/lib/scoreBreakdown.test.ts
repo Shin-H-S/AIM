@@ -62,6 +62,12 @@ describe("scoreReasonText", () => {
     ).toBe("시나리오 실행 결과 반영 (실패 1 · step 실패 포함 0 · 성공 2)");
   });
 
+  it("describes console error deductions", () => {
+    expect(scoreReasonText({ code: "console_errors_deducted", errors: 2, points: 10 })).toBe(
+      "브라우저 콘솔 에러 2건 — 실행 점수에서 10점 감점 (1건당 5점, 실행당 최대 20점)"
+    );
+  });
+
   it("falls back to the raw code for unknown reasons", () => {
     expect(scoreReasonText({ code: "mystery" })).toBe("mystery");
   });

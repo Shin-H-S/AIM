@@ -145,6 +145,33 @@ def evaluate(investigator: Investigator, cases: Iterable[EvalCase]) -> Evaluatio
     )
 
 
+@dataclass(frozen=True)
+class ChurnReport:
+    """기준 조사기 대비 무엇을 고치고 무엇을 망가뜨렸나 — dev 튜닝의 계기판.
+
+    전체 정확도는 상쇄를 숨긴다: 14건을 고치면서 10건을 새로 틀려도 숫자는
+    오른다. 게이트(오류 상한)를 지키려면 broken이 0에 가까워야 한다.
+    """
+
+    fixed_case_ids: tuple[str, ...]  # 기준은 틀렸는데 후보는 맞힘
+    broken_case_ids: tuple[str, ...]  # 기준은 맞혔는데 후보가 틀림
+
+
+def diff_investigators(
+    reference: Investigator, candidate: Investigator, cases: Iterable[EvalCase]
+) -> ChurnReport:
+    fixed: list[str] = []
+    broken: list[str] = []
+    for case in cases:
+        reference_correct = reference.investigate(case.fixtures) == case.root_cause
+        candidate_correct = candidate.investigate(case.fixtures) == case.root_cause
+        if candidate_correct and not reference_correct:
+            fixed.append(case.case_id)
+        elif reference_correct and not candidate_correct:
+            broken.append(case.case_id)
+    return ChurnReport(fixed_case_ids=tuple(fixed), broken_case_ids=tuple(broken))
+
+
 def select_split(split: str) -> tuple[EvalCase, ...]:
     cases = generate_cases()
     if split == "all":

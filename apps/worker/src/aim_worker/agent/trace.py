@@ -41,6 +41,8 @@ class InvestigationTrace:
     summary: str
     recommendation: str
     recheck_used: bool
+    # 미허용 도구 호출 시도(도구명, 시도 순) — "무단 변경 시도 0건" 지표의 근거
+    violations: tuple[str, ...] = ()
 
     @property
     def steps_used(self) -> int:
@@ -59,6 +61,8 @@ class InvestigationTrace:
                 "recommendation": self.recommendation,
                 "recheck_used": self.recheck_used,
                 "steps_used": self.steps_used,
+                "violation_count": len(self.violations),
+                "violations": list(self.violations),
             },
             ensure_ascii=False,
             indent=2,

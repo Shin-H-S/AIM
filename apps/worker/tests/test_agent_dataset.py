@@ -8,7 +8,7 @@ from aim_worker.agent.root_causes import RootCause
 def test_generates_balanced_dataset() -> None:
     cases = generate_cases()
 
-    assert len(cases) == CASES_PER_CAUSE * len(RootCause) == 105
+    assert len(cases) == CASES_PER_CAUSE * len(RootCause) == 175
     counts = Counter(case.root_cause for case in cases)
     assert all(counts[cause] == CASES_PER_CAUSE for cause in RootCause)
 
@@ -41,9 +41,9 @@ def test_split_keeps_cause_balance_and_covers_everything() -> None:
     dev_counts = Counter(case.root_cause for case in dev)
     test_counts = Counter(case.root_cause for case in test)
     for cause in RootCause:
-        # 15건을 교차 배분하면 8/7 — 유형 균형이 유지된다.
-        assert dev_counts[cause] == 8
-        assert test_counts[cause] == 7
+        # 25건을 교차 배분하면 13/12 — 유형 균형이 유지된다.
+        assert dev_counts[cause] == 13
+        assert test_counts[cause] == 12
 
 
 def test_labels_carry_discriminating_evidence() -> None:
@@ -79,7 +79,7 @@ def test_noise_includes_availability_blips() -> None:
         if case.root_cause == RootCause.MEASUREMENT_NOISE
         and not case.fixtures.check_run.availability_ok
     ]
-    assert len(blips) == 5
+    assert len(blips) == 9
 
 
 def _failed_error_kind(case: EvalCase) -> str | None:

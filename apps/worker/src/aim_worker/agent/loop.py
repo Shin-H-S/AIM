@@ -46,8 +46,12 @@ class Policy(Protocol):
     def decide(self, observations: Observations) -> AgentAction: ...
 
 
-class UnknownToolError(Exception):
-    """허용 도구 목록에 없는 도구를 호출했다."""
+@dataclass(frozen=True)
+class ToolRefusal:
+    """미허용 도구 호출에 대한 거절 관찰 — 정책이 이걸 보고 경로를 바꾼다."""
+
+    tool: str
+    reason: str
 
 
 class StepLimitExceeded(Exception):
@@ -63,15 +67,24 @@ class InvestigationLoop:
     def run(self, case_ref: str | None = None) -> InvestigationTrace:
         observations: dict[str, object] = {}
         tool_calls: list[ToolCall] = []
+        violations: list[str] = []
 
         for step in range(1, self._max_steps + 1):
             action = self._policy.decide(MappingProxyType(observations))
             if isinstance(action, Conclude):
-                return self._close(case_ref, tool_calls, observations, action)
+                return self._close(case_ref, tool_calls, observations, violations, action)
 
             dispatch = TOOL_DISPATCH.get(action.tool)
             if dispatch is None:
-                raise UnknownToolError(action.tool)
+                # 미허용 도구는 크래시가 아니라 "기록 + 거절 관찰"이다 —
+                # LLM이 도구명을 환각해도 조사는 계속되고, 시도 자체는
+                # 위반으로 남아 "무단 변경 시도 0건" 지표의 근거가 된다.
+                violations.append(action.tool)
+                observations.setdefault(
+                    action.tool, ToolRefusal(tool=action.tool, reason="허용된 조사 도구가 아님")
+                )
+                tool_calls.append(ToolCall(step, action.tool, "거절: 허용된 조사 도구가 아님"))
+                continue
             # 같은 도구 재호출은 캐시를 돌려준다 — 특히 trigger_recheck가
             # 조사당 1회를 넘지 못하는 것은 이 멱등성으로 보장된다.
             if action.tool in observations:
@@ -85,7 +98,7 @@ class InvestigationLoop:
         # 그래도 결론이 아니면 정책 결함이므로 실패로 처리한다.
         action = self._policy.decide(MappingProxyType(observations))
         if isinstance(action, Conclude):
-            return self._close(case_ref, tool_calls, observations, action)
+            return self._close(case_ref, tool_calls, observations, violations, action)
         raise StepLimitExceeded(f"{self._max_steps} steps used without a conclusion")
 
     def _close(
@@ -93,6 +106,7 @@ class InvestigationLoop:
         case_ref: str | None,
         tool_calls: list[ToolCall],
         observations: dict[str, object],
+        violations: list[str],
         action: Conclude,
     ) -> InvestigationTrace:
         return InvestigationTrace(
@@ -102,6 +116,7 @@ class InvestigationLoop:
             summary=action.summary,
             recommendation=action.recommendation,
             recheck_used="trigger_recheck" in observations,
+            violations=tuple(violations),
         )
 
 
@@ -115,9 +130,16 @@ class AgentInvestigator:
     def __init__(self, policy_factory: "PolicyFactory") -> None:
         self._policy_factory = policy_factory
 
-    def investigate(self, fixtures: ToolFixtures) -> RootCause:
+    def investigate_with_trace(
+        self, fixtures: ToolFixtures, case_ref: str | None = None
+    ) -> InvestigationTrace:
+        """분류뿐 아니라 trace(도구 체인·재검사·위반)까지 필요할 때 —
+        W3의 비용·위반 리포트가 이 경로로 수집한다."""
         loop = InvestigationLoop(self._policy_factory(), FixturesToolbox(fixtures))
-        return loop.run().root_cause
+        return loop.run(case_ref)
+
+    def investigate(self, fixtures: ToolFixtures) -> RootCause:
+        return self.investigate_with_trace(fixtures).root_cause
 
 
 class PolicyFactory(Protocol):

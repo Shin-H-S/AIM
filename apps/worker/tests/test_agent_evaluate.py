@@ -1,5 +1,5 @@
 from aim_worker.agent.cases import EvalCase, ToolFixtures
-from aim_worker.agent.dataset import generate_cases, split_cases
+from aim_worker.agent.dataset import CASES_PER_CAUSE, generate_cases, split_cases
 from aim_worker.agent.evaluate import (
     EvaluationReport,
     RuleBaselineInvestigator,
@@ -71,7 +71,7 @@ def test_rule_baseline_nails_strong_signal_causes() -> None:
     """강한 신호 유형(다운·SSL·노이즈)은 규칙만으로 만점이어야 한다."""
     baseline = RuleBaselineInvestigator()
     for cause in (RootCause.SERVICE_DOWN, RootCause.SSL_INVALID, RootCause.MEASUREMENT_NOISE):
-        report = evaluate(baseline, take_cases(15, cause))
+        report = evaluate(baseline, take_cases(CASES_PER_CAUSE, cause))
         assert report.accuracy == 1.0, cause
 
 
@@ -89,6 +89,6 @@ def test_rule_baseline_is_imperfect_overall() -> None:
 
 
 def test_select_split_sizes() -> None:
-    assert len(select_split("all")) == 105
-    assert len(select_split("dev")) == 56
-    assert len(select_split("test")) == 49
+    assert len(select_split("all")) == 175
+    assert len(select_split("dev")) == 91
+    assert len(select_split("test")) == 84

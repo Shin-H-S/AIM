@@ -77,6 +77,8 @@ class RecentRunSummary:
     overall_score: float
     all_scenarios_passed: bool
     response_time_ms: int | None
+    # "언제부터 나빠졌나"를 성능 회귀에도 답할 수 있게 하는 추이 신호
+    lighthouse_performance: int | None = None
 
 
 @dataclass(frozen=True)

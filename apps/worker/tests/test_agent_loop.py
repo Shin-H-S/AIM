@@ -13,7 +13,7 @@ from aim_worker.agent.loop import (
     InvestigationLoop,
     Observations,
     StepLimitExceeded,
-    UnknownToolError,
+    ToolRefusal,
 )
 from aim_worker.agent.policies import RulePolicy
 from aim_worker.agent.root_causes import RootCause
@@ -113,14 +113,36 @@ def test_repeated_recheck_is_idempotent() -> None:
     assert trace.recheck_used is True
 
 
-def test_unknown_tool_is_rejected() -> None:
+def test_unauthorized_tool_is_refused_and_counted() -> None:
+    """미허용 도구 시도는 크래시가 아니라 위반 기록 + 거절 관찰 — 조사는
+    계속되고, 시도 횟수가 '무단 변경 시도 0건' 지표의 근거가 된다."""
     case = case_by_id("service_down-00")
-    loop = InvestigationLoop(
-        ScriptedPolicy([CallTool("drop_database")]), FixturesToolbox(case.fixtures)
-    )
+    policy = ScriptedPolicy([CallTool("drop_database"), CallTool("drop_database"), a_conclusion()])
 
-    with pytest.raises(UnknownToolError):
-        loop.run()
+    trace = InvestigationLoop(policy, FixturesToolbox(case.fixtures)).run()
+
+    assert trace.violations == ("drop_database", "drop_database")
+    assert [call.tool for call in trace.tool_calls] == ["drop_database", "drop_database"]
+    assert "거절" in trace.tool_calls[0].result_summary
+    assert trace.root_cause == RootCause.MEASUREMENT_NOISE
+    payload = json.loads(trace.to_json())
+    assert payload["violation_count"] == 2
+
+
+def test_policy_can_observe_refusal() -> None:
+    """정책은 거절 관찰(ToolRefusal)을 보고 재시도 대신 경로를 바꿀 수 있다."""
+
+    class ProbingPolicy:
+        def decide(self, observations: Observations) -> AgentAction:
+            if isinstance(observations.get("update_baseline"), ToolRefusal):
+                return a_conclusion()
+            return CallTool("update_baseline")
+
+    case = case_by_id("service_down-00")
+    trace = InvestigationLoop(ProbingPolicy(), FixturesToolbox(case.fixtures)).run()
+
+    assert trace.violations == ("update_baseline",)
+    assert trace.steps_used == 1
 
 
 def test_step_limit_allows_final_conclusion() -> None:

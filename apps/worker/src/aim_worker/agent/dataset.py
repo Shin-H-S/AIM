@@ -1,9 +1,13 @@
-"""평가셋 v1 생성기 — 유형당 15건 × 7유형 = 105건, 시드 고정으로 결정적 생성.
+"""평가셋 생성기 — 유형당 25건 × 7유형 = 175건, 시드 고정으로 결정적 생성.
 
 원칙:
 - 정답 라벨은 fixtures에 담긴 증거로 판별 가능해야 한다(공정한 채점).
 - 단, 경계 사례(약한·혼합 신호)를 섞어 단순 규칙이 만점을 내지 못하게 한다 —
   규칙 베이스라인이 목표선(LLM이 넘어야 할 선)이 되게 하는 설계다.
+- fixtures는 실제 스캐너의 의미론을 따른다(예: 무효 인증서는 가용성 검사도
+  함께 죽는다) — 합성 케이스로 튜닝한 판단이 운영에서도 성립해야 한다.
+- 표면(플로우·셀렉터·에러 문구)은 변주한다 — 특정 문자열이 라벨의 지름길이
+  되면 LLM이 의미가 아니라 문자열을 학습한다.
 - 실측 사고 3건(GCP VM 정지·다운사이징 성능 하락·로그인 이사 스테일)은
   수제 케이스로 재현하고 curated로 표기한다.
 """
@@ -25,10 +29,19 @@ from aim_worker.agent.cases import (
 from aim_worker.agent.root_causes import RootCause
 
 DATASET_SEED = 20260720
-CASES_PER_CAUSE = 15
+CASES_PER_CAUSE = 25
 
 SERVICE_URL = "https://myservice.example"
 DEFAULT_THRESHOLD_MS = 500
+
+# (플로우명, 경로, fill 셀렉터, click 셀렉터, 성공 확인 문구) — 케이스를
+# 여러 사용자 플로우에 분산해 문자열 지름길 학습을 막는다.
+FLOWS: tuple[tuple[str, str, str, str, str], ...] = (
+    ("로그인", "/login", "#email", 'button[type="submit"]', "대시보드"),
+    ("결제", "/checkout", "#card-number", "button.pay-now", "주문 완료"),
+    ("검색", "/search", 'input[name="q"]', "button.search-submit", "검색 결과"),
+    ("가입", "/signup", "#nickname", 'button[type="submit"]', "환영합니다"),
+)
 
 
 def healthy_recent_runs(rng: random.Random, count: int = 5) -> tuple[RecentRunSummary, ...]:
@@ -37,16 +50,20 @@ def healthy_recent_runs(rng: random.Random, count: int = 5) -> tuple[RecentRunSu
             overall_score=round(rng.uniform(94.0, 100.0), 1),
             all_scenarios_passed=True,
             response_time_ms=rng.randint(80, 240),
+            lighthouse_performance=rng.randint(90, 99),
         )
         for _ in range(count)
     )
 
 
-def passing_steps(rng: random.Random) -> tuple[ScenarioStepResult, ...]:
+def passing_steps(
+    rng: random.Random, flow: tuple[str, str, str, str, str] = FLOWS[0]
+) -> tuple[ScenarioStepResult, ...]:
+    _, path, fill_target, click_target, _ = flow
     return (
-        ScenarioStepResult(1, "navigate", f"{SERVICE_URL}/login", "PASSED", None),
-        ScenarioStepResult(2, "fill", "#email", "PASSED", None),
-        ScenarioStepResult(3, "click", 'button[type="submit"]', "PASSED", None),
+        ScenarioStepResult(1, "navigate", f"{SERVICE_URL}{path}", "PASSED", None),
+        ScenarioStepResult(2, "fill", fill_target, "PASSED", None),
+        ScenarioStepResult(3, "click", click_target, "PASSED", None),
         ScenarioStepResult(4, "assert_url", None, "PASSED", None),
     )
 
@@ -62,19 +79,11 @@ def default_config(targets: tuple[str, ...] = (f"{SERVICE_URL}/login",)) -> Proj
 
 def build_service_down(rng: random.Random, index: int) -> EvalCase:
     failure = rng.choice(["connect timeout", "connection refused", "dns resolution failed"])
-    steps = tuple(
-        ScenarioStepResult(
-            order,
-            action,
-            target,
-            "FAILED" if order == 1 else "SKIPPED",
-            failure if order == 1 else None,
-        )
-        for order, action, target in (
-            (1, "navigate", f"{SERVICE_URL}/login"),
-            (2, "fill", "#email"),
-            (3, "click", 'button[type="submit"]'),
-        )
+    _, path, fill_target, click_target, _ = FLOWS[index % 4]
+    steps = (
+        ScenarioStepResult(1, "navigate", f"{SERVICE_URL}{path}", "FAILED", failure),
+        ScenarioStepResult(2, "fill", fill_target, "SKIPPED", None),
+        ScenarioStepResult(3, "click", click_target, "SKIPPED", None),
     )
     fixtures = ToolFixtures(
         check_run=CheckRunSnapshot(
@@ -121,10 +130,11 @@ def build_ssl_invalid(rng: random.Random, index: int) -> EvalCase:
     else:
         ssl_failure = "hostname mismatch: certificate is not valid for myservice.example"
         navigate_error = "net::ERR_CERT_COMMON_NAME_INVALID"
+    _, path, fill_target, click_target, _ = FLOWS[index % 4]
     steps = (
-        ScenarioStepResult(1, "navigate", f"{SERVICE_URL}/login", "FAILED", navigate_error),
-        ScenarioStepResult(2, "fill", "#email", "SKIPPED", None),
-        ScenarioStepResult(3, "click", 'button[type="submit"]', "SKIPPED", None),
+        ScenarioStepResult(1, "navigate", f"{SERVICE_URL}{path}", "FAILED", navigate_error),
+        ScenarioStepResult(2, "fill", fill_target, "SKIPPED", None),
+        ScenarioStepResult(3, "click", click_target, "SKIPPED", None),
     )
     fixtures = ToolFixtures(
         check_run=CheckRunSnapshot(
@@ -159,20 +169,23 @@ def build_server_slow(rng: random.Random, index: int) -> EvalCase:
     response_ms = int(DEFAULT_THRESHOLD_MS * multiplier)
     # 경계 사례(약 1/3): 지연 때문에 wait 스텝 하나가 타임아웃으로 실패
     slow_breaks_step = index % 3 == 0
+    flow = FLOWS[index % 4]
     steps: tuple[ScenarioStepResult, ...]
     if slow_breaks_step:
+        _, path, _, click_target, _ = flow
         steps = (
-            ScenarioStepResult(1, "navigate", f"{SERVICE_URL}/login", "PASSED", None),
+            ScenarioStepResult(1, "navigate", f"{SERVICE_URL}{path}", "PASSED", None),
             ScenarioStepResult(2, "wait", None, "FAILED", "timeout waiting for selector"),
-            ScenarioStepResult(3, "click", 'button[type="submit"]', "SKIPPED", None),
+            ScenarioStepResult(3, "click", click_target, "SKIPPED", None),
         )
     else:
-        steps = passing_steps(rng)
+        steps = passing_steps(rng, flow)
     creeping = tuple(
         RecentRunSummary(
             overall_score=round(rng.uniform(88.0, 97.0), 1),
             all_scenarios_passed=True,
             response_time_ms=int(DEFAULT_THRESHOLD_MS * (1.0 + 0.35 * offset)),
+            lighthouse_performance=rng.randint(84, 95),
         )
         for offset in range(4, 0, -1)
     )
@@ -214,6 +227,21 @@ def build_server_slow(rng: random.Random, index: int) -> EvalCase:
 def build_frontend_regression(rng: random.Random, index: int) -> EvalCase:
     drop = rng.randint(12, 40)
     performance = max(30, 95 - drop)
+    # 변형(약 1/3): 점진 하락 — 추이에서 이미 성능이 미끄러지는 중이었다.
+    # get_recent_runs로 "언제부터 나빠졌나"가 답 가능해야 한다.
+    gradual = index % 3 == 2
+    if gradual:
+        recents = tuple(
+            RecentRunSummary(
+                overall_score=round(rng.uniform(90.0, 97.0), 1),
+                all_scenarios_passed=True,
+                response_time_ms=rng.randint(90, 240),
+                lighthouse_performance=min(99, performance + boost),
+            )
+            for boost in (4, 8, 13, 18)
+        )
+    else:
+        recents = healthy_recent_runs(rng)
     fixtures = ToolFixtures(
         check_run=CheckRunSnapshot(
             overall_score=round(rng.uniform(70.0, 88.0), 1),
@@ -230,12 +258,12 @@ def build_frontend_regression(rng: random.Random, index: int) -> EvalCase:
             trigger_source="deploy",
             deploy_ref=f"{rng.randrange(16**7):07x}",
         ),
-        scenario_results=passing_steps(rng),
+        scenario_results=passing_steps(rng, FLOWS[index % 4]),
         artifacts=ArtifactsSnapshot(),
         baseline=BaselineComparison(
             round(rng.uniform(-18.0, -6.0), 1), -drop, rng.randint(-30, 30)
         ),
-        recent_runs=healthy_recent_runs(rng),
+        recent_runs=recents,
         project_config=default_config(),
         recheck=RecheckResult(reproduced=True, overall_score=round(rng.uniform(70.0, 88.0), 1)),
     )
@@ -248,11 +276,12 @@ def build_frontend_regression(rng: random.Random, index: int) -> EvalCase:
 
 
 def build_ui_regression(rng: random.Random, index: int) -> EvalCase:
+    _, path, fill_target, click_target, assert_text = FLOWS[index % 4]
     broken_step = rng.choice(
         [
-            (2, "fill", "#email", 'no element matches selector "#email"'),
-            (3, "click", 'button[type="submit"]', "element is not clickable"),
-            (4, "assert_text_exists", None, 'expected text "대시보드" not found'),
+            (2, "fill", fill_target, f'no element matches selector "{fill_target}"'),
+            (3, "click", click_target, "element is not clickable"),
+            (4, "assert_text_exists", None, f'expected text "{assert_text}" not found'),
         ]
     )
     order, action, target, error = broken_step
@@ -265,17 +294,27 @@ def build_ui_regression(rng: random.Random, index: int) -> EvalCase:
             error if step == order else None,
         )
         for step, step_action, step_target in (
-            (1, "navigate", f"{SERVICE_URL}/login"),
-            (2, "fill", "#email"),
-            (3, "click", 'button[type="submit"]'),
+            (1, "navigate", f"{SERVICE_URL}{path}"),
+            (2, "fill", fill_target),
+            (3, "click", click_target),
             (4, "assert_text_exists", None),
         )
+    )
+    console_error = rng.choice(
+        [
+            "TypeError: cannot read properties of undefined",
+            "ReferenceError: initForm is not defined",
+            "Uncaught (in promise) SyntaxError: Unexpected token '<'",
+        ]
+    )
+    network_failure = rng.choice(
+        ["POST /api/session 500", "POST /api/orders 500", "GET /api/search 502"]
     )
     # 경계 사례(약 1/3): 콘솔 에러 없이 요소만 깨진 조용한 파손
     silent = index % 3 == 2
     artifacts = ArtifactsSnapshot(
-        console_errors=() if silent else ("TypeError: cannot read properties of undefined",),
-        network_failures=() if silent or index % 2 == 0 else ("POST /api/session 500",),
+        console_errors=() if silent else (console_error,),
+        network_failures=() if silent or index % 2 == 0 else (network_failure,),
         failing_page_rendered_ok=silent,
         redirect_detected_to=None,
     )
@@ -314,20 +353,22 @@ def build_ui_regression(rng: random.Random, index: int) -> EvalCase:
 
 def build_scenario_stale(rng: random.Random, index: int) -> EvalCase:
     # 서비스 개편으로 시나리오 전제가 낡음 — 페이지는 정상 렌더, 콘솔은 조용함.
-    moved_to = rng.choice([f"{SERVICE_URL}/login", f"{SERVICE_URL}/auth/signin"])
-    old_target = f"{SERVICE_URL}/"
+    flow_name, path, fill_target, click_target, _ = FLOWS[index % 4]
+    moved_to = f"{SERVICE_URL}" + rng.choice([f"{path}/v2", f"/app{path}"])
+    old_target = f"{SERVICE_URL}{path}"
+    fill_error = f'no element matches selector "{fill_target}"'
     with_redirect = index % 5 != 4  # 일부는 리다이렉트 흔적 없이(더 어려운 케이스)
     steps = (
         ScenarioStepResult(1, "navigate", old_target, "PASSED", None),
-        ScenarioStepResult(2, "fill", "#email", "FAILED", 'no element matches selector "#email"'),
-        ScenarioStepResult(3, "click", 'button[type="submit"]', "SKIPPED", None),
+        ScenarioStepResult(2, "fill", fill_target, "FAILED", fill_error),
+        ScenarioStepResult(3, "click", click_target, "SKIPPED", None),
     )
     fixtures = ToolFixtures(
         check_run=CheckRunSnapshot(
             overall_score=round(rng.uniform(50.0, 68.0), 1),
             grade="F",
             deployment_risk="RISK",
-            gate_reason='no element matches selector "#email"',
+            gate_reason=fill_error,
             availability_ok=True,
             availability_failure=None,
             response_time_ms=rng.randint(90, 260),
@@ -347,7 +388,7 @@ def build_scenario_stale(rng: random.Random, index: int) -> EvalCase:
             relocation_hint=(
                 f"navigate가 {moved_to}로 리다이렉트됨 — 새 페이지는 정상, 셀렉터만 불일치"
                 if with_redirect
-                else f"기존 페이지 정상 렌더 — 로그인 진입점이 {moved_to} 링크로 이동한 흔적"
+                else f"기존 페이지 정상 렌더 — {flow_name} 진입점이 {moved_to} 링크로 이동한 흔적"
             ),
         ),
         baseline=BaselineComparison(
@@ -367,7 +408,8 @@ def build_scenario_stale(rng: random.Random, index: int) -> EvalCase:
 
 def build_measurement_noise(rng: random.Random, index: int) -> EvalCase:
     flavor = ("availability-blip", "timeout-blip", "lighthouse-dip")[index % 3]
-    steps = passing_steps(rng)
+    flow = FLOWS[index % 4]
+    steps = passing_steps(rng, flow)
     artifacts = ArtifactsSnapshot()
     baseline = BaselineComparison(
         round(rng.uniform(-20.0, -8.0), 1), rng.randint(-20, 0), rng.randint(0, 900)
@@ -392,10 +434,11 @@ def build_measurement_noise(rng: random.Random, index: int) -> EvalCase:
             trigger_source="scheduled",
             deploy_ref=None,
         )
+        _, path, fill_target, click_target, _ = flow
         steps = (
-            ScenarioStepResult(1, "navigate", f"{SERVICE_URL}/login", "FAILED", failure),
-            ScenarioStepResult(2, "fill", "#email", "SKIPPED", None),
-            ScenarioStepResult(3, "click", 'button[type="submit"]', "SKIPPED", None),
+            ScenarioStepResult(1, "navigate", f"{SERVICE_URL}{path}", "FAILED", failure),
+            ScenarioStepResult(2, "fill", fill_target, "SKIPPED", None),
+            ScenarioStepResult(3, "click", click_target, "SKIPPED", None),
         )
         artifacts = ArtifactsSnapshot(network_failures=(failure,))
         baseline = BaselineComparison(None, None, None)
@@ -475,8 +518,8 @@ def curated_cases() -> tuple[EvalCase, ...]:
             artifacts=ArtifactsSnapshot(network_failures=("connect timeout",)),
             baseline=BaselineComparison(None, None, None),
             recent_runs=(
-                RecentRunSummary(97.0, True, 150),
-                RecentRunSummary(99.0, True, 140),
+                RecentRunSummary(97.0, True, 150, 99),
+                RecentRunSummary(99.0, True, 140, 99),
             ),
             project_config=default_config(),
             recheck=RecheckResult(reproduced=True, overall_score=8.0),
@@ -511,10 +554,11 @@ def curated_cases() -> tuple[EvalCase, ...]:
             artifacts=ArtifactsSnapshot(),
             baseline=BaselineComparison(-2.0, -13, 5),
             recent_runs=(
-                RecentRunSummary(97.0, True, 155),
-                RecentRunSummary(97.0, True, 148),
-                RecentRunSummary(99.0, True, 150),
-                RecentRunSummary(99.0, True, 152),
+                # 다운사이징 직전까지 성능 99 유지 — 급락 시점이 추이로 보인다
+                RecentRunSummary(97.0, True, 155, 99),
+                RecentRunSummary(97.0, True, 148, 99),
+                RecentRunSummary(99.0, True, 150, 99),
+                RecentRunSummary(99.0, True, 152, 99),
             ),
             project_config=default_config(),
             recheck=RecheckResult(reproduced=True, overall_score=97.0),
@@ -560,8 +604,8 @@ def curated_cases() -> tuple[EvalCase, ...]:
             ),
             baseline=BaselineComparison(-38.0, 2, -10),
             recent_runs=(
-                RecentRunSummary(97.0, True, 130),
-                RecentRunSummary(97.0, True, 145),
+                RecentRunSummary(97.0, True, 130, 99),
+                RecentRunSummary(97.0, True, 145, 99),
             ),
             project_config=default_config(targets=(f"{SERVICE_URL}/",)),
             recheck=RecheckResult(reproduced=True, overall_score=59.0),
@@ -583,7 +627,7 @@ BUILDERS: dict[RootCause, Callable[[random.Random, int], EvalCase]] = {
 
 
 def generate_cases(seed: int = DATASET_SEED) -> tuple[EvalCase, ...]:
-    """전체 평가셋 105건 — 유형당 15건(수제 케이스는 해당 유형 수에 포함)."""
+    """전체 평가셋 175건 — 유형당 25건(수제 케이스는 해당 유형 수에 포함)."""
     rng = random.Random(seed)
     curated = curated_cases()
     curated_counts: dict[RootCause, int] = {}

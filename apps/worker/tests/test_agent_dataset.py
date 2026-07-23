@@ -1,5 +1,6 @@
 from collections import Counter
 
+from aim_worker.agent.cases import EvalCase
 from aim_worker.agent.dataset import CASES_PER_CAUSE, generate_cases, split_cases
 from aim_worker.agent.root_causes import RootCause
 
@@ -60,3 +61,65 @@ def test_labels_carry_discriminating_evidence() -> None:
         if case.root_cause == RootCause.SCENARIO_STALE:
             assert fixtures.artifacts.failing_page_rendered_ok is True
             assert not fixtures.artifacts.console_errors
+            assert fixtures.artifacts.relocation_hint is not None
+        if case.root_cause == RootCause.UI_REGRESSION:
+            assert fixtures.artifacts.relocation_hint is None
+
+
+def _failed_error_kind(case: EvalCase) -> str | None:
+    """실패 스텝 에러의 의미 부류 — 문자열 원문 대신 조사자가 읽는 의미만 본다."""
+    error = next(
+        (step.error for step in case.fixtures.scenario_results if step.status == "FAILED"), None
+    )
+    if error is None:
+        return None
+    if "no element matches" in error:
+        return "selector_not_found"
+    if "not clickable" in error:
+        return "not_clickable"
+    if "expected text" in error:
+        return "text_not_found"
+    if "timeout waiting" in error:
+        return "wait_timeout"
+    return "network_level"
+
+
+def _genuine_signature(case: EvalCase) -> tuple[object, ...]:
+    """정당한 판별 증거만 모은 서명.
+
+    스텝 개수·navigate URL 문자열·케이스 제목 같은 생성 부산물은 일부러
+    제외한다 — 그런 것으로 라벨을 맞히는 조사기는 과적합이기 때문이다.
+    """
+    fixtures = case.fixtures
+    check = fixtures.check_run
+    artifacts = fixtures.artifacts
+    return (
+        check.availability_ok,
+        check.ssl_valid,
+        fixtures.recheck.reproduced,
+        check.response_time_ms is not None
+        and check.response_time_ms > 2 * check.response_time_threshold_ms,
+        _failed_error_kind(case),
+        artifacts.failing_page_rendered_ok,
+        bool(artifacts.console_errors),
+        bool(artifacts.network_failures),
+        artifacts.redirect_detected_to is not None,
+        artifacts.relocation_hint is not None,
+        fixtures.baseline.performance_delta is not None
+        and fixtures.baseline.performance_delta <= -10,
+    )
+
+
+def test_labels_are_separable_on_genuine_evidence() -> None:
+    """같은 정당-증거 서명에 서로 다른 라벨이 섞이면 그 케이스들은 어떤
+    조사기도 원리상 판별할 수 없고, 채점이 라벨 노이즈를 측정하게 된다.
+    v1 감사(2026-07-20)에서 이 충돌 6건을 찾아 relocation_hint로 해소했다 —
+    이 테스트는 그 분리성이 다시 깨지지 않도록 고정한다."""
+    labels_by_signature: dict[tuple[object, ...], set[RootCause]] = {}
+    for case in generate_cases():
+        labels_by_signature.setdefault(_genuine_signature(case), set()).add(case.root_cause)
+
+    colliding = {
+        signature: labels for signature, labels in labels_by_signature.items() if len(labels) > 1
+    }
+    assert not colliding

@@ -54,6 +54,11 @@ class ArtifactsSnapshot:
     failing_page_rendered_ok: bool | None = None
     # navigate 대상이 다른 곳으로 리다이렉트됐는지 (URL 구조 변경의 흔적).
     redirect_detected_to: str | None = None
+    # 기대 요소가 '다른 곳으로 이동'한 흔적의 판독 요약 — 실패 페이지의
+    # 스크린샷·DOM에서 대체 진입점(링크·CTA)을 찾은 결과. 요소가 이사했으면
+    # 스테일, 흔적 없이 사라졌으면 파손이므로, 리다이렉트가 없을 때 5↔6을
+    # 가르는 결정적 증거다. None = 이동 흔적 없음.
+    relocation_hint: str | None = None
 
 
 @dataclass(frozen=True)

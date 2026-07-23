@@ -134,7 +134,9 @@ services:
         "aim_worker.celery_app.celery_app",
         "worker",
         "--loglevel=INFO",
-        "--concurrency=${CELERY_WORKER_CONCURRENCY:-1}",
+        # 동시성 2 필수: 조사 에이전트의 재검사 폴링이 슬롯 하나를 점유한 채
+        # 재검사 태스크를 기다린다 — 1이면 자기 자신을 기다리는 교착이 된다.
+        "--concurrency=${CELERY_WORKER_CONCURRENCY:-2}",
       ]
     volumes:
       - artifacts-data:/data/aim/artifacts

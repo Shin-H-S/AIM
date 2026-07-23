@@ -4,14 +4,18 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import { AIReportDetailPanel } from "./AIReportDetailPanel";
+import { InvestigationCard, type InvestigationCardState } from "./InvestigationCard";
 import {
   cancelCheckRun,
   clearProjectBaseline,
+  fetchAgentInvestigation,
   fetchBaselineComparison,
   fetchCheckRunAIReport,
   fetchCheckRunDetail,
   fetchProject,
+  requestAgentInvestigation,
   setProjectBaseline,
+  type AgentInvestigation,
   type AIReportDetailResult,
   type AIReportSummary,
   type Artifact,
@@ -100,6 +104,9 @@ export function ResultPageClient({
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [reportWaitPolls, setReportWaitPolls] = useState(0);
+  const [investigation, setInvestigation] = useState<AgentInvestigation | null>(null);
+  const [investigationState, setInvestigationState] =
+    useState<InvestigationCardState>("idle");
   const checkRun = result.state === "success" ? result.checkRun : null;
   const isAIReportPending = checkRun?.status === "COMPLETED" && checkRun.ai_report === null;
   const isAwaitingAIReport = isAIReportPending && reportWaitPolls < MAX_AI_REPORT_WAIT_POLLS;
@@ -115,6 +122,83 @@ export function ResultPageClient({
     aiReportDetailResult.report.id !== checkRun.ai_report.id
       ? null
       : aiReportDetailResult;
+
+  const loadInvestigation = useCallback(async () => {
+    if (!isCheckRunTerminal) {
+      return;
+    }
+    const accessToken = getStoredAccessToken();
+    if (!accessToken) {
+      return;
+    }
+    const nextResult = await fetchAgentInvestigation({
+      projectId,
+      checkRunId,
+      accessToken
+    });
+    if (nextResult.state === "success") {
+      setInvestigation(nextResult.investigation);
+      setInvestigationState("idle");
+    } else if (nextResult.state === "not-found") {
+      setInvestigation(null);
+      setInvestigationState((prev) => (prev === "requested" ? "requested" : "missing"));
+    } else if (nextResult.state === "unauthorized") {
+      setInvestigationState("unauthorized");
+    } else {
+      setInvestigationState("error");
+    }
+  }, [checkRunId, isCheckRunTerminal, projectId]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void loadInvestigation();
+    });
+  }, [loadInvestigation]);
+
+  const handleRequestInvestigation = useCallback(async () => {
+    const accessToken = getStoredAccessToken();
+    if (!accessToken) {
+      setInvestigationState("unauthorized");
+      return;
+    }
+    setInvestigationState("loading");
+    const requestResult = await requestAgentInvestigation({
+      projectId,
+      checkRunId,
+      accessToken
+    });
+    if (requestResult.state === "conflict") {
+      await loadInvestigation();
+      return;
+    }
+    if (requestResult.state === "unauthorized") {
+      setInvestigationState("unauthorized");
+      return;
+    }
+    if (requestResult.state !== "accepted") {
+      setInvestigationState("error");
+      return;
+    }
+    setInvestigationState("requested");
+    // 조사는 재검사를 포함하면 몇 분 걸릴 수 있다 — 핸들러 안에서
+    // 한정 폴링(10초 × 30회)으로 완료를 기다린다.
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 10_000));
+      const pollResult = await fetchAgentInvestigation({
+        projectId,
+        checkRunId,
+        accessToken
+      });
+      if (pollResult.state === "success") {
+        setInvestigation(pollResult.investigation);
+        setInvestigationState("idle");
+        return;
+      }
+      if (pollResult.state !== "not-found") {
+        return;
+      }
+    }
+  }, [checkRunId, loadInvestigation, projectId]);
 
   const loadCheckRun = useCallback(async () => {
     const accessToken = getStoredAccessToken();
@@ -464,6 +548,13 @@ export function ResultPageClient({
               result={checkRun.score_result}
               status={checkRun.status}
               topAudits={checkRun.lighthouse_result?.top_audits ?? null}
+            />
+
+            <InvestigationCard
+              canRequest={isCheckRunTerminal}
+              investigation={investigation}
+              onRequest={() => void handleRequestInvestigation()}
+              state={investigationState}
             />
 
             <DeltaStripCard

@@ -12,8 +12,15 @@ from uuid import UUID
 
 from aim_api.config import get_settings
 from aim_api.models.agent_investigation import AgentInvestigation, utc_now
+from aim_api.models.alert import (
+    AGENT_INVESTIGATION_TRIGGER_TYPE,
+    Alert,
+    AlertChannel,
+    AlertType,
+)
 from aim_api.models.check_run import CheckRun
 from aim_api.models.project import Project
+from aim_api.services import scan_queue
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -21,6 +28,7 @@ from aim_worker.agent.db_toolbox import TERMINAL_CHECK_RUN_STATUSES, DbToolbox
 from aim_worker.agent.llm_policy import LlmPolicy, build_llm_policy_factory
 from aim_worker.agent.loop import InvestigationLoop, Policy
 from aim_worker.agent.policies import RouterPolicy, RulePolicy
+from aim_worker.agent.root_causes import ROOT_CAUSE_LABELS, RootCause
 
 logger = logging.getLogger(__name__)
 
@@ -121,4 +129,57 @@ def run_agent_investigation_for_check_run(
             "generator": investigation.generator,
         },
     )
+    try:
+        create_investigation_alert(session, project=project, investigation=investigation)
+    except Exception:
+        # 알림은 부가 기능 — 실패해도 조사 기록은 유지한다.
+        session.rollback()
+        logger.exception(
+            "Failed to create agent investigation alert.",
+            extra={"check_run_id": str(check_run_id)},
+        )
     return investigation
+
+
+def create_investigation_alert(
+    session: Session,
+    *,
+    project: Project,
+    investigation: AgentInvestigation,
+) -> Alert | None:
+    """조사 결과를 webhook 채널(Slack/Discord)로 1건 알린다.
+
+    인시던트 알림은 이미 즉시 나갔으므로, 조사는 완료 시점에 후속
+    한 줄 요약으로 따라붙는 설계다. webhook 미설정이면 생략.
+    """
+    if not project.alert_webhook_url:
+        return None
+    label = ROOT_CAUSE_LABELS[RootCause(investigation.root_cause)]
+    confidence_label = "높음" if investigation.confidence == "high" else "낮음"
+    recheck_note = " · 재검사 1회 수행" if investigation.recheck_used else ""
+    alert = Alert(
+        project_id=project.id,
+        incident_id=investigation.incident_id,
+        check_run_id=investigation.check_run_id,
+        alert_type=AlertType.AGENT_INVESTIGATION.value,
+        trigger_type=AGENT_INVESTIGATION_TRIGGER_TYPE,
+        channel=AlertChannel.WEBHOOK.value,
+        recipient_email=None,
+        subject=f"🕵️ [{project.name}] 조사 결과: {label} (신뢰 {confidence_label})",
+        body=(
+            f"{investigation.summary}\n"
+            f"조치 제안: {investigation.recommendation}\n"
+            f"(결론 주체 {investigation.generator}{recheck_note})"
+        ),
+    )
+    session.add(alert)
+    session.commit()
+    session.refresh(alert)
+    try:
+        scan_queue.enqueue_email_alert_delivery(check_run_id=investigation.check_run_id)
+    except scan_queue.ScanQueueUnavailableError:
+        logger.exception(
+            "Failed to enqueue agent investigation alert delivery.",
+            extra={"check_run_id": str(investigation.check_run_id)},
+        )
+    return alert

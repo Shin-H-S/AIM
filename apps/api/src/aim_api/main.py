@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from aim_api.config import get_settings
+from aim_api.routers.agent_investigations import router as agent_investigations_router
 from aim_api.routers.alerts import router as alerts_router
 from aim_api.routers.artifacts import router as artifacts_router
 from aim_api.routers.auth import router as auth_router
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(projects_router)
     app.include_router(project_api_tokens_router)
     app.include_router(check_runs_router)
+    app.include_router(agent_investigations_router)
     app.include_router(deploy_hooks_router)
     app.include_router(scenarios_router)
     app.include_router(alerts_router)

@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     ai_report_llm_timeout_seconds: float = 30.0
     ai_report_llm_max_retries: int = 1
     ai_report_llm_max_tokens: int = 16000
+    # 조사 에이전트의 LLM 판별 모델 — 기본 Haiku, 저신뢰 시 상위 모델로
+    # 1회 에스컬레이션(G3 라우팅). 사용자 확정 설계(비용-정확도 곡선).
+    aim_agent_model: str = "claude-haiku-4-5"
+    aim_agent_escalation_model: str = "claude-sonnet-5"
 
     model_config = SettingsConfigDict(
         env_file=".env",

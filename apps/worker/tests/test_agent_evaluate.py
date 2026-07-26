@@ -90,5 +90,6 @@ def test_rule_baseline_is_imperfect_overall() -> None:
 
 def test_select_split_sizes() -> None:
     assert len(select_split("all")) == 175
-    assert len(select_split("dev")) == 91
-    assert len(select_split("test")) == 84
+    # curated 5건이 전부 dev로 가서 92/83 — 합은 언제나 전체와 같다.
+    assert len(select_split("dev")) == 92
+    assert len(select_split("test")) == 83

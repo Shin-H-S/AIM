@@ -107,8 +107,12 @@ def test_failed_step_cases_are_delegated_with_generator() -> None:
     assert trace.confidence == "low"
 
 
-def test_router_delegation_rate_is_59_of_175() -> None:
-    """위임(=LLM 호출) 대상은 실패 스텝 케이스 59건뿐이어야 한다 — G3 비용 근거."""
+def test_router_delegates_only_failed_step_cases() -> None:
+    """위임(=LLM 호출) 대상은 실패 스텝이 있는 케이스뿐이어야 한다 — G3 비용 근거.
+
+    기대치를 데이터에서 도출한다: 평가셋이 늘거나 바뀌어도 "실패 스텝만 위임"이라는
+    규칙 자체를 검증하도록.
+    """
     consulted = 0
 
     class CountingDelegate(FeatureReadingDelegate):
@@ -120,9 +124,22 @@ def test_router_delegation_rate_is_59_of_175() -> None:
             return action
 
     cases = generate_cases()
+    # 확정 분기(definitive_action)가 먼저 잡아내는 신호 — 안정 판정, SSL 무효,
+    # 가용성 실패 — 를 제외하고 실패 스텝만 남은 케이스가 위임 대상이다.
+    expected = sum(
+        1
+        for case in cases
+        if case.fixtures.check_run.deployment_risk != "STABLE"
+        and case.fixtures.check_run.ssl_valid is not False
+        and case.fixtures.check_run.availability_ok
+        and any(step.status == "FAILED" for step in case.fixtures.scenario_results)
+    )
+
     evaluate(AgentInvestigator(lambda: RouterPolicy(CountingDelegate())), cases)
 
-    assert consulted == 59
+    assert consulted == expected
+    # 위임률이 전체의 절반을 넘으면 rule-first 라우팅의 비용 근거가 무너진다.
+    assert consulted < len(cases) / 2
 
 
 def test_router_with_rule_delegate_matches_baseline() -> None:
@@ -151,13 +168,18 @@ def test_churn_report_shows_fixed_and_broken() -> None:
     baseline = RuleBaselineInvestigator()
     oracle = AgentInvestigator(lambda: RouterPolicy(FeatureReadingDelegate()))
 
+    baseline_errors = sum(
+        1 for case in cases if baseline.investigate(case.fixtures) != case.root_cause
+    )
     churn = diff_investigators(baseline, oracle, cases)
 
-    assert len(churn.fixed_case_ids) == 14  # 베이스라인의 오류 전부를 고침
+    # 두-특징 위임 정책은 베이스라인 오류를 전부 고치고 하나도 망가뜨리지 않는다.
+    assert len(churn.fixed_case_ids) == baseline_errors
+    assert baseline_errors > 0  # 베이스라인이 만점이면 이 테스트가 공허해진다
     assert churn.broken_case_ids == ()  # 회귀 0 — 게이트의 핵심 조건
 
     reverse = diff_investigators(oracle, baseline, cases)
-    assert len(reverse.broken_case_ids) == 14
+    assert len(reverse.broken_case_ids) == baseline_errors
     assert reverse.fixed_case_ids == ()
 
 

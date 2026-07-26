@@ -7,3 +7,4 @@
 ## 기록
 
 - [0001. 알림 채널: 이메일 유지 + Slack/Discord webhook 추가](0001-alert-channels-email-and-webhook.md) (2026-07-08)
+- [0002. 조사 에이전트 자동 운영 승격 — 게이트 판정](0002-agent-auto-investigation-gate.md) (2026-07-27)

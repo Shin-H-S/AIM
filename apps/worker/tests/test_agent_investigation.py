@@ -631,3 +631,40 @@ def test_trigger_recheck_waits_for_scenarios_before_reading_the_score(
     assert polls["count"] >= 2  # 첫 폴링에서 성급히 결론내지 않았다
     assert result.reproduced is False
     assert result.overall_score == 98.0
+
+
+def test_incident_sync_waits_for_linked_scenarios(session: Session) -> None:
+    """시나리오가 아직 도는 동안 인시던트를 평가하면 '실패 없음'으로 보여 잘못 해소된다.
+
+    2026-07-26 도그푸딩: 재검사가 종결된 순간 인시던트가 해소됐다가, 시나리오가
+    끝나고 재수렴이 돌자 1초 뒤 같은 인시던트가 다시 열렸다(해소→재개 플랩).
+    """
+    project = seed_project(session)
+    check_run = seed_check_run(session, project)
+    scenario = TestScenario(project_id=project.id, name="login")
+    session.add(scenario)
+    session.flush()
+    running = ScenarioRun(
+        project_id=project.id,
+        scenario_id=scenario.id,
+        check_run_id=check_run.id,
+        requested_by_id=project.owner_id,
+        status=ScenarioRunStatus.RUNNING.value,
+    )
+    session.add(running)
+    session.commit()
+
+    assert tasks.has_pending_linked_scenario_runs(session, check_run_id=check_run.id) is True
+
+    running.status = ScenarioRunStatus.FAILED.value
+    session.commit()
+
+    assert tasks.has_pending_linked_scenario_runs(session, check_run_id=check_run.id) is False
+
+
+def test_incident_sync_proceeds_when_no_scenarios_are_linked(session: Session) -> None:
+    """시나리오가 없는 검사는 기다릴 것이 없으므로 즉시 평가한다."""
+    project = seed_project(session)
+    check_run = seed_check_run(session, project)
+
+    assert tasks.has_pending_linked_scenario_runs(session, check_run_id=check_run.id) is False

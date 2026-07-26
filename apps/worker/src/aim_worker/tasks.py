@@ -26,6 +26,7 @@ from aim_api.services.scan_queue import (
     RUN_SCENARIO_RUN_TASK_NAME,
     SCHEDULE_CHECK_RUNS_TASK_NAME,
 )
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from aim_worker.agent import investigation as agent_investigation_service
@@ -132,6 +133,25 @@ def enqueue_email_alert_delivery_for_check_run(*, check_run_id: UUID) -> None:
         )
 
 
+def has_pending_linked_scenario_runs(session: Session, *, check_run_id: UUID) -> bool:
+    """검사에 묶인 시나리오 중 아직 종결되지 않은 것이 있는지."""
+    pending = session.scalar(
+        select(ScenarioRun.id)
+        .where(
+            ScenarioRun.check_run_id == check_run_id,
+            ScenarioRun.status.notin_(
+                [
+                    ScenarioRunStatus.COMPLETED.value,
+                    ScenarioRunStatus.FAILED.value,
+                    ScenarioRunStatus.CANCELLED.value,
+                ]
+            ),
+        )
+        .limit(1)
+    )
+    return pending is not None
+
+
 def sync_check_run_incidents(
     session: Session,
     *,
@@ -153,6 +173,11 @@ def sync_check_run_incidents(
         CheckRunStatus.COMPLETED.value,
         CheckRunStatus.FAILED.value,
     }:
+        return
+
+    if has_pending_linked_scenario_runs(session, check_run_id=check_run_id):
+        # 시나리오가 아직 도는 중이면 '실패 없음'으로 보여 인시던트가 잘못 해소된다.
+        # 마지막 시나리오가 끝날 때 재수렴이 이 함수를 다시 부르므로 그때 평가한다.
         return
 
     try:

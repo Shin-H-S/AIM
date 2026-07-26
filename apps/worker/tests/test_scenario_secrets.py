@@ -138,6 +138,10 @@ class SingleLocatorPage:
     def screenshot(self, *, full_page: bool) -> bytes:
         raise AssertionError("screenshot should not be called")
 
+    def evaluate(self, expression: str) -> object:
+        _ = expression
+        return []
+
 
 def build_fill_step(value: str) -> TestStep:
     return TestStep(

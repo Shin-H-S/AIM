@@ -374,6 +374,7 @@ def record_step_result(
     duration_ms: int | None,
     error_message: str | None,
     failure_screenshot_artifact_id: UUID | None = None,
+    page_links: list[dict[str, str]] | None = None,
 ) -> StepResult:
     step_result = StepResult(
         scenario_run_id=scenario_run_id,
@@ -387,6 +388,7 @@ def record_step_result(
         duration_ms=duration_ms,
         error_message=error_message,
         failure_screenshot_artifact_id=failure_screenshot_artifact_id,
+        page_links=page_links,
     )
     session.add(step_result)
     session.commit()

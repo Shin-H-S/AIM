@@ -493,6 +493,12 @@ def run_scenario_run(scenario_run_id: str) -> None:
                 duration_ms=step_result.duration_ms,
                 error_message=step_result.error_message,
                 failure_screenshot_artifact_id=failure_screenshot_artifact_id,
+                # 실패 스텝만 링크를 수집한다 — 성공 스텝은 빈 튜플이라 None으로 남는다.
+                page_links=(
+                    [{"path": link.path, "text": link.text} for link in step_result.page_links]
+                    if step_result.page_links
+                    else None
+                ),
             )
 
         for console_error in execution_result.console_errors:

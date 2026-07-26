@@ -32,6 +32,7 @@ from aim_api.models.scenario import (
     TestStep,
 )
 from aim_api.services import scan_queue
+from aim_api.services import scenarios as scenario_service
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -51,6 +52,11 @@ TERMINAL_CHECK_RUN_STATUSES = {
     CheckRunStatus.COMPLETED.value,
     CheckRunStatus.FAILED.value,
     CheckRunStatus.CANCELLED.value,
+}
+TERMINAL_SCENARIO_RUN_STATUSES = {
+    ScenarioRunStatus.COMPLETED.value,
+    ScenarioRunStatus.FAILED.value,
+    ScenarioRunStatus.CANCELLED.value,
 }
 RECENT_RUN_LIMIT = 5
 AGENT_RECHECK_TRIGGER_SOURCE = "agent_recheck"
@@ -222,7 +228,9 @@ class DbToolbox:
             network_failures=network_failures,
             failing_page_rendered_ok=None,  # 스크린샷 판독기 없음 — W5 과제
             redirect_detected_to=redirect_detected_to,
-            relocation_hint=None,  # 이동 흔적 판독기 없음 — W5 과제
+            # 판독기가 없으므로 '찾아봤지만 없었다'가 아니라 '확인하지 못했다'로 넘긴다.
+            relocation_hint=None,
+            relocation_checked=False,
         )
 
     def compare_with_baseline(self) -> BaselineComparison:
@@ -298,6 +306,24 @@ class DbToolbox:
             quality_score_threshold=self._project.quality_score_threshold,
         )
 
+    def _scenario_runs_settled(self, scenario_run_ids: list[UUID]) -> bool:
+        """시나리오가 모두 종결되고 그 결과가 점수에 반영됐는지.
+
+        시나리오 종결 직후 점수 재계산이 따라오므로(`refresh_linked_check_run_score`),
+        종결만 보고 점수를 읽으면 재계산 전 값을 잡을 수 있다. 기능 안정성이
+        산출됐는지로 반영 여부를 직접 확인한다 — 산출되지 않으면 계속 기다리고,
+        끝내 못 기다리면 상위에서 보수적으로 '재현'으로 처리한다.
+        """
+        if not scenario_run_ids:
+            return True
+        runs = self._session.scalars(
+            select(ScenarioRun).where(ScenarioRun.id.in_(scenario_run_ids))
+        ).all()
+        if any(run.status not in TERMINAL_SCENARIO_RUN_STATUSES for run in runs):
+            return False
+        score = self._score(self.recheck_check_run_id) if self.recheck_check_run_id else None
+        return score is not None and score.functional_stability_score is not None
+
     def trigger_recheck(self) -> RecheckResult:
         """재검사를 만들어 큐에 넣고 종결까지 폴링한다.
 
@@ -323,8 +349,19 @@ class DbToolbox:
         self._session.add(recheck_run)
         self._session.commit()
         self._session.refresh(recheck_run)
+        # 시나리오를 붙이지 않으면 재검사는 원래 검사와 다른 것을 재는 셈이 된다.
+        # 시나리오 실패로 열린 인시던트가 '깨끗한' 재검사로 해소돼, 서비스가
+        # 깨진 채인데 복구된 것처럼 보이는 일이 실제로 있었다(2026-07-26 도그푸딩).
+        scenario_runs = scenario_service.create_scenario_runs_for_check_run(
+            self._session,
+            project_id=self._project.id,
+            check_run_id=recheck_run.id,
+            requested_by_id=self._project.owner_id,
+        )
         try:
             scan_queue.enqueue_check_run(check_run_id=recheck_run.id)
+            for scenario_run in scenario_runs:
+                scan_queue.enqueue_scenario_run(scenario_run_id=scenario_run.id)
         except scan_queue.ScanQueueUnavailableError:
             logger.warning(
                 "Agent recheck could not be enqueued; treating as reproduced.",
@@ -332,6 +369,7 @@ class DbToolbox:
             )
             return conservative
         self.recheck_check_run_id = recheck_run.id
+        scenario_run_ids = [scenario_run.id for scenario_run in scenario_runs]
 
         deadline = time.monotonic() + self._recheck_timeout_seconds
         while time.monotonic() < deadline:
@@ -339,6 +377,8 @@ class DbToolbox:
             self._session.expire_all()
             refreshed = self._session.get(CheckRun, recheck_run.id)
             if refreshed is None or refreshed.status not in TERMINAL_CHECK_RUN_STATUSES:
+                continue
+            if not self._scenario_runs_settled(scenario_run_ids):
                 continue
             recheck_score = self._score(recheck_run.id)
             return RecheckResult(

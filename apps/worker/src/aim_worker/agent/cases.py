@@ -57,8 +57,12 @@ class ArtifactsSnapshot:
     # 기대 요소가 '다른 곳으로 이동'한 흔적의 판독 요약 — 실패 페이지의
     # 스크린샷·DOM에서 대체 진입점(링크·CTA)을 찾은 결과. 요소가 이사했으면
     # 스테일, 흔적 없이 사라졌으면 파손이므로, 리다이렉트가 없을 때 5↔6을
-    # 가르는 결정적 증거다. None = 이동 흔적 없음.
+    # 가르는 결정적 증거다.
     relocation_hint: str | None = None
+    # 위 판독을 실제로 수행했는지. hint가 None일 때 두 상황을 갈라준다 —
+    # True면 "찾아봤고 없었다"(진짜 신호), False면 "확인하지 못했다"(신호 없음).
+    # 이 구분이 없으면 미수집이 부재로 둔갑해, 없는 증거를 근거로 단정하게 된다.
+    relocation_checked: bool = True
 
 
 @dataclass(frozen=True)

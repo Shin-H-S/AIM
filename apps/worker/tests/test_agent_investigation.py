@@ -520,3 +520,114 @@ def test_incident_open_enqueues_investigation(
     assert len(captured) == 1
     assert captured[0][0] == check_run.id
     assert captured[0][1] is not None  # 새로 열린 인시던트가 연결된다
+
+
+def test_trigger_recheck_runs_the_scenarios_too(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """재검사에 시나리오가 붙지 않으면 원래 검사와 다른 것을 재게 된다.
+
+    2026-07-26 도그푸딩: 시나리오 실패로 열린 인시던트가 에이전트 자신의 재검사로
+    RESOLVED 처리됐다 — 재검사에 시나리오가 없어 '깨끗한' 검사로 보였기 때문이다.
+    """
+    project = seed_project(session)
+    check_run = seed_check_run(session, project)
+    seed_failing_scenario(session, project, check_run)
+    enqueued_checks: list[UUID] = []
+    enqueued_scenarios: list[UUID] = []
+
+    def fake_enqueue_check(*, check_run_id: UUID) -> str:
+        enqueued_checks.append(check_run_id)
+        return str(check_run_id)
+
+    def fake_enqueue_scenario(*, scenario_run_id: UUID) -> str:
+        enqueued_scenarios.append(scenario_run_id)
+        return str(scenario_run_id)
+
+    monkeypatch.setattr(scan_queue, "enqueue_check_run", fake_enqueue_check)
+    monkeypatch.setattr(scan_queue, "enqueue_scenario_run", fake_enqueue_scenario)
+
+    def settle_recheck(_seconds: float) -> None:
+        recheck_id = enqueued_checks[0]
+        recheck = session.get(CheckRun, recheck_id)
+        assert recheck is not None
+        recheck.status = CheckRunStatus.COMPLETED.value
+        for scenario_run in session.scalars(
+            select(ScenarioRun).where(ScenarioRun.check_run_id == recheck_id)
+        ).all():
+            scenario_run.status = ScenarioRunStatus.FAILED.value
+        session.add(
+            ScoreResult(
+                check_run_id=recheck_id,
+                overall_score=59,
+                evaluated_weight=100,
+                grade="F",
+                deployment_risk="RISK",
+                functional_stability_score=0,
+                scoring_version="v1",
+            )
+        )
+        session.commit()
+
+    toolbox = DbToolbox(session, project=project, check_run=check_run, sleep=settle_recheck)
+    result = toolbox.trigger_recheck()
+
+    recheck_scenarios = session.scalars(
+        select(ScenarioRun).where(ScenarioRun.check_run_id == enqueued_checks[0])
+    ).all()
+    assert len(recheck_scenarios) == 1  # 활성 시나리오가 재검사에도 붙었다
+    assert enqueued_scenarios == [recheck_scenarios[0].id]  # 큐에도 들어갔다
+    assert result.reproduced is True  # 시나리오가 다시 실패했으니 재현
+
+
+def test_trigger_recheck_waits_for_scenarios_before_reading_the_score(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """검사만 종결되고 시나리오가 아직이면 점수를 읽지 않는다 — 재계산 전 값을 잡지 않도록."""
+    project = seed_project(session)
+    check_run = seed_check_run(session, project)
+    seed_failing_scenario(session, project, check_run)
+    enqueued_checks: list[UUID] = []
+
+    def fake_enqueue_check(*, check_run_id: UUID) -> str:
+        enqueued_checks.append(check_run_id)
+        return str(check_run_id)
+
+    def fake_enqueue_scenario(*, scenario_run_id: UUID) -> str:
+        return str(scenario_run_id)
+
+    monkeypatch.setattr(scan_queue, "enqueue_check_run", fake_enqueue_check)
+    monkeypatch.setattr(scan_queue, "enqueue_scenario_run", fake_enqueue_scenario)
+    polls = {"count": 0}
+
+    def settle_in_two_polls(_seconds: float) -> None:
+        polls["count"] += 1
+        recheck_id = enqueued_checks[0]
+        recheck = session.get(CheckRun, recheck_id)
+        assert recheck is not None
+        recheck.status = CheckRunStatus.COMPLETED.value
+        if polls["count"] >= 2:
+            # 두 번째 폴링에서야 시나리오가 끝나고 점수가 재계산된다.
+            for scenario_run in session.scalars(
+                select(ScenarioRun).where(ScenarioRun.check_run_id == recheck_id)
+            ).all():
+                scenario_run.status = ScenarioRunStatus.COMPLETED.value
+            session.add(
+                ScoreResult(
+                    check_run_id=recheck_id,
+                    overall_score=98,
+                    evaluated_weight=100,
+                    grade="A",
+                    deployment_risk="STABLE",
+                    functional_stability_score=100,
+                    scoring_version="v1",
+                )
+            )
+        session.commit()
+
+    toolbox = DbToolbox(session, project=project, check_run=check_run, sleep=settle_in_two_polls)
+    result = toolbox.trigger_recheck()
+
+    assert polls["count"] >= 2  # 첫 폴링에서 성급히 결론내지 않았다
+    assert result.reproduced is False
+    assert result.overall_score == 98.0

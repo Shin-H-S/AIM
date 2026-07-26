@@ -1,3 +1,4 @@
+from aim_worker.agent.cases import ArtifactsSnapshot
 from aim_worker.agent.dataset import generate_cases
 from aim_worker.agent.render import render_observation
 from aim_worker.agent.root_causes import RootCause
@@ -62,3 +63,22 @@ def test_unknown_tool_falls_back_to_repr() -> None:
     card = render_observation("mystery_tool", {"raw": 1})
 
     assert card == "{'raw': 1}"
+
+
+def test_artifacts_card_separates_unknown_relocation_from_absence() -> None:
+    """미수집을 '없음'으로 적으면 판단자가 없는 증거를 근거로 삼는다.
+
+    2026-07-26 도그푸딩에서 실제로 그 일이 났다 — 운영 판독기가 없어 항상 None이
+    넘어왔는데 카드가 '이동 흔적 없음'이라고 단정했고, LLM이 그 문장을 인용해
+    스테일을 UI 파손으로 확신 높게 오판했다.
+    """
+    checked_and_absent = ArtifactsSnapshot(relocation_hint=None, relocation_checked=True)
+    not_collected = ArtifactsSnapshot(relocation_hint=None, relocation_checked=False)
+
+    absent_card = render_observation("get_artifacts", checked_and_absent)
+    unknown_card = render_observation("get_artifacts", not_collected)
+
+    assert "이동 흔적 없음" in absent_card
+    assert "확인하지 못함" in unknown_card
+    # 미수집 카드가 '없음'을 주장해서는 안 된다.
+    assert "이동 흔적 없음" not in unknown_card

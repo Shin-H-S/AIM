@@ -88,8 +88,11 @@ def render_artifacts(artifacts: ArtifactsSnapshot) -> str:
         parts.append(f"리다이렉트 감지 → {artifacts.redirect_detected_to}")
     if artifacts.relocation_hint is not None:
         parts.append(f"이동 흔적: {artifacts.relocation_hint}")
-    else:
+    elif artifacts.relocation_checked:
         parts.append("기대 요소의 이동 흔적 없음")
+    else:
+        # 수집하지 못한 것을 '없음'으로 적으면 판단자가 없는 증거를 근거로 삼는다.
+        parts.append("이동 흔적은 확인하지 못함(판독기 미구현)")
     return " · ".join(parts)
 
 

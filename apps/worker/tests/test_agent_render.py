@@ -79,6 +79,6 @@ def test_artifacts_card_separates_unknown_relocation_from_absence() -> None:
     unknown_card = render_observation("get_artifacts", not_collected)
 
     assert "이동 흔적 없음" in absent_card
-    assert "확인하지 못함" in unknown_card
+    assert "수집되지 않음" in unknown_card
     # 미수집 카드가 '없음'을 주장해서는 안 된다.
     assert "이동 흔적 없음" not in unknown_card

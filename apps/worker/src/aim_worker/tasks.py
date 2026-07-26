@@ -5,7 +5,7 @@ from aim_api.database import SessionLocal
 from aim_api.models.check_run import CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.models.scanner_result import AvailabilityResult, LighthouseResult, ScoreResult
-from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus
+from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus, StepResultStatus
 from aim_api.services import ai_reports as ai_report_service
 from aim_api.services import alert_delivery as alert_delivery_service
 from aim_api.services import artifacts as artifact_service
@@ -34,7 +34,7 @@ from aim_worker.artifacts import StoredArtifact, store_binary_artifact, store_js
 from aim_worker.availability import scan_http_availability
 from aim_worker.celery_app import celery_app
 from aim_worker.lighthouse import run_lighthouse_scan
-from aim_worker.playwright_runner import run_playwright_scenario
+from aim_worker.playwright_runner import ExecutedStepResult, run_playwright_scenario
 from aim_worker.ssl_inspection import inspect_ssl_certificate
 
 SCAN_WORKER_FAILED_REASON = "Scan worker failed."
@@ -131,6 +131,19 @@ def enqueue_email_alert_delivery_for_check_run(*, check_run_id: UUID) -> None:
             EMAIL_ALERT_DELIVERY_ENQUEUE_FAILED_MESSAGE,
             extra={"check_run_id": str(check_run_id)},
         )
+
+
+def page_links_payload(
+    step_result: ExecutedStepResult,
+) -> list[dict[str, str]] | None:
+    """실패 스텝의 페이지 링크를 저장 형태로 바꾼다.
+
+    실패 스텝은 링크가 하나도 없어도 빈 배열로 남긴다 — "찾아봤지만 없었다"는
+    UI 파손을 가리키는 진짜 증거라, "수집하지 않았다"(None)와 구분돼야 한다.
+    """
+    if step_result.status != StepResultStatus.FAILED:
+        return None
+    return [{"path": link.path, "text": link.text} for link in step_result.page_links]
 
 
 def has_pending_linked_scenario_runs(session: Session, *, check_run_id: UUID) -> bool:
@@ -493,12 +506,7 @@ def run_scenario_run(scenario_run_id: str) -> None:
                 duration_ms=step_result.duration_ms,
                 error_message=step_result.error_message,
                 failure_screenshot_artifact_id=failure_screenshot_artifact_id,
-                # 실패 스텝만 링크를 수집한다 — 성공 스텝은 빈 튜플이라 None으로 남는다.
-                page_links=(
-                    [{"path": link.path, "text": link.text} for link in step_result.page_links]
-                    if step_result.page_links
-                    else None
-                ),
+                page_links=page_links_payload(step_result),
             )
 
         for console_error in execution_result.console_errors:

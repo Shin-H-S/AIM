@@ -41,9 +41,22 @@ def test_split_keeps_cause_balance_and_covers_everything() -> None:
     dev_counts = Counter(case.root_cause for case in dev)
     test_counts = Counter(case.root_cause for case in test)
     for cause in RootCause:
-        # 25건을 교차 배분하면 13/12 — 유형 균형이 유지된다.
-        assert dev_counts[cause] == 13
-        assert test_counts[cause] == 12
+        # 유형당 25건을 배분하되 curated는 전부 dev로 가므로, dev는 curated 수만큼
+        # 더 갖는다(13/12 기준에서 유형별로 최대 1건 치우침).
+        curated_of_cause = sum(1 for case in dev if case.root_cause == cause and case.curated)
+        assert dev_counts[cause] == 13 + max(0, curated_of_cause - 1)
+        assert dev_counts[cause] + test_counts[cause] == 25
+
+
+def test_curated_cases_never_land_in_test_split() -> None:
+    """실측 사고는 트레이스를 보고 코드를 고친 데이터 — test에 섞이면 최종 채점이 낙관 편향된다."""
+    cases = generate_cases()
+    dev, test = split_cases(cases)
+
+    assert [case.case_id for case in test if case.curated] == []
+    assert {case.case_id for case in cases if case.curated} == {
+        case.case_id for case in dev if case.curated
+    }
 
 
 def test_labels_carry_discriminating_evidence() -> None:

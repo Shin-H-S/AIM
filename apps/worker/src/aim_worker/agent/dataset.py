@@ -8,8 +8,10 @@
   함께 죽는다) — 합성 케이스로 튜닝한 판단이 운영에서도 성립해야 한다.
 - 표면(플로우·셀렉터·에러 문구)은 변주한다 — 특정 문자열이 라벨의 지름길이
   되면 LLM이 의미가 아니라 문자열을 학습한다.
-- 실측 사고 3건(GCP VM 정지·다운사이징 성능 하락·로그인 이사 스테일)은
-  수제 케이스로 재현하고 curated로 표기한다.
+- 실측 사고 5건(GCP VM 정지·다운사이징 성능 하락·로그인 이사 스테일·netem 지연
+  주입·web 컨테이너 502)은 수제 케이스로 재현하고 curated로 표기한다.
+- curated 케이스는 전부 dev로 보낸다(`split_cases`) — 실측 사고는 이미 그 트레이스를
+  보고 코드를 고친 데이터라, test에 넣으면 최종 1회 채점이 낙관 편향된다.
 """
 
 import random
@@ -612,7 +614,96 @@ def curated_cases() -> tuple[EvalCase, ...]:
         ),
         curated=True,
     )
-    return (gcp_down, downsize_perf, login_moved)
+    # 도그푸딩 1차: web 컨테이너 veth에 netem 1.5초를 걸어 지연을 주입했다.
+    # 값이 어려운 이유 — 재검사 점수가 92점(A급)으로 높게 나왔는데도 재현이다.
+    # 시나리오가 없는 재검사는 가중치가 재분배돼 가용성 감점이 희석되므로,
+    # 점수가 아니라 "응답이 임계를 다시 넘었는가"가 재현 판정의 근거여야 한다.
+    injected_latency = EvalCase(
+        "curated-netem-latency",
+        RootCause.SERVER_SLOW,
+        "실측 2026-07-23: netem 1.5초 주입으로 응답 3083ms(임계 3.9배)",
+        ToolFixtures(
+            check_run=CheckRunSnapshot(
+                overall_score=74.0,
+                grade="C",
+                deployment_risk="WARNING",
+                gate_reason="Response time is over twice the configured threshold.",
+                availability_ok=True,
+                availability_failure=None,
+                response_time_ms=3083,
+                response_time_threshold_ms=800,
+                ssl_valid=True,
+                ssl_failure=None,
+                lighthouse_performance=77,
+                trigger_source="manual",
+                deploy_ref=None,
+            ),
+            scenario_results=(
+                ScenarioStepResult(1, "navigate", f"{SERVICE_URL}/login", "PASSED", None),
+                ScenarioStepResult(2, "assert_element_exists", "#email", "PASSED", None),
+                ScenarioStepResult(3, "fill", "#email", "PASSED", None),
+            ),
+            artifacts=ArtifactsSnapshot(failing_page_rendered_ok=True),
+            baseline=BaselineComparison(-24.0, 2933, -22),
+            recent_runs=(
+                RecentRunSummary(98.0, True, 150, 99),
+                RecentRunSummary(92.0, True, 165, 99),
+            ),
+            project_config=default_config(targets=(f"{SERVICE_URL}/login",)),
+            recheck=RecheckResult(reproduced=True, overall_score=92.0),
+        ),
+        curated=True,
+    )
+    # 도그푸딩 2차: web 컨테이너를 정지시켜 리버스 프록시가 502를 반환했다.
+    # 값이 어려운 이유 — 프록시가 즉답하므로 응답이 74ms로 오히려 빠르고,
+    # navigate는 502 페이지를 열어 PASSED가 된 뒤 요소만 없어서 실패한다.
+    # 시나리오 실패 모양이 스테일과 닮았지만 진짜 원인은 가용성이다.
+    proxy_502 = EvalCase(
+        "curated-oracle-web-502",
+        RootCause.SERVICE_DOWN,
+        "실측 2026-07-23: web 컨테이너 정지로 502(응답은 74ms로 빠름)",
+        ToolFixtures(
+            check_run=CheckRunSnapshot(
+                overall_score=0.0,
+                grade="F",
+                deployment_risk="RISK",
+                gate_reason="Service returned HTTP 502.",
+                availability_ok=False,
+                availability_failure="Service returned HTTP 502.",
+                response_time_ms=74,
+                response_time_threshold_ms=800,
+                ssl_valid=None,
+                ssl_failure=None,
+                lighthouse_performance=None,
+                trigger_source="manual",
+                deploy_ref=None,
+            ),
+            scenario_results=(
+                ScenarioStepResult(1, "navigate", f"{SERVICE_URL}/login", "PASSED", None),
+                ScenarioStepResult(
+                    2,
+                    "assert_element_exists",
+                    "#email",
+                    "FAILED",
+                    "Expected element was not found.",
+                ),
+                ScenarioStepResult(3, "assert_element_exists", "#password", "SKIPPED", None),
+            ),
+            artifacts=ArtifactsSnapshot(
+                network_failures=("Service returned HTTP 502.",),
+                failing_page_rendered_ok=False,
+            ),
+            baseline=BaselineComparison(-98.0, -76, None),
+            recent_runs=(
+                RecentRunSummary(98.0, True, 150, 99),
+                RecentRunSummary(98.0, True, 145, 99),
+            ),
+            project_config=default_config(targets=(f"{SERVICE_URL}/login",)),
+            recheck=RecheckResult(reproduced=True, overall_score=15.0),
+        ),
+        curated=True,
+    )
+    return (gcp_down, downsize_perf, login_moved, injected_latency, proxy_502)
 
 
 BUILDERS: dict[RootCause, Callable[[random.Random, int], EvalCase]] = {
@@ -643,13 +734,19 @@ def generate_cases(seed: int = DATASET_SEED) -> tuple[EvalCase, ...]:
 
 
 def split_cases(cases: tuple[EvalCase, ...]) -> tuple[tuple[EvalCase, ...], tuple[EvalCase, ...]]:
-    """dev/test 분리 — 유형별로 교차 배분해 두 셋의 유형 균형을 유지한다."""
+    """dev/test 분리 — 유형별로 교차 배분해 두 셋의 유형 균형을 유지한다.
+
+    curated(실측 사고) 케이스는 예외 없이 dev로 보낸다. 실측 사고는 트레이스를 직접
+    보고 코드를 고친 데이터여서, test에 섞이면 최종 1회 채점이 낙관 편향된다.
+    """
     dev: list[EvalCase] = []
     test: list[EvalCase] = []
     for cause in RootCause:
         of_cause = sorted(
             (case for case in cases if case.root_cause == cause), key=lambda c: c.case_id
         )
-        for position, case in enumerate(of_cause):
+        dev.extend(case for case in of_cause if case.curated)
+        synthetic = [case for case in of_cause if not case.curated]
+        for position, case in enumerate(synthetic):
             (dev if position % 2 == 0 else test).append(case)
     return tuple(dev), tuple(test)

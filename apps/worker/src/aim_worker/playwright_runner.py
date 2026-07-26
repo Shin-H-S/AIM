@@ -3,6 +3,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, Protocol
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from aim_api.models.scenario import StepResultStatus, TestStep
@@ -51,6 +52,8 @@ class PageProtocol(Protocol):
 
     def screenshot(self, *, full_page: bool) -> bytes: ...
 
+    def evaluate(self, expression: str) -> object: ...
+
 
 class RouteProtocol(Protocol):
     def abort(self) -> None: ...
@@ -84,6 +87,14 @@ class ConsoleMessageProtocol(Protocol):
 
 
 @dataclass(frozen=True)
+class PageLinkEvidence:
+    """실패 지점 페이지에 남아 있던 내부 링크(경로와 표시 문구)."""
+
+    path: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ExecutedStepResult:
     test_step_id: UUID | None
     step_order: int
@@ -95,6 +106,7 @@ class ExecutedStepResult:
     duration_ms: int | None
     error_message: str | None
     failure_screenshot: bytes | None = None
+    page_links: tuple[PageLinkEvidence, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -281,6 +293,64 @@ def capture_failure_screenshot(page: PageProtocol) -> bytes | None:
         return None
 
 
+# 실패 지점 페이지의 내부 링크 — "기대 요소가 다른 곳으로 옮겨갔는가"를 판단할 유일한
+# 단서다. 요소가 이사했으면 대개 그리로 가는 진입점(CTA·메뉴)이 남고, 진짜 파손이면
+# 아무 흔적도 없다. 판정은 하지 않고 사실만 수집한다 — 해석은 조사 단계의 몫이다.
+PAGE_LINKS_SCRIPT = """() => Array.from(document.querySelectorAll('a[href]'))
+    .map((anchor) => ({
+        href: anchor.href,
+        text: (anchor.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 80),
+    }))"""
+MAX_PAGE_LINKS = 20
+
+
+def capture_page_links(page: PageProtocol) -> list[PageLinkEvidence]:
+    """실패 시점 페이지의 같은 오리진 링크를 모은다. 실패해도 조사를 막지 않는다."""
+    try:
+        raw = page.evaluate(PAGE_LINKS_SCRIPT)
+    except Exception:
+        return []
+    if not isinstance(raw, list):
+        return []
+
+    try:
+        page_origin = urlsplit(page.url)
+    except Exception:
+        return []
+
+    links: list[PageLinkEvidence] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        href = item.get("href")
+        text = item.get("text")
+        if not isinstance(href, str) or not href:
+            continue
+        parts = urlsplit(href)
+        # 외부 링크는 이사 흔적이 아니라 잡음이다(SNS·문서 등).
+        if parts.scheme not in ("http", "https") or parts.netloc != page_origin.netloc:
+            continue
+        path = parts.path or "/"
+        if parts.query:
+            path = f"{path}?{parts.query}"
+        if path in seen:
+            continue
+        seen.add(path)
+        # 공백 정리는 스크립트에서도 하지만 여기서 한 번 더 한다 — 브라우저가 준
+        # 값을 그대로 믿지 않는다(증거 문자열은 카드에 그대로 실린다).
+        normalized_text = " ".join(text.split())[:80] if isinstance(text, str) else ""
+        links.append(
+            PageLinkEvidence(
+                path=mask_secret_values(path),
+                text=mask_secret_values(normalized_text),
+            )
+        )
+        if len(links) >= MAX_PAGE_LINKS:
+            break
+    return links
+
+
 def failed_step_result(
     *,
     step: TestStep,
@@ -288,6 +358,7 @@ def failed_step_result(
     finished_at: datetime,
     error_message: str,
     failure_screenshot: bytes | None,
+    page_links: tuple[PageLinkEvidence, ...] = (),
 ) -> ExecutedStepResult:
     return ExecutedStepResult(
         test_step_id=step.id,
@@ -300,6 +371,7 @@ def failed_step_result(
         duration_ms=calculate_duration_ms(started_at=started_at, finished_at=finished_at),
         error_message=error_message,
         failure_screenshot=failure_screenshot,
+        page_links=page_links,
     )
 
 
@@ -359,6 +431,7 @@ def execute_steps_on_page(
             finished_at = datetime.now(UTC)
             error_message = str(exc) or "Scenario step failed."
             failure_screenshot = capture_failure_screenshot(page)
+            page_links = tuple(capture_page_links(page))
             step_results.append(
                 failed_step_result(
                     step=step,
@@ -366,6 +439,7 @@ def execute_steps_on_page(
                     finished_at=finished_at,
                     error_message=error_message,
                     failure_screenshot=failure_screenshot,
+                    page_links=page_links,
                 )
             )
             if step.is_critical:

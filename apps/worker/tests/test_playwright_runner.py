@@ -82,6 +82,10 @@ class FakePage:
         self.screenshots += 1
         return b"fake-screenshot"
 
+    def evaluate(self, expression: str) -> object:
+        _ = expression
+        return []
+
 
 class FakeRoute:
     def __init__(self) -> None:
@@ -374,3 +378,69 @@ def test_collect_network_failure_ignores_client_aborted_requests(
     )
 
     assert len(network_failures) == 1
+
+
+class FakePageWithLinks(FakePage):
+    def __init__(self, links: object, url: str = "https://example.com/") -> None:
+        super().__init__()
+        self._url = url
+        self._links = links
+
+    def evaluate(self, expression: str) -> object:
+        _ = expression
+        return self._links
+
+
+def test_capture_page_links_keeps_internal_links_only() -> None:
+    """외부 링크(SNS·문서)는 이사 흔적이 아니라 잡음이라 버린다."""
+    page = FakePageWithLinks(
+        [
+            {"href": "https://example.com/login", "text": "  로그인하러\n가기 "},
+            {"href": "https://twitter.com/someone", "text": "트위터"},
+            {"href": "https://example.com/login", "text": "중복"},
+            {"href": "mailto:a@example.com", "text": "메일"},
+        ]
+    )
+
+    links = playwright_runner.capture_page_links(page)
+
+    assert [(link.path, link.text) for link in links] == [("/login", "로그인하러 가기")]
+
+
+def test_capture_page_links_masks_secrets_and_caps_count() -> None:
+    page = FakePageWithLinks(
+        [{"href": f"https://example.com/p{index}", "text": ""} for index in range(30)]
+        + [{"href": "https://example.com/cb?token=abc123", "text": "콜백"}]
+    )
+
+    links = playwright_runner.capture_page_links(page)
+
+    assert len(links) == playwright_runner.MAX_PAGE_LINKS
+    leaked = [link for link in playwright_runner.capture_page_links(page) if "abc123" in link.path]
+    assert leaked == []
+
+
+def test_capture_page_links_survives_evaluate_failure() -> None:
+    """링크 수집 실패가 시나리오 실행을 막아서는 안 된다."""
+
+    class Exploding(FakePage):
+        def evaluate(self, expression: str) -> object:
+            raise RuntimeError("evaluate blew up")
+
+    assert playwright_runner.capture_page_links(Exploding()) == []
+
+
+def test_failed_step_carries_page_links() -> None:
+    page = FakePageWithLinks(
+        [{"href": "https://example.com/login", "text": "로그인"}],
+        url="https://example.com/",
+    )
+
+    result = playwright_runner.execute_steps_on_page(
+        page=page,
+        steps=[make_step(order=1, action="assert_element_exists", target="#missing")],
+    )
+
+    failed = result.step_results[0]
+    assert failed.status == StepResultStatus.FAILED
+    assert [(link.path, link.text) for link in failed.page_links] == [("/login", "로그인")]

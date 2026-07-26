@@ -3,9 +3,9 @@
 FixturesToolbox(평가)와 같은 스냅샷 스키마를 실 데이터로 채우는 구현.
 READ 6종은 읽기 전용이고, 유일한 쓰기는 trigger_recheck의 재검사 생성이다.
 
-정직성 노트: failing_page_rendered_ok와 relocation_hint는 운영 판독기가
-아직 없어 None으로 남는다(합성 평가셋과의 알려진 갭 — W5 과제). LLM
-프롬프트의 "애매하면 파손" 편향이 그 공백의 안전망이다.
+정직성 노트: failing_page_rendered_ok는 스크린샷 판독기가 없어 아직 None이다.
+relocation_hint는 실패 스텝이 남긴 페이지 링크에서 읽지만, 수집 이전 데이터는
+relocation_checked=False로 넘겨 '확인하지 못함'과 '찾아봤지만 없음'을 구분한다.
 """
 
 import logging
@@ -28,6 +28,7 @@ from aim_api.models.scenario import (
     ScenarioRun,
     ScenarioRunStatus,
     StepResult,
+    StepResultStatus,
     TestScenario,
     TestStep,
 )
@@ -59,6 +60,8 @@ TERMINAL_SCENARIO_RUN_STATUSES = {
     ScenarioRunStatus.CANCELLED.value,
 }
 RECENT_RUN_LIMIT = 5
+# 증거 카드에 나열할 링크 상한 — 너무 길면 판단 신호가 묻힌다.
+RELOCATION_LINK_LIMIT = 8
 AGENT_RECHECK_TRIGGER_SOURCE = "agent_recheck"
 
 
@@ -223,14 +226,51 @@ class DbToolbox:
         ):
             redirect_detected_to = availability.final_url
 
+        relocation_hint, relocation_checked = self._read_relocation_evidence(scenario_run_ids)
         return ArtifactsSnapshot(
             console_errors=console_errors,
             network_failures=network_failures,
             failing_page_rendered_ok=None,  # 스크린샷 판독기 없음 — W5 과제
             redirect_detected_to=redirect_detected_to,
-            # 판독기가 없으므로 '찾아봤지만 없었다'가 아니라 '확인하지 못했다'로 넘긴다.
-            relocation_hint=None,
-            relocation_checked=False,
+            relocation_hint=relocation_hint,
+            relocation_checked=relocation_checked,
+        )
+
+    def _read_relocation_evidence(self, scenario_run_ids: list[UUID]) -> tuple[str | None, bool]:
+        """실패 스텝이 남긴 페이지 링크에서 '기대 요소가 옮겨간 흔적'을 읽는다.
+
+        판정하지 않고 사실만 옮긴다 — 어떤 링크가 이사한 진입점인지는 조사 단계가
+        맥락(실패한 셀렉터·시나리오)과 함께 판단한다. 수집 이전 데이터(None)와
+        '수집했지만 링크가 없었다'([])는 반드시 구분한다: 전자는 신호 없음,
+        후자는 "흔적이 정말 없다"는 진짜 증거이고 UI 파손을 가리킨다.
+        """
+        if not scenario_run_ids:
+            return None, False
+
+        failed_step = self._session.scalars(
+            select(StepResult)
+            .where(
+                StepResult.scenario_run_id.in_(scenario_run_ids),
+                StepResult.status == StepResultStatus.FAILED.value,
+            )
+            .order_by(StepResult.step_order)
+            .limit(1)
+        ).first()
+        if failed_step is None or failed_step.page_links is None:
+            return None, False
+
+        links = [link for link in failed_step.page_links if isinstance(link, dict)]
+        if not links:
+            return None, True
+
+        described = ", ".join(
+            f"{link.get('path')}({link.get('text')})" if link.get("text") else f"{link.get('path')}"
+            for link in links[:RELOCATION_LINK_LIMIT]
+        )
+        target = failed_step.target or "기대 요소"
+        return (
+            f"{target}를 찾지 못한 페이지에 내부 링크 {len(links)}개가 남아 있음: {described}",
+            True,
         )
 
     def compare_with_baseline(self) -> BaselineComparison:

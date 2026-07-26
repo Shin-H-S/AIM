@@ -668,3 +668,72 @@ def test_incident_sync_proceeds_when_no_scenarios_are_linked(session: Session) -
     check_run = seed_check_run(session, project)
 
     assert tasks.has_pending_linked_scenario_runs(session, check_run_id=check_run.id) is False
+
+
+def seed_failed_step_with_links(
+    session: Session,
+    project: Project,
+    check_run: CheckRun,
+    *,
+    page_links: list[dict[str, str]] | None,
+) -> None:
+    """실패 스텝 하나만 있는 시나리오 실행 — page_links 판독을 검증하기 위한 최소 구성."""
+    scenario = TestScenario(project_id=project.id, name="login")
+    session.add(scenario)
+    session.flush()
+    scenario_run = ScenarioRun(
+        project_id=project.id,
+        scenario_id=scenario.id,
+        check_run_id=check_run.id,
+        requested_by_id=project.owner_id,
+        status=ScenarioRunStatus.FAILED.value,
+    )
+    session.add(scenario_run)
+    session.flush()
+    session.add(
+        StepResult(
+            scenario_run_id=scenario_run.id,
+            step_order=2,
+            action="assert_element_exists",
+            target="#email",
+            status="FAILED",
+            error_message="Expected element was not found.",
+            page_links=page_links,
+        )
+    )
+    session.commit()
+
+
+def test_relocation_reader_reports_links_left_on_the_failing_page(session: Session) -> None:
+    """스테일: 폼이 이사하면 그리로 가는 진입점이 남는다 — 그 사실을 증거로 옮긴다."""
+    project = seed_project(session)
+    check_run = seed_check_run(session, project)
+    seed_failed_step_with_links(
+        session,
+        project,
+        check_run,
+        page_links=[{"path": "/login.html", "text": "로그인하러 가기"}],
+    )
+
+    artifacts = DbToolbox(session, project=project, check_run=check_run).get_artifacts()
+
+    assert artifacts.relocation_checked is True
+    assert artifacts.relocation_hint is not None
+    assert "/login.html" in artifacts.relocation_hint
+    assert "#email" in artifacts.relocation_hint
+
+
+def test_relocation_reader_distinguishes_empty_from_uncollected(session: Session) -> None:
+    """빈 목록은 '흔적이 정말 없다'는 증거(UI 파손 쪽), None은 신호 없음이다."""
+    project = seed_project(session)
+
+    collected_none = seed_check_run(session, project)
+    seed_failed_step_with_links(session, project, collected_none, page_links=[])
+    empty = DbToolbox(session, project=project, check_run=collected_none).get_artifacts()
+
+    legacy = seed_check_run(session, project)
+    seed_failed_step_with_links(session, project, legacy, page_links=None)
+    uncollected = DbToolbox(session, project=project, check_run=legacy).get_artifacts()
+
+    assert (empty.relocation_checked, empty.relocation_hint) == (True, None)
+    assert (uncollected.relocation_checked, uncollected.relocation_hint) == (False, None)

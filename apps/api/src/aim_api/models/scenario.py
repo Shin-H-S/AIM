@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -218,6 +220,10 @@ class StepResult(Base):
         ForeignKey("artifacts.id", ondelete="SET NULL"),
         index=True,
     )
+    # 실패 시점 페이지에 남아 있던 내부 링크([{path, text}, ...]).
+    # 기대 요소가 이사했는지(스테일) 사라졌는지(파손)를 가르는 단서다.
+    # None = 수집 이전 데이터, [] = 수집했으나 링크가 없었음 — 둘을 구분해야 한다.
+    page_links: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

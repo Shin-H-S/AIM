@@ -92,7 +92,7 @@ def render_artifacts(artifacts: ArtifactsSnapshot) -> str:
         parts.append("기대 요소의 이동 흔적 없음")
     else:
         # 수집하지 못한 것을 '없음'으로 적으면 판단자가 없는 증거를 근거로 삼는다.
-        parts.append("이동 흔적은 확인하지 못함(판독기 미구현)")
+        parts.append("이동 흔적 정보 없음(수집되지 않음)")
     return " · ".join(parts)
 
 

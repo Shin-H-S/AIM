@@ -1006,3 +1006,37 @@ def test_run_scenario_run_ignores_missing_scenario_run(session: Session) -> None
     _ = session
 
     tasks.run_scenario_run.run(str(uuid4()))
+
+
+def test_failed_step_stores_empty_links_as_evidence() -> None:
+    """링크가 하나도 없는 실패는 '흔적이 정말 없다'는 증거 — None으로 뭉개면 안 된다.
+
+    2026-07-26 도그푸딩: 빈 튜플이 falsy라 None으로 저장돼, 판독기가 구현된 뒤에도
+    카드가 '수집되지 않음'이라고 말했다.
+    """
+    broken_ui = ExecutedStepResult(
+        test_step_id=None,
+        step_order=2,
+        action="assert_element_exists",
+        target="#email",
+        status=StepResultStatus.FAILED,
+        started_at=None,
+        finished_at=None,
+        duration_ms=1,
+        error_message="Expected element was not found.",
+        page_links=(),
+    )
+    passed = ExecutedStepResult(
+        test_step_id=None,
+        step_order=1,
+        action="navigate",
+        target="https://svc.example/",
+        status=StepResultStatus.PASSED,
+        started_at=None,
+        finished_at=None,
+        duration_ms=1,
+        error_message=None,
+    )
+
+    assert tasks.page_links_payload(broken_ui) == []
+    assert tasks.page_links_payload(passed) is None

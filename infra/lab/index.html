@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- AIM 도메인 인증 토큰: 프로젝트 생성 후 발급된 값으로 교체한다. -->
+    <meta name="aim-verification" content="REPLACE_WITH_AIM_VERIFICATION_TOKEN">
+    <title>AIM Lab — 로그인</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0; min-height: 100vh; display: grid; place-items: center;
+        font-family: system-ui, "Segoe UI", sans-serif; background: #f6f8fb; color: #14161a;
+      }
+      main { width: min(360px, 90vw); background: #fff; border: 1px solid #e4e8ef;
+             border-radius: 14px; padding: 28px; box-shadow: 0 8px 30px rgba(20, 30, 60, .06); }
+      h1 { font-size: 20px; margin: 0 0 6px; }
+      p.sub { margin: 0 0 20px; font-size: 13px; color: #66707f; }
+      label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+      input { width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #d5dbe5;
+              border-radius: 8px; background: #fff; color: inherit; }
+      button { width: 100%; margin-top: 20px; padding: 11px; font-size: 14px; font-weight: 700;
+               color: #fff; background: #1f6feb; border: 0; border-radius: 8px; cursor: pointer; }
+      footer { margin-top: 18px; font-size: 11px; color: #97a0ae; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>AIM Lab</h1>
+      <p class="sub">조사 에이전트 도그푸딩용 실험대입니다. 실제 로그인은 처리하지 않습니다.</p>
+      <form id="login-form" onsubmit="event.preventDefault();">
+        <label for="email">이메일</label>
+        <input id="email" name="email" type="email" autocomplete="off" placeholder="lab@example.com">
+        <label for="password">비밀번호</label>
+        <input id="password" name="password" type="password" autocomplete="off" placeholder="비밀번호">
+        <button type="submit">로그인</button>
+      </form>
+      <footer>상태: 정상 (index.html)</footer>
+    </main>
+  </body>
+</html>

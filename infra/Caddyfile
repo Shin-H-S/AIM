@@ -7,3 +7,12 @@
 	encode zstd gzip
 	reverse_proxy api:8000
 }
+
+# 조사 에이전트 도그푸딩 실험대 — 정적 파일만 서빙하는 독립 사이트.
+# 실사용자가 쓰는 위 두 블록과 분리돼 있어, 이 페이지를 고의로 망가뜨려도
+# 웹·API 라우팅에는 영향이 없다. 미설정 시 lab.localhost(내부 인증서, ACME 미시도).
+{$AIM_LAB_HOSTNAME} {
+	encode zstd gzip
+	root * /srv/lab
+	file_server
+}

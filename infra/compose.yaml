@@ -194,6 +194,8 @@ services:
     environment:
       AIM_WEB_HOSTNAME: ${AIM_WEB_HOSTNAME:?set AIM_WEB_HOSTNAME}
       AIM_API_HOSTNAME: ${AIM_API_HOSTNAME:?set AIM_API_HOSTNAME}
+      # 실험대 호스트네임 — 기본값은 내부 전용이라 미설정 시 인증서 발급을 시도하지 않는다.
+      AIM_LAB_HOSTNAME: ${AIM_LAB_HOSTNAME:-lab.localhost}
     depends_on:
       web:
         condition: service_healthy
@@ -204,6 +206,7 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./lab:/srv/lab:ro
       - caddy-data:/data
       - caddy-config:/config
 

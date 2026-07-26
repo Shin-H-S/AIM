@@ -22,6 +22,7 @@ import {
 } from "@/lib/api";
 import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
 import { formatNullableDateTime } from "@/lib/format";
+import { isHttpUrl, normalizeServiceUrl } from "@/lib/serviceUrl";
 import { LoginRequiredNotice, Metric, Notice } from "@/components/ui";
 
 type ProjectFormMode = "create" | "edit";
@@ -1235,7 +1236,7 @@ function buildProjectPayload(
   form: ProjectFormState
 ): { ok: true; payload: ProjectPayload } | { ok: false; message: string } {
   const name = form.name.trim();
-  const serviceUrl = form.serviceUrl.trim();
+  const serviceUrl = normalizeServiceUrl(form.serviceUrl);
   const description = form.description.trim();
 
   if (!name) {
@@ -1243,7 +1244,11 @@ function buildProjectPayload(
   }
 
   if (!isHttpUrl(serviceUrl)) {
-    return { ok: false, message: "Service URL은 http 또는 https URL이어야 합니다." };
+    // 무엇이 거부됐는지 보여준다 — 눈에 보이지 않는 문자가 섞였을 때 특히 필요하다.
+    return {
+      ok: false,
+      message: `서비스 URL을 해석하지 못했습니다: "${serviceUrl}" — https://example.com 형식으로 입력하세요.`
+    };
   }
 
   const scanIntervalMinutes = parseIntegerInRange(form.scanIntervalMinutes, 1, 43_200);
@@ -1278,15 +1283,6 @@ function buildProjectPayload(
       quality_score_threshold: qualityScoreThreshold
     }
   };
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function parseIntegerInRange(value: string, min: number, max: number): number | null {

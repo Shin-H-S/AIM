@@ -22,6 +22,11 @@ class IncidentRead(BaseModel):
     resolved_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    # 이 인시던트가 마지막으로 확인된 시점 — 해당 프로젝트의 최근 검사 시각.
+    # 해소는 다음 검사가 돌아야 평가되므로, 이 값이 오래됐으면 인시던트는
+    # 현재 상태가 아니라 과거를 말하고 있다.
+    project_last_checked_at: datetime | None = None
+    is_stale: bool = False
 
 
 class AlertRead(BaseModel):

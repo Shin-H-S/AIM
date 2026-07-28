@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from aim_api.database import get_db
 from aim_api.dependencies import get_current_user
+from aim_api.models.alert import IncidentStatus
 from aim_api.models.user import User
 from aim_api.schemas.alert import AlertRead, IncidentRead
 from aim_api.services import alert_delivery, scan_queue
@@ -66,7 +67,21 @@ def list_project_incidents(
         limit=limit,
         offset=offset,
     )
-    return [IncidentRead.model_validate(incident) for incident in incidents]
+    # 열린 인시던트는 그 프로젝트가 마지막으로 검사된 시점까지만 사실이다.
+    # 해소 판정이 다음 검사에서만 일어나기 때문이다.
+    last_checked_at = incident_service.latest_check_run_at_by_project(
+        session, project_ids=[project.id]
+    ).get(project.id)
+
+    items: list[IncidentRead] = []
+    for incident in incidents:
+        item = IncidentRead.model_validate(incident)
+        item.project_last_checked_at = last_checked_at
+        item.is_stale = incident.status == IncidentStatus.OPEN.value and incident_service.is_stale(
+            last_checked_at
+        )
+        items.append(item)
+    return items
 
 
 @router.get("/alerts", response_model=list[AlertRead])

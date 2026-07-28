@@ -110,6 +110,13 @@ export type Incident = {
   resolved_at: string | null;
   created_at: string;
   updated_at: string;
+  /** 이 인시던트가 마지막으로 확인된 시점 — 해당 프로젝트의 최근 검사 시각. */
+  project_last_checked_at: string | null;
+  /**
+   * 열려 있지만 오랫동안 재확인되지 않은 인시던트. 해소 판정은 그 프로젝트의
+   * 다음 검사에서만 일어나므로, 검사가 멈추면 회복돼도 열린 채 남는다.
+   */
+  is_stale: boolean;
 };
 
 export type Alert = {

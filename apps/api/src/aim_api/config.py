@@ -1,6 +1,19 @@
 from functools import lru_cache
+from typing import Self
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 로컬 개발용 기본 서명 키. 이 값은 공개 저장소에 그대로 적혀 있으므로,
+# 운영 환경에서 이 키로 토큰을 서명하면 누구나 임의 사용자를 사칭할 수 있다.
+DEVELOPMENT_JWT_SECRET_KEY = "replace-with-a-local-development-secret"
+
+# 서명 키를 강제하지 않는 환경. 그 외(production·staging 등)는 부팅을 막는다.
+UNGUARDED_APP_ENVS = frozenset({"development", "test"})
+
+# HS256 서명 키의 최소 길이. 해시 출력이 256비트이므로 그보다 짧은 키를 쓰면
+# 알고리즘이 보장하는 강도를 얻지 못한다.
+MIN_JWT_SECRET_KEY_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -25,7 +38,7 @@ class Settings(BaseSettings):
     artifact_storage_backend: str = "local"
     artifact_local_root: str = "artifacts"
     scan_scheduler_interval_seconds: int = 60
-    jwt_secret_key: str = "replace-with-a-local-development-secret"
+    jwt_secret_key: str = DEVELOPMENT_JWT_SECRET_KEY
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
     password_reset_token_expire_minutes: int = 30
@@ -63,6 +76,33 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def reject_development_jwt_secret_outside_development(self) -> Self:
+        """운영 환경에서 개발용/약한 서명 키로 부팅하는 것을 막는다.
+
+        compose가 JWT_SECRET_KEY를 필수로 강제하지만 그 방어는 compose 파일에만
+        있다. uvicorn을 직접 띄우거나 다른 오케스트레이터로 옮기면 기본값으로
+        부팅되고, 그 키는 공개 저장소에 적혀 있어 토큰 위조가 가능해진다.
+        실패는 조용하면 안 되므로 부팅 자체를 막는다.
+        """
+        if self.app_env in UNGUARDED_APP_ENVS:
+            return self
+
+        if self.jwt_secret_key == DEVELOPMENT_JWT_SECRET_KEY:
+            raise ValueError(
+                f"JWT_SECRET_KEY is still the development default in app_env="
+                f"{self.app_env!r}. Set a unique secret of at least "
+                f"{MIN_JWT_SECRET_KEY_LENGTH} characters."
+            )
+
+        if len(self.jwt_secret_key) < MIN_JWT_SECRET_KEY_LENGTH:
+            raise ValueError(
+                f"JWT_SECRET_KEY must be at least {MIN_JWT_SECRET_KEY_LENGTH} "
+                f"characters in app_env={self.app_env!r}."
+            )
+
+        return self
 
 
 @lru_cache

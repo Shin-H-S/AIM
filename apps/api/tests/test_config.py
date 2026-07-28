@@ -1,4 +1,10 @@
-from aim_api.config import Settings
+import pytest
+from aim_api.config import (
+    DEVELOPMENT_JWT_SECRET_KEY,
+    MIN_JWT_SECRET_KEY_LENGTH,
+    Settings,
+)
+from pydantic import ValidationError
 from pytest import MonkeyPatch
 
 
@@ -26,3 +32,40 @@ def test_settings_read_environment_variables(monkeypatch: MonkeyPatch) -> None:
     assert settings.smtp_from_email == "alerts@example.com"
     assert settings.smtp_use_tls is False
     assert settings.alert_delivery_batch_size == 10
+
+
+def test_development_defaults_do_not_require_a_jwt_secret() -> None:
+    """로컬 개발은 아무 설정 없이 떠야 한다 — 가드가 개발을 막으면 안 된다."""
+    settings = Settings(_env_file=None)
+
+    assert settings.app_env == "development"
+    assert settings.jwt_secret_key == DEVELOPMENT_JWT_SECRET_KEY
+
+
+@pytest.mark.parametrize("app_env", ["production", "staging"])
+def test_default_jwt_secret_is_rejected_outside_development(
+    monkeypatch: MonkeyPatch, app_env: str
+) -> None:
+    """공개 저장소에 적힌 기본 키로 운영 부팅되는 것을 막는다."""
+    monkeypatch.setenv("APP_ENV", app_env)
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+
+    with pytest.raises(ValidationError, match="development default"):
+        Settings(_env_file=None)
+
+
+def test_short_jwt_secret_is_rejected_outside_development(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET_KEY", "x" * (MIN_JWT_SECRET_KEY_LENGTH - 1))
+
+    with pytest.raises(ValidationError, match="at least"):
+        Settings(_env_file=None)
+
+
+def test_strong_jwt_secret_is_accepted_in_production(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET_KEY", "x" * MIN_JWT_SECRET_KEY_LENGTH)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.app_env == "production"

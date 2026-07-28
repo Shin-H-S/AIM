@@ -1,18 +1,74 @@
+# 모든 사이트에 공통으로 거는 보안 헤더.
+#
+# 왜 필요한가: 액세스 토큰을 localStorage에 두는 구조라 XSS 한 번이면 토큰이
+# 그대로 털린다. 그런데 지금까지 CSP도, HSTS도, 프레임 차단도 없었다.
+#
+# 주의: 블록 형태의 header는 Caddy에서 deferred로 적용된다 — 업스트림이 설정한
+# 헤더를 덮어쓰기 위한 동작이며, 그 대신 502 같은 Caddy 자체 오류 응답에는
+# 붙지 않는다. 오류 응답은 본문이 없으므로 실질 위험은 없고, CSP는 아래에서
+# 단일 라인 형태(비-deferred)로 걸어 모든 응답에 항상 붙는다.
+(security_headers) {
+	header {
+		# HTTPS 강제. Caddy가 리다이렉트는 해 주지만, HSTS가 있어야 브라우저가
+		# 첫 요청부터 평문으로 나가지 않는다. preload는 신중해야 하므로 뺀다
+		# (한 번 등록하면 되돌리기 어렵다).
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+		# 클릭재킹 차단. CSP frame-ancestors가 본체이고 이건 구형 브라우저용.
+		X-Frame-Options "DENY"
+
+		# 브라우저가 Content-Type을 추측해 실행 가능한 타입으로 바꾸는 것을 막는다.
+		# 업로드된 스크린샷을 스크립트로 해석하는 경로를 닫는다.
+		X-Content-Type-Options "nosniff"
+
+		# 외부로 나가는 링크에 전체 URL(프로젝트 id 등)을 흘리지 않는다.
+		Referrer-Policy "strict-origin-when-cross-origin"
+
+		# 이 서비스는 쓰지 않는 강력한 권한들을 명시적으로 끈다.
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+
+		# 서버 소프트웨어를 광고하지 않는다.
+		-Server
+	}
+}
+
 {$AIM_WEB_HOSTNAME} {
 	encode zstd gzip
+	import security_headers
+
+	# script-src에 'unsafe-inline'이 남아 있는 이유: Next.js App Router가
+	# RSC 페이로드를 인라인 <script>로 넣기 때문에, nonce 없이 막으면 하이드레이션이
+	# 통째로 깨진다. nonce 기반 CSP는 Next 미들웨어가 필요해 후속 과제로 둔다.
+	#
+	# 그래서 방어의 무게는 connect-src에 싣는다 — 인라인 스크립트가 실행되더라도
+	# 토큰을 공격자 서버로 **보낼 수 없으면** 탈취가 성립하지 않는다.
+	# base-uri·form-action·object-src도 같은 이유로 좁힌다.
+	header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://{$AIM_API_HOSTNAME}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+
 	reverse_proxy web:3000
 }
 
 {$AIM_API_HOSTNAME} {
 	encode zstd gzip
+	import security_headers
+
+	# API는 JSON과 아티팩트 파일만 돌려준다. 브라우저가 이 응답에서 무언가를
+	# 실행하거나 불러올 이유가 전혀 없으므로 전부 잠근다. 아티팩트 다운로드가
+	# 스크립트로 해석되는 경로도 이걸로 닫힌다.
+	header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; sandbox"
+
 	reverse_proxy api:8000
 }
 
 # 조사 에이전트 도그푸딩 실험대 — 정적 파일만 서빙하는 독립 사이트.
 # 실사용자가 쓰는 위 두 블록과 분리돼 있어, 이 페이지를 고의로 망가뜨려도
 # 웹·API 라우팅에는 영향이 없다. 미설정 시 lab.localhost(내부 인증서, ACME 미시도).
+#
+# 실험대는 일부러 망가뜨리는 곳이라 CSP를 걸지 않는다 — 여기에 헤더를 걸면
+# "UI 회귀"를 재현할 때 원인이 실험 대상인지 CSP인지 구분되지 않는다.
 {$AIM_LAB_HOSTNAME} {
 	encode zstd gzip
+	import security_headers
 	root * /srv/lab
 	file_server
 }

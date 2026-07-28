@@ -38,6 +38,8 @@ x-aim-env: &aim-env
   ALERT_DELIVERY_BATCH_SIZE: ${ALERT_DELIVERY_BATCH_SIZE:-25}
   ALERT_WEBHOOK_TIMEOUT_SECONDS: ${ALERT_WEBHOOK_TIMEOUT_SECONDS:-10}
   WEB_BASE_URL: ${WEB_BASE_URL:-}
+  OPS_WEBHOOK_URL: ${OPS_WEBHOOK_URL:-}
+  METRICS_TOKEN: ${METRICS_TOKEN:-}
   SCENARIO_SECRETS_FILE: ${SCENARIO_SECRETS_FILE:-/run/aim/scenario-secrets/secrets.env}
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   AIM_AGENT_DAILY_BUDGET_USD: ${AIM_AGENT_DAILY_BUDGET_USD:-}
@@ -140,8 +142,11 @@ services:
         "aim_worker.celery_app.celery_app",
         "worker",
         "--loglevel=INFO",
-        # 동시성 2 필수: 조사 에이전트의 재검사 폴링이 슬롯 하나를 점유한 채
-        # 재검사 태스크를 기다린다 — 1이면 자기 자신을 기다리는 교착이 된다.
+        # 검사·시나리오(scans)와 짧은 작업(celery = 기본 큐: AI 리포트·알림·
+        # 스케줄러·아티팩트 정리)을 처리한다. 조사(agent)는 아래 별도 워커가 맡는다.
+        # 기본 큐 이름을 바꾸지 않은 이유는 배포 시점에 이미 큐에 들어가 있던
+        # 메시지를 계속 소비하기 위해서다.
+        "--queues=scans,celery",
         "--concurrency=${CELERY_WORKER_CONCURRENCY:-2}",
       ]
     volumes:
@@ -149,6 +154,39 @@ services:
       # 시나리오 {{secret:NAME}} 참조용 secrets.env(NAME=VALUE)가 들어 있는 디렉토리.
       # 파일이 아니라 디렉토리를 마운트해야 sed -i처럼 inode가 바뀌는 편집도
       # 컨테이너에 반영된다.
+      - ${SCENARIO_SECRETS_HOST_DIR:-~/.config/aim/scenario-secrets}:/run/aim/scenario-secrets:ro
+
+  # 조사 에이전트 전용 워커. 검사와 큐를 나눠 두 가지를 얻는다.
+  #
+  # 1) 조사가 최대 7분 슬롯을 잡아도 검사·알림이 밀리지 않는다. 인시던트는
+  #    몰려서 터지므로, 합쳐 두면 가장 바쁠 때 정확히 마비된다.
+  # 2) 조사가 기다리는 재검사를 **다른 워커**가 처리하므로, 자기가 기다리는
+  #    작업을 자기가 실행해야 하는 교착이 구조적으로 불가능해진다.
+  #    그래서 여기는 동시성 1로 충분하다.
+  worker-agent:
+    build:
+      context: ..
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    logging: *aim-logging
+    environment: *aim-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command:
+      [
+        "celery",
+        "-A",
+        "aim_worker.celery_app.celery_app",
+        "worker",
+        "--loglevel=INFO",
+        "--queues=agent",
+        "--concurrency=${CELERY_AGENT_WORKER_CONCURRENCY:-1}",
+      ]
+    volumes:
+      - artifacts-data:/data/aim/artifacts
       - ${SCENARIO_SECRETS_HOST_DIR:-~/.config/aim/scenario-secrets}:/run/aim/scenario-secrets:ro
 
   beat:

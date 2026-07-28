@@ -1,3 +1,4 @@
+from aim_api.models.agent_investigation import AgentInvestigation
 from aim_api.models.ai_report import AIReport
 from aim_api.models.alert import Alert, Incident
 from aim_api.models.check_run import CheckRun
@@ -24,6 +25,7 @@ from aim_api.models.scenario import (
 from aim_api.models.user import User
 
 __all__ = [
+    "AgentInvestigation",
     "Artifact",
     "AIReport",
     "Alert",

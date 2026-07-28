@@ -85,3 +85,9 @@ jobs:
         run: uv run alembic -c migrations/alembic.ini downgrade base
       - name: Re-upgrade to head
         run: uv run alembic -c migrations/alembic.ini upgrade head
+      # 마이그레이션 head가 만든 스키마와 SQLAlchemy 모델이 실제로 같은지 확인한다.
+      # 위 세 단계는 마이그레이션이 "에러 없이 도는지"만 보므로, 모델에 추가한
+      # 컬럼을 마이그레이션에 빠뜨려도 통과한다. 테스트는 create_all로 스키마를
+      # 만들기 때문에 그 드리프트를 잡지 못한다 — 여기가 유일한 방어선이다.
+      - name: Check for model/migration drift
+        run: uv run alembic -c migrations/alembic.ini check

@@ -29,6 +29,12 @@ uv run celery -A aim_worker.celery_app.celery_app beat --loglevel=INFO
 
 Beat는 `SCAN_SCHEDULER_INTERVAL_SECONDS`(기본 60초) 주기로 `schedule_due_check_runs` task를 실행합니다. 이 task는 정기 스캔을 활성화(`scheduled_scans_enabled`, 기본 비활성)하고 소유권이 검증된 프로젝트 중 마지막 CheckRun 이후 `scan_interval_minutes`가 경과한 프로젝트를 찾아 `trigger_source="scheduled"`인 CheckRun을 생성하고 scan queue에 등록합니다. 검증되지 않은 프로젝트는 정기 스캔 대상에서 제외되며, `QUEUED`/`RUNNING`/`ANALYZING` 상태의 CheckRun이 남아 있는 프로젝트는 중복 실행과 큐 적체를 막기 위해 건너뜁니다. queue 등록에 실패한 scheduled CheckRun은 `FAILED`로 기록됩니다.
 
+워커는 큐 두 개로 나뉘어 돕니다. `worker`가 `scans`(검사·시나리오)와 기본 큐(AI 리포트·알림·스케줄러·아티팩트 정리)를, `worker-agent`가 `agent`(조사)를 맡습니다.
+
+분리 이유는 두 가지입니다. 첫째, 조사는 슬롯을 최대 7분 잡는데 인시던트는 몰려서 터지므로, 합쳐 두면 가장 바쁠 때 검사와 알림이 통째로 밀립니다. 둘째, 조사는 재검사 태스크를 큐에 넣고 그 결과를 기다리는데, 같은 워커가 양쪽을 처리하면 자기가 기다리는 작업을 자기가 실행해야 하는 교착이 됩니다. 이전에는 "동시성 2 이상"이라는 배포 설정으로 막고 있었지만 값 하나로 무너지는 방어였고, 큐를 나누면 그 전제 자체가 사라집니다.
+
+라우팅 정의는 `aim_api.services.scan_queue`에 있습니다. 태스크를 큐에 넣는 쪽은 대부분 API 프로세스이고 API는 워커와 별개인 Celery 클라이언트를 쓰기 때문에, 워커에만 라우팅을 걸면 API가 보낸 태스크가 전부 기본 큐로 가서 분리가 무의미해집니다. 기본 큐 이름은 Celery 기본값(`celery`)을 유지합니다 — 바꾸면 배포 시점에 큐에 남아 있던 메시지를 아무도 소비하지 않게 됩니다.
+
 스케줄링은 PostgreSQL advisory lock(`pg_try_advisory_lock`) 안에서 돕니다. "만료된 프로젝트를 읽고 → 검사를 만든다"는 read-then-write라, Beat가 둘이면 같은 프로젝트에 검사가 두 개 생깁니다. 잠금을 얻지 못하면 기다리지 않고 이번 회차를 건너뜁니다 — 어차피 주기적으로 다시 옵니다. 마지막 방어선으로 `check_runs`에 부분 유니크 인덱스가 있어, 자동 트리거(`scheduled`·`deploy`) 검사는 프로젝트당 하나만 활성일 수 있습니다. 수동 검사와 에이전트 재검사는 의도적으로 제외됩니다 — 검사 중 수동 실행과 정기 검사 중 조사 재검사는 정상 동작입니다.
 
 알림 발송(`deliver_pending_email_alerts`)은 `SELECT ... FOR UPDATE SKIP LOCKED`로 알림을 집습니다. 잠금이 없으면 워커 두 개가 같은 PENDING 알림을 함께 읽어 같은 장애를 두 번 발송합니다.

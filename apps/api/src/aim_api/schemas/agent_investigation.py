@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AgentToolCallRead(BaseModel):
@@ -37,8 +38,35 @@ class AgentInvestigationRead(BaseModel):
     violations: list[str]
     llm_calls: list[AgentLlmCallRead]
     duration_ms: int
+    feedback_verdict: str | None
+    feedback_root_cause: str | None
+    feedback_note: str | None
+    feedback_at: datetime | None
     created_at: datetime
 
 
 class AgentInvestigationEnqueueRead(BaseModel):
     task_id: str
+
+
+class AgentInvestigationFeedbackWrite(BaseModel):
+    """조사가 맞았는지에 대한 사용자 판정.
+
+    verdict가 "inaccurate"일 때 root_cause를 함께 주면 그것이 실운영 라벨이 된다.
+    원인을 모르면 비워도 되지만, 그 경우 정확도 집계의 분모에만 들어간다.
+    """
+
+    verdict: Literal["accurate", "inaccurate"]
+    root_cause: (
+        Literal[
+            "service_down",
+            "ssl_invalid",
+            "server_slow",
+            "frontend_regression",
+            "ui_regression",
+            "scenario_stale",
+            "measurement_noise",
+        ]
+        | None
+    ) = None
+    note: str | None = Field(default=None, max_length=2_000)

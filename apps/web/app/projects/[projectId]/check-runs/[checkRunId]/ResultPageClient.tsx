@@ -13,9 +13,12 @@ import {
   fetchCheckRunAIReport,
   fetchCheckRunDetail,
   fetchProject,
+  clearAgentInvestigationFeedback,
   requestAgentInvestigation,
+  submitAgentInvestigationFeedback,
   setProjectBaseline,
   type AgentInvestigation,
+  type AgentInvestigationVerdict,
   type AIReportDetailResult,
   type AIReportSummary,
   type Artifact,
@@ -107,6 +110,7 @@ export function ResultPageClient({
   const [investigation, setInvestigation] = useState<AgentInvestigation | null>(null);
   const [investigationState, setInvestigationState] =
     useState<InvestigationCardState>("idle");
+  const [feedbackPending, setFeedbackPending] = useState(false);
   const checkRun = result.state === "success" ? result.checkRun : null;
   const isAIReportPending = checkRun?.status === "COMPLETED" && checkRun.ai_report === null;
   const isAwaitingAIReport = isAIReportPending && reportWaitPolls < MAX_AI_REPORT_WAIT_POLLS;
@@ -154,6 +158,55 @@ export function ResultPageClient({
       void loadInvestigation();
     });
   }, [loadInvestigation]);
+
+  const handleInvestigationFeedback = useCallback(
+    async (verdict: AgentInvestigationVerdict, rootCause?: string) => {
+      const accessToken = getStoredAccessToken();
+      if (!accessToken) {
+        setInvestigationState("unauthorized");
+        return;
+      }
+      setFeedbackPending(true);
+      const result = await submitAgentInvestigationFeedback({
+        projectId,
+        checkRunId,
+        accessToken,
+        verdict,
+        rootCause
+      });
+      setFeedbackPending(false);
+      if (result.state === "success") {
+        setInvestigation(result.investigation);
+        return;
+      }
+      if (result.state === "unauthorized") {
+        setInvestigationState("unauthorized");
+      }
+    },
+    [checkRunId, projectId]
+  );
+
+  const handleClearInvestigationFeedback = useCallback(async () => {
+    const accessToken = getStoredAccessToken();
+    if (!accessToken) {
+      setInvestigationState("unauthorized");
+      return;
+    }
+    setFeedbackPending(true);
+    const result = await clearAgentInvestigationFeedback({
+      projectId,
+      checkRunId,
+      accessToken
+    });
+    setFeedbackPending(false);
+    if (result.state === "success") {
+      setInvestigation(result.investigation);
+      return;
+    }
+    if (result.state === "unauthorized") {
+      setInvestigationState("unauthorized");
+    }
+  }, [checkRunId, projectId]);
 
   const handleRequestInvestigation = useCallback(async () => {
     const accessToken = getStoredAccessToken();
@@ -552,7 +605,12 @@ export function ResultPageClient({
 
             <InvestigationCard
               canRequest={isCheckRunTerminal}
+              feedbackPending={feedbackPending}
               investigation={investigation}
+              onClearFeedback={() => void handleClearInvestigationFeedback()}
+              onFeedback={(verdict, rootCause) =>
+                void handleInvestigationFeedback(verdict, rootCause)
+              }
               onRequest={() => void handleRequestInvestigation()}
               state={investigationState}
             />

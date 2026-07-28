@@ -165,7 +165,9 @@ def test_open_incidents_are_counted(session: Session) -> None:
 
     rendered = render_metrics(collect_metrics(session))
 
-    assert "aim_incidents_open 2.0" in rendered
+    # 열린 인시던트는 최근 확인 여부로 나뉜다 — 두 프로젝트 모두 방금 검사됐다.
+    assert 'aim_incidents_open{freshness="current"} 2.0' in rendered
+    assert 'aim_incidents_open{freshness="stale"} 0.0' in rendered
 
 
 def test_ai_reports_are_counted_by_generator(session: Session) -> None:

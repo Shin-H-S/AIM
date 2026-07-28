@@ -1,11 +1,13 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from aim_api.config import get_settings
 from aim_api.models.alert import (
     Alert,
     AlertChannel,
@@ -490,3 +492,51 @@ def build_alert_body(
         f"시작 시각: {incident.started_at.isoformat()}\n"
         f"요약: {incident.summary}"
     )
+
+
+def latest_check_run_at_by_project(
+    session: Session,
+    *,
+    project_ids: Sequence[UUID],
+) -> dict[UUID, datetime]:
+    """프로젝트별 마지막 검사 시각. 검사가 없으면 키 자체가 없다."""
+    if not project_ids:
+        return {}
+
+    rows = session.execute(
+        select(CheckRun.project_id, func.max(CheckRun.created_at))
+        .where(CheckRun.project_id.in_(project_ids))
+        .group_by(CheckRun.project_id)
+    ).all()
+    return {project_id: created_at for project_id, created_at in rows}
+
+
+def is_stale(
+    last_checked_at: datetime | None,
+    *,
+    now: datetime | None = None,
+    staleness_days: int | None = None,
+) -> bool:
+    """이 인시던트가 '지금'이 아니라 '과거'를 말하고 있는가.
+
+    해소는 그 프로젝트의 **다음 검사**가 돌아야만 평가된다
+    (sync_incidents_for_check_run). 그래서 검사가 멈춘 프로젝트의 인시던트는
+    대상 서비스가 회복돼도 영원히 OPEN으로 남는다 — 사실이 틀린 건 아니지만
+    현재 상태처럼 읽히면 곤란하다.
+
+    "마지막으로 확인한 시점"을 기준으로 오래된 것을 구분해, 지금 조치가 필요한
+    장애와 버려진 프로젝트의 화석이 같은 숫자로 세어지지 않게 한다.
+    """
+    if last_checked_at is None:
+        # 검사가 한 번도 없으면 확인된 적이 없는 것이다.
+        return True
+
+    threshold_days = (
+        staleness_days if staleness_days is not None else get_settings().incident_staleness_days
+    )
+    current_time = now or datetime.now(UTC)
+    return (current_time - as_utc(last_checked_at)) > timedelta(days=threshold_days)
+
+
+def as_utc(value: datetime) -> datetime:
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)

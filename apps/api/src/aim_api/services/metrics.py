@@ -24,6 +24,7 @@ from aim_api.models.ai_report import AIReport
 from aim_api.models.alert import Alert, Incident, IncidentStatus
 from aim_api.models.check_run import CheckRun
 from aim_api.models.scanner_result import Artifact
+from aim_api.services import incidents as incidents_service
 
 # 지연·성공률은 전 기간 평균이 아니라 최근 구간이어야 의미가 있다.
 RECENT_WINDOW_HOURS = 24
@@ -83,6 +84,36 @@ def collect_agent_token_samples(session: Session) -> list[tuple[dict[str, str], 
     ]
 
 
+def collect_open_incident_samples(
+    session: Session, *, now: datetime
+) -> list[tuple[dict[str, str], float]]:
+    """열린 인시던트를 '최근 확인됨'과 '오래됨'으로 나눈다.
+
+    나누지 않으면 지금 조치가 필요한 장애와 검사가 멈춘 프로젝트의 화석이 같은
+    숫자로 세어져, 그 숫자로는 아무 판단도 할 수 없게 된다.
+    """
+    open_incidents = session.execute(
+        select(Incident.project_id, func.count())
+        .where(Incident.status == IncidentStatus.OPEN.value)
+        .group_by(Incident.project_id)
+    ).all()
+
+    last_checked = incidents_service.latest_check_run_at_by_project(
+        session, project_ids=[project_id for project_id, _ in open_incidents]
+    )
+
+    counts = {"current": 0.0, "stale": 0.0}
+    for project_id, count in open_incidents:
+        bucket = (
+            "stale"
+            if incidents_service.is_stale(last_checked.get(project_id), now=now)
+            else "current"
+        )
+        counts[bucket] += float(count)
+
+    return [({"freshness": freshness}, count) for freshness, count in sorted(counts.items())]
+
+
 def collect_metrics(session: Session, *, now: datetime | None = None) -> list[Metric]:
     current_time = now or datetime.now(UTC)
     window_start = current_time - timedelta(hours=RECENT_WINDOW_HOURS)
@@ -118,21 +149,14 @@ def collect_metrics(session: Session, *, now: datetime | None = None) -> list[Me
         ),
         Metric(
             name="aim_incidents_open",
-            help_text="Incidents currently open.",
+            help_text=(
+                "Incidents currently open, split by whether the project has been checked "
+                "recently. A stale one describes the past: resolution is only evaluated "
+                "on that project's next check run, so an abandoned project keeps its "
+                "incidents open forever. Alert on current, not on the total."
+            ),
             metric_type="gauge",
-            samples=[
-                (
-                    {},
-                    float(
-                        session.scalar(
-                            select(func.count())
-                            .select_from(Incident)
-                            .where(Incident.status == IncidentStatus.OPEN.value)
-                        )
-                        or 0
-                    ),
-                )
-            ],
+            samples=collect_open_incident_samples(session, now=current_time),
         ),
         Metric(
             name="aim_alerts_total",

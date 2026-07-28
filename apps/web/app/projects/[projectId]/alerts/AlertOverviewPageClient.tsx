@@ -576,6 +576,7 @@ function IncidentCard({ incident, projectId }: { incident: Incident; projectId: 
             <IncidentStatusBadge status={incident.status} />
             <SeverityBadge severity={incident.severity} />
             <Badge label={incidentTriggerLabel(incident.trigger_type)} />
+            {incident.is_stale && <StaleBadge />}
           </div>
           <h3 className="mt-4 text-lg font-bold text-slate-900 dark:text-white">{incident.title}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{incident.summary}</p>
@@ -591,7 +592,24 @@ function IncidentCard({ incident, projectId }: { incident: Incident; projectId: 
         <Metric label="시작 시각" value={formatDateTime(incident.started_at)} />
         <Metric label="해소 시각" value={formatNullableDateTime(incident.resolved_at)} />
       </dl>
+
+      {incident.is_stale && (
+        <p className="mt-4 break-keep rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+          이 프로젝트는 {formatNullableDateTime(incident.project_last_checked_at)} 이후 검사되지
+          않았습니다. 장애 해소는 다음 검사에서 판정되므로, 서비스가 이미 회복됐더라도 이
+          장애는 열린 채로 남아 있습니다 — <b>현재 상태가 아니라 그때의 기록</b>입니다.
+          정기 검사를 켜면 다시 확인됩니다.
+        </p>
+      )}
     </li>
+  );
+}
+
+function StaleBadge() {
+  return (
+    <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+      오래된 기록
+    </span>
   );
 }
 

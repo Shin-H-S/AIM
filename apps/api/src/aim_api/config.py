@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     smtp_timeout_seconds: float = 10.0
     alert_delivery_batch_size: int = 25
     alert_webhook_timeout_seconds: float = 10.0
+    # 열린 인시던트가 '지금'이 아니라 '과거'를 말한다고 볼 기준. 해소는 그
+    # 프로젝트의 다음 검사가 돌아야 평가되므로, 검사가 멈춘 프로젝트의
+    # 인시던트는 회복돼도 영원히 열린 채 남는다. 지금 조치가 필요한 장애와
+    # 구분하기 위한 값이다.
+    incident_staleness_days: int = 7
     # 알림 본문에 넣을 웹 UI 기본 URL (예: https://qaaimsync.com). 없으면 링크를 생략한다.
     web_base_url: str | None = None
     # AIM 자신의 장애(미처리 예외·태스크 실패)를 운영자에게 알릴 incoming webhook.

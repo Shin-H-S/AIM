@@ -1,16 +1,9 @@
-from collections.abc import Iterator
-
 import pytest
 from aim_api.config import Settings
-from aim_api.database import Base, get_db
-from aim_api.main import app
 from aim_api.services import rate_limit
 from aim_api.services.rate_limit import RedisRateLimiter, get_client_ip
 from fastapi import Request
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 
 class FakeRateLimiter:
@@ -58,27 +51,8 @@ def test_redis_rate_limiter_fails_open_without_redis() -> None:
 
 
 @pytest.fixture()
-def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    def override_database() -> Iterator[Session]:
-        with testing_session_local() as db_session:
-            yield db_session
-
-    app.dependency_overrides[get_db] = override_database
-
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.clear()
-        Base.metadata.drop_all(bind=engine)
-        engine.dispose()
+def client(api_client: TestClient) -> TestClient:
+    return api_client
 
 
 def test_login_returns_429_when_limit_is_exceeded(

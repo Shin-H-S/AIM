@@ -1,19 +1,13 @@
-from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import jwt as pyjwt
 import pytest
 from aim_api.config import get_settings
-from aim_api.database import Base, get_db
-from aim_api.main import app
 from aim_api.security import AccessTokenClaims, create_access_token, decode_access_token
 from aim_api.services import token_revocation
 from aim_api.services.token_revocation import RedisTokenRevocationStore, revoke_token
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 
 class InMemoryRevocationStore:
@@ -35,27 +29,8 @@ def revocation_store(monkeypatch: pytest.MonkeyPatch) -> InMemoryRevocationStore
 
 
 @pytest.fixture()
-def client(revocation_store: InMemoryRevocationStore) -> Iterator[TestClient]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    def override_database() -> Iterator[Session]:
-        with testing_session_local() as db_session:
-            yield db_session
-
-    app.dependency_overrides[get_db] = override_database
-
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.clear()
-        Base.metadata.drop_all(bind=engine)
-        engine.dispose()
+def client(api_client: TestClient, revocation_store: InMemoryRevocationStore) -> TestClient:
+    return api_client
 
 
 def signup_and_login(client: TestClient) -> str:

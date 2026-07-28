@@ -1,8 +1,6 @@
-from collections.abc import Iterator
 from uuid import uuid4
 
 import pytest
-from aim_api.database import Base
 from aim_api.models.project import Project
 from aim_api.models.scanner_result import AvailabilityResult, LighthouseResult
 from aim_api.models.user import User
@@ -15,9 +13,7 @@ from aim_api.services.score_results import (
     calculate_weighted_score,
     get_preset_weights,
 )
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.orm import Session
 
 
 def test_every_preset_weight_sums_to_100() -> None:
@@ -130,23 +126,6 @@ def test_calculate_score_default_preset_matches_previous_weights() -> None:
     assert calculated.evaluated_weight == 60
     assert calculated.score_breakdown is not None
     assert calculated.score_breakdown["preset"] == "service"
-
-
-@pytest.fixture()
-def session() -> Iterator[Session]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    with testing_session_local() as testing_session:
-        yield testing_session
-
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
 
 
 def create_owner(session: Session) -> User:

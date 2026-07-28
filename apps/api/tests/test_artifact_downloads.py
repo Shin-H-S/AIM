@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from aim_api.config import get_settings
-from aim_api.database import Base, get_db
+from aim_api.database import get_db
 from aim_api.main import app
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
@@ -15,37 +15,23 @@ from aim_api.models.scanner_result import Artifact
 from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus, TestScenario
 from aim_api.models.user import User
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 
 @pytest.fixture()
-def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+def client(
+    api_client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[TestClient]:
     monkeypatch.setenv("ARTIFACT_STORAGE_BACKEND", "local")
     monkeypatch.setenv("ARTIFACT_LOCAL_ROOT", str(tmp_path))
     get_settings.cache_clear()
 
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    def override_database() -> Iterator[Session]:
-        with testing_session_local() as session:
-            yield session
-
-    app.dependency_overrides[get_db] = override_database
-
     try:
-        yield TestClient(app)
+        yield api_client
     finally:
-        app.dependency_overrides.clear()
-        Base.metadata.drop_all(bind=engine)
-        engine.dispose()
         get_settings.cache_clear()
 
 

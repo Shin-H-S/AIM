@@ -1,10 +1,8 @@
-from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Literal, cast
 from uuid import uuid4
 
 import pytest
-from aim_api.database import Base
 from aim_api.models.ai_report import AIReport
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
@@ -19,9 +17,8 @@ from aim_api.schemas.ai_diagnosis import (
     AIDiagnosisStatementType,
 )
 from aim_api.services import ai_report_narratives, ai_reports
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 ReportGrade = Literal["A", "B", "C", "D", "F"]
 
@@ -33,23 +30,6 @@ def deterministic_narratives(monkeypatch: pytest.MonkeyPatch) -> None:
         "build_anthropic_narrative_generator",
         lambda settings=None: None,
     )
-
-
-@pytest.fixture()
-def session() -> Iterator[Session]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    with testing_session_local() as testing_session:
-        yield testing_session
-
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
 
 
 def create_project_and_check_run(session: Session) -> tuple[Project, CheckRun]:

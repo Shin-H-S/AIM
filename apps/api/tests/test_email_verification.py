@@ -1,12 +1,10 @@
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from uuid import uuid4
 
 import pytest
 from aim_api.config import Settings
-from aim_api.database import Base, get_db
-from aim_api.main import app
 from aim_api.models.email_verification_token import EmailVerificationToken
 from aim_api.models.user import User
 from aim_api.security import hash_password
@@ -19,9 +17,8 @@ from aim_api.services.email_verification import (
     start_email_verification,
 )
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 
 class RecordingEmailSender:
@@ -41,23 +38,6 @@ def build_settings(**overrides: object) -> Settings:
     }
     values.update(overrides)
     return Settings(**values)  # type: ignore[arg-type]
-
-
-@pytest.fixture()
-def session() -> Iterator[Session]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    with testing_session_local() as testing_session:
-        yield testing_session
-
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
 
 
 def create_user(session: Session, *, verified: bool = False) -> User:
@@ -228,33 +208,15 @@ ClientFactory = Callable[[RecordingEmailSender | None], TestClient]
 
 
 @pytest.fixture()
-def client_factory(monkeypatch: pytest.MonkeyPatch) -> Iterator[ClientFactory]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    def override_database() -> Iterator[Session]:
-        with testing_session_local() as db_session:
-            yield db_session
-
-    app.dependency_overrides[get_db] = override_database
+def client_factory(api_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> ClientFactory:
     # 서비스가 읽는 런타임 설정을 고정해 메일 본문에 인증 링크(token=)가 포함되게 한다.
     monkeypatch.setattr(email_verification, "get_settings", build_settings)
 
     def factory(sender: RecordingEmailSender | None) -> TestClient:
         monkeypatch.setattr(email_verification, "build_smtp_email_sender", lambda _settings: sender)
-        return TestClient(app)
+        return api_client
 
-    try:
-        yield factory
-    finally:
-        app.dependency_overrides.clear()
-        Base.metadata.drop_all(bind=engine)
-        engine.dispose()
+    return factory
 
 
 def test_signup_without_smtp_auto_verifies_and_login_works(client_factory: ClientFactory) -> None:

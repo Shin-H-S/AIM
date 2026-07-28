@@ -1,9 +1,7 @@
-from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from aim_api.database import Base
 from aim_api.models.agent_investigation import AgentInvestigation
 from aim_api.models.alert import Incident, IncidentStatus
 from aim_api.models.check_run import CheckRun, CheckRunStatus
@@ -12,29 +10,11 @@ from aim_api.models.scanner_result import Artifact
 from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus, TestScenario
 from aim_api.models.user import User
 from aim_api.services import artifact_retention
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 NOW = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
 POLICY = artifact_retention.ArtifactRetentionPolicy(default_days=14, incident_days=90)
-
-
-@pytest.fixture()
-def session() -> Iterator[Session]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    with testing_session_local() as testing_session:
-        yield testing_session
-
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
 
 
 def create_project(session: Session) -> Project:

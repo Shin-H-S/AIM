@@ -1,9 +1,7 @@
-from collections.abc import Iterator
 from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from aim_api.database import Base
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.models.scanner_result import RunComparison, ScoreResult
@@ -26,26 +24,7 @@ from aim_api.services import (
     scanner_results,
     scenarios,
 )
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
-
-
-@pytest.fixture()
-def session() -> Iterator[Session]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    with testing_session_local() as testing_session:
-        yield testing_session
-
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
+from sqlalchemy.orm import Session
 
 
 def create_project_and_check_run(

@@ -1,8 +1,6 @@
-from collections.abc import Iterator
 from uuid import UUID, uuid4
 
 import pytest
-from aim_api.database import Base
 from aim_api.models.agent_investigation import AgentInvestigation
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
@@ -27,26 +25,10 @@ from aim_worker import tasks
 from aim_worker.agent import investigation as investigation_module
 from aim_worker.agent.db_toolbox import DbToolbox, is_bad_result
 from aim_worker.agent.investigation import run_agent_investigation_for_check_run
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 SERVICE_URL = "https://svc.example"
-
-
-@pytest.fixture()
-def session() -> Iterator[Session]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-    with testing_session_local() as testing_session:
-        yield testing_session
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
 
 
 @pytest.fixture(autouse=True)

@@ -3,7 +3,6 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from aim_api.database import Base
 from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.models.user import User
@@ -12,27 +11,18 @@ from aim_api.services.scan_queue import SCHEDULE_CHECK_RUNS_TASK_NAME
 from aim_api.services.scan_scheduling import SCHEDULED_TRIGGER_SOURCE
 from aim_worker import tasks
 from aim_worker.celery_app import celery_app
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 
 @pytest.fixture()
-def session(monkeypatch: pytest.MonkeyPatch) -> Iterator[Session]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    monkeypatch.setattr(tasks, "SessionLocal", testing_session_local)
-    Base.metadata.create_all(bind=engine)
-
-    with testing_session_local() as testing_session:
+def session(
+    session_factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[Session]:
+    monkeypatch.setattr(tasks, "SessionLocal", session_factory)
+    with session_factory() as testing_session:
         yield testing_session
-
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
 
 
 @pytest.fixture()

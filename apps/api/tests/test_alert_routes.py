@@ -5,7 +5,7 @@ from typing import Any, cast
 from uuid import UUID, uuid4
 
 import pytest
-from aim_api.database import Base, get_db
+from aim_api.database import get_db
 from aim_api.main import app
 from aim_api.models.alert import (
     Alert,
@@ -21,34 +21,13 @@ from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.services import projects as project_service
 from aim_api.services import scan_queue
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.orm import Session
 
 
 @pytest.fixture()
-def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+def client(api_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(project_service, "validate_service_url", lambda _: None)
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    def override_database() -> Iterator[Session]:
-        with testing_session_local() as session:
-            yield session
-
-    app.dependency_overrides[get_db] = override_database
-
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.clear()
-        Base.metadata.drop_all(bind=engine)
-        engine.dispose()
+    return api_client
 
 
 @contextmanager

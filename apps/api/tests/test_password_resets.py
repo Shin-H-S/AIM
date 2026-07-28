@@ -1,12 +1,9 @@
-from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from uuid import uuid4
 
 import pytest
 from aim_api.config import Settings
-from aim_api.database import Base, get_db
-from aim_api.main import app
 from aim_api.models.password_reset_token import PasswordResetToken
 from aim_api.models.user import User
 from aim_api.security import hash_password, verify_password
@@ -18,9 +15,8 @@ from aim_api.services.password_resets import (
     request_password_reset,
 )
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 
 class RecordingEmailSender:
@@ -40,23 +36,6 @@ def build_settings(**overrides: object) -> Settings:
     }
     values.update(overrides)
     return Settings(**values)  # type: ignore[arg-type]
-
-
-@pytest.fixture()
-def session() -> Iterator[Session]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    with testing_session_local() as testing_session:
-        yield testing_session
-
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
 
 
 def create_user(session: Session, *, password: str = "correct horse battery") -> User:
@@ -189,28 +168,9 @@ def test_confirm_invalidates_sibling_tokens(session: Session) -> None:
 
 
 @pytest.fixture()
-def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    def override_database() -> Iterator[Session]:
-        with testing_session_local() as db_session:
-            yield db_session
-
-    app.dependency_overrides[get_db] = override_database
+def client(api_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(password_resets, "build_smtp_email_sender", lambda _: None)
-
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.clear()
-        Base.metadata.drop_all(bind=engine)
-        engine.dispose()
+    return api_client
 
 
 def test_request_endpoint_returns_202_for_any_email(client: TestClient) -> None:

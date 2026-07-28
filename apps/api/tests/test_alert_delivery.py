@@ -1,11 +1,9 @@
-from collections.abc import Iterator
 from datetime import UTC, datetime
 from email.message import EmailMessage
 from uuid import uuid4
 
 import pytest
 from aim_api.config import Settings
-from aim_api.database import Base
 from aim_api.models.alert import (
     Alert,
     AlertChannel,
@@ -20,9 +18,7 @@ from aim_api.models.check_run import CheckRun, CheckRunStatus
 from aim_api.models.project import Project
 from aim_api.models.user import User
 from aim_api.services import alert_delivery
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.orm import Session
 
 SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/T000/B000/XXXX"
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1234567890/abcdefg"
@@ -54,23 +50,6 @@ class FailingWebhookSender:
     def send(self, *, url: str, payload: dict[str, str]) -> None:
         _ = (url, payload)
         raise alert_delivery.WebhookDeliveryError("Webhook endpoint returned HTTP 404.")
-
-
-@pytest.fixture()
-def session() -> Iterator[Session]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    testing_session_local = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    Base.metadata.create_all(bind=engine)
-
-    with testing_session_local() as testing_session:
-        yield testing_session
-
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
 
 
 def create_pending_alert(

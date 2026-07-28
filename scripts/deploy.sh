@@ -34,8 +34,10 @@ DEFAULT_SERVICES=(api worker worker-agent beat web)
 INFRA_SERVICES=(postgres redis caddy)
 
 SERVICES=("$@")
+DEPLOY_EVERYTHING=0
 if [ "${#SERVICES[@]}" -eq 0 ]; then
   SERVICES=("${DEFAULT_SERVICES[@]}")
+  DEPLOY_EVERYTHING=1
 fi
 
 compose() {
@@ -58,7 +60,21 @@ fi
 
 compose build "${SERVICES[@]}"
 compose run --rm migrate
-compose up -d "${SERVICES[@]}"
+
+# 전체 배포에서는 인프라 서비스까지 compose 정의에 수렴시킨다. 빌드는 하지 않지만
+# `up -d`는 정의가 바뀐 컨테이너만 재생성하고 나머지는 건드리지 않는다.
+#
+# 이게 없으면 compose.yaml에서 인프라 서비스의 정의를 바꿔도 배포에 반영되지
+# 않는다. Caddyfile을 디렉토리 마운트로 바꿨을 때 실제로 그랬다 — 배포는
+# 성공했는데 caddy는 옛 마운트를 그대로 들고 있었고, 그 경로는 이미 사라진
+# 뒤라 컨테이너가 재시작되면 뜨지 못하는 상태였다(2026-07-28).
+#
+# 서비스를 명시해 부른 경우(`deploy.sh web`)는 그 서비스만 건드린다.
+if [ "$DEPLOY_EVERYTHING" -eq 1 ]; then
+  compose up -d "${SERVICES[@]}" "${INFRA_SERVICES[@]}"
+else
+  compose up -d "${SERVICES[@]}"
+fi
 
 # Caddy는 설정 디렉토리를 마운트하므로 pull한 Caddyfile이 컨테이너에 그대로 보인다.
 # reload는 무중단이고 인증서를 다시 받지도 않으므로 매번 해도 안전하다.

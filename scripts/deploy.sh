@@ -13,6 +13,21 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# git pull은 이 스크립트 자신도 바꾼다. 그런데 pull 이후의 나머지 줄은 이미
+# 실행 중인 옛 내용이라, 스크립트를 고친 배포는 **그 변경이 적용되지 않은 채**
+# 돌아간다. 2026-07-28 배포에서 실제로 이것 때문에 worker-agent가 빠진 채
+# 배포됐다(서비스 목록이 pull 이전에 평가됨).
+#
+# 그래서 pull을 가장 먼저 하고 즉시 새 스크립트로 자신을 교체한다. 인자는 그대로
+# 넘기고, 환경변수로 재진입을 표시해 무한 루프를 막는다. exec을 pull 바로 뒤에
+# 두는 이유는 bash가 스크립트를 청크 단위로 읽기 때문이다 — 파일이 바뀐 뒤
+# 더 읽을 일이 없어야 실행이 뒤틀리지 않는다.
+if [ "${AIM_DEPLOY_REEXECED:-}" != "1" ]; then
+  git pull --ff-only
+  export AIM_DEPLOY_REEXECED=1
+  exec "$0" "$@"
+fi
+
 # 이 저장소에서 빌드해 배포하는 애플리케이션 서비스.
 DEFAULT_SERVICES=(api worker worker-agent beat web)
 # 이미지를 그대로 쓰는 서비스 — 배포 때 재빌드하지 않는다.
@@ -41,13 +56,12 @@ if [ -n "$UNKNOWN_SERVICES" ]; then
   exit 1
 fi
 
-git pull --ff-only
 compose build "${SERVICES[@]}"
 compose run --rm migrate
 compose up -d "${SERVICES[@]}"
 
-# Caddyfile은 읽기 전용 바인드 마운트라 파일만 바뀌고 프로세스는 옛 설정을 그대로
-# 들고 있다. reload는 무중단이고 인증서를 다시 받지도 않으므로 매번 해도 안전하다.
+# Caddy는 설정 디렉토리를 마운트하므로 pull한 Caddyfile이 컨테이너에 그대로 보인다.
+# reload는 무중단이고 인증서를 다시 받지도 않으므로 매번 해도 안전하다.
 # 실패해도 배포 자체는 이미 끝났으므로 중단하지 않되, 조용히 넘어가면 보안 헤더가
 # 적용되지 않은 사실을 모르게 되므로 크게 알린다.
 if compose ps --status running --services 2>/dev/null | grep -qx caddy; then

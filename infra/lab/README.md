@@ -12,8 +12,9 @@
 
 1. **DNS**: `lab.qaaimsync.com` A 레코드 → 운영 VM IP (Cloudflare, 프록시 OFF).
 2. **환경변수**: VM `.env.production` 에 `AIM_LAB_HOSTNAME=lab.qaaimsync.com` 추가 후
-   `docker compose ... up -d --force-recreate caddy`.
-   Caddyfile은 단일 파일 바인드 마운트라 **재생성해야 새 내용이 반영된다**(restart로는 부족).
+   `docker compose ... up -d caddy` (환경변수가 바뀌었으므로 컨테이너가 재생성된다).
+   Caddyfile 내용만 바뀐 경우에는 `scripts/deploy.sh` 가 reload 해 준다 —
+   설정을 디렉토리로 마운트하므로 `git pull` 이 파일을 교체해도 컨테이너에 그대로 보인다.
 3. **AIM 프로젝트 등록**: 웹에서 `https://lab.qaaimsync.com/` 로 프로젝트를 만들고
    발급된 인증 토큰을 `index.html`·`variants/*.html` 의 `aim-verification` meta 에 넣는다
    (변형 페이지도 같은 토큰이어야 상태를 바꿔도 인증이 유지된다). 배포 후 인증.

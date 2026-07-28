@@ -249,7 +249,13 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # 파일이 아니라 디렉토리를 마운트한다. 파일 단위 바인드 마운트는 그 시점의
+      # inode에 묶이는데, git pull은 파일을 수정하는 게 아니라 새 inode로 교체한다.
+      # 그래서 파일 마운트면 호스트의 Caddyfile이 바뀌어도 컨테이너는 옛 내용을
+      # 계속 보고, `caddy reload`가 성공했다고 보고하면서 아무것도 바꾸지 않는다
+      # (2026-07-28 배포에서 실제로 겪음). 시나리오 시크릿이 같은 이유로 이미
+      # 디렉토리를 마운트하고 있다.
+      - ./caddy:/etc/caddy:ro
       - ./lab:/srv/lab:ro
       - caddy-data:/data
       - caddy-config:/config

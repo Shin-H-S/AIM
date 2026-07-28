@@ -29,6 +29,16 @@ uv run celery -A aim_worker.celery_app.celery_app beat --loglevel=INFO
 
 Beat는 `SCAN_SCHEDULER_INTERVAL_SECONDS`(기본 60초) 주기로 `schedule_due_check_runs` task를 실행합니다. 이 task는 정기 스캔을 활성화(`scheduled_scans_enabled`, 기본 비활성)하고 소유권이 검증된 프로젝트 중 마지막 CheckRun 이후 `scan_interval_minutes`가 경과한 프로젝트를 찾아 `trigger_source="scheduled"`인 CheckRun을 생성하고 scan queue에 등록합니다. 검증되지 않은 프로젝트는 정기 스캔 대상에서 제외되며, `QUEUED`/`RUNNING`/`ANALYZING` 상태의 CheckRun이 남아 있는 프로젝트는 중복 실행과 큐 적체를 막기 위해 건너뜁니다. queue 등록에 실패한 scheduled CheckRun은 `FAILED`로 기록됩니다.
 
+Beat는 6시간마다 `purge_expired_artifacts` task도 실행합니다. 아티팩트는 단일 VM 디스크에 쌓이기만 하고 지워지는 경로가 없어 언젠가 디스크를 채우기 때문입니다. 보존 등급은 세 단계입니다.
+
+| 등급 | 대상 | 보존 |
+|---|---|---|
+| 보존 | 프로젝트 베이스라인 검사의 근거 | 무기한 — 비교의 기준점 |
+| 장기 | 실패한 검사, 인시던트를 열거나 해소한 검사, 조사 에이전트가 참조한 검사, 실패한 시나리오 실행 | `ARTIFACT_INCIDENT_RETENTION_DAYS`(기본 90일) |
+| 일반 | 그 외 | `ARTIFACT_RETENTION_DAYS`(기본 14일) |
+
+조사가 참조한 검사를 장기 등급에 넣는 이유는, 그 근거가 사라지면 조사 결론을 나중에 다시 검증할 수 없기 때문입니다. 삭제는 **파일 → 레코드** 순서로 하며 레코드마다 커밋합니다. 반대 순서면 레코드가 사라진 뒤 파일 삭제가 실패했을 때 그 파일을 다시 찾아낼 방법이 없어 영구 고아가 됩니다. 이 순서면 중간에 실패해도 다음 실행이 같은 레코드를 다시 집어 마저 지웁니다. 한 번에 최대 `ARTIFACT_PURGE_BATCH_SIZE`(기본 500)개를 처리합니다.
+
 현재 구현된 worker task는 CheckRun을 `RUNNING`으로 전환하고 HTTP availability scanner, SSL inspection, Lighthouse mobile scan을 실행합니다. ScenarioRun task는 저장된 Playwright step을 브라우저에서 순서대로 실행하고 StepResult를 기록합니다.
 
 scanner는 다음 항목을 측정하거나 판단합니다.

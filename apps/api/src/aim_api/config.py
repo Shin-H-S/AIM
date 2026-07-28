@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     lighthouse_timeout_seconds: int = 180
     artifact_storage_backend: str = "local"
     artifact_local_root: str = "artifacts"
+    # 아티팩트 보존 기간. 단일 VM 디스크에 무한히 쌓이는 것을 막는다.
+    # 이상 없이 끝난 검사의 근거는 오래 들고 있을 이유가 적다.
+    artifact_retention_days: int = 14
+    # 장애·실패·조사가 걸린 검사의 근거는 훨씬 오래 남긴다 — 사후 분석의 대상이다.
+    # 베이스라인 검사의 근거는 기간과 무관하게 보존한다(비교 기준점이므로).
+    artifact_incident_retention_days: int = 90
+    # 정리 태스크 1회가 지우는 최대 아티팩트 수. 한 번에 오래 잡고 있지 않게 나눈다.
+    artifact_purge_batch_size: int = 500
     scan_scheduler_interval_seconds: int = 60
     jwt_secret_key: str = DEVELOPMENT_JWT_SECRET_KEY
     jwt_algorithm: str = "HS256"

@@ -1,6 +1,8 @@
 import logging
+from datetime import UTC, datetime
 from uuid import UUID
 
+from aim_api.config import get_settings
 from aim_api.database import SessionLocal
 from aim_api.models.check_run import CheckRunStatus
 from aim_api.models.project import Project
@@ -8,6 +10,7 @@ from aim_api.models.scanner_result import AvailabilityResult, LighthouseResult, 
 from aim_api.models.scenario import ScenarioRun, ScenarioRunStatus, StepResultStatus
 from aim_api.services import ai_reports as ai_report_service
 from aim_api.services import alert_delivery as alert_delivery_service
+from aim_api.services import artifact_retention as artifact_retention_service
 from aim_api.services import artifacts as artifact_service
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import deploy_summaries as deploy_summary_service
@@ -20,6 +23,7 @@ from aim_api.services import scenarios as scenario_service
 from aim_api.services import score_results as score_result_service
 from aim_api.services.scan_queue import (
     DELIVER_EMAIL_ALERTS_TASK_NAME,
+    PURGE_EXPIRED_ARTIFACTS_TASK_NAME,
     RUN_AGENT_INVESTIGATION_TASK_NAME,
     RUN_AI_REPORT_TASK_NAME,
     RUN_CHECK_RUN_TASK_NAME,
@@ -30,7 +34,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from aim_worker.agent import investigation as agent_investigation_service
-from aim_worker.artifacts import StoredArtifact, store_binary_artifact, store_json_artifact
+from aim_worker.artifacts import (
+    StoredArtifact,
+    delete_local_artifact,
+    store_binary_artifact,
+    store_json_artifact,
+)
 from aim_worker.availability import scan_http_availability
 from aim_worker.celery_app import celery_app
 from aim_worker.lighthouse import run_lighthouse_scan
@@ -49,6 +58,7 @@ SCHEDULED_CHECK_RUN_SCAN_FAILED_MESSAGE = "Failed to schedule due check runs."
 SCHEDULED_CHECK_RUN_ENQUEUE_FAILED_REASON = "Scan queue is unavailable."
 AGENT_INVESTIGATION_FAILED_MESSAGE = "Failed to run agent investigation for check run."
 AGENT_INVESTIGATION_ENQUEUE_FAILED_MESSAGE = "Failed to enqueue agent investigation task."
+ARTIFACT_PURGE_FAILED_MESSAGE = "Failed to purge expired artifacts."
 logger = logging.getLogger(__name__)
 
 
@@ -310,6 +320,73 @@ def deliver_pending_email_alerts() -> dict[str, int]:
         "sent_count": result.sent_count,
         "failed_count": result.failed_count,
         "skipped_count": result.skipped_count,
+    }
+
+
+@celery_app.task(  # type: ignore[untyped-decorator]
+    name=PURGE_EXPIRED_ARTIFACTS_TASK_NAME,
+    soft_time_limit=240,
+    time_limit=300,
+)
+def purge_expired_artifacts() -> dict[str, int]:
+    """보존 기간이 지난 아티팩트의 파일과 레코드를 지운다.
+
+    삭제 순서는 파일 → 레코드다. 반대로 하면 레코드가 사라진 뒤 파일 삭제가
+    실패했을 때 그 파일을 다시 찾아낼 방법이 없어 영구 고아가 된다. 이 순서면
+    중간에 실패해도 다음 실행이 같은 레코드를 다시 집어 마저 지운다.
+
+    레코드마다 커밋하는 이유도 같다 — 배치 도중 실패해도 이미 지운 파일의
+    레코드는 남지 않는다.
+    """
+    settings = get_settings()
+    policy = artifact_retention_service.ArtifactRetentionPolicy(
+        default_days=settings.artifact_retention_days,
+        incident_days=settings.artifact_incident_retention_days,
+    )
+
+    deleted_file_count = 0
+    missing_file_count = 0
+    deleted_record_count = 0
+
+    with SessionLocal() as session:
+        try:
+            expired_artifacts = artifact_retention_service.list_expired_artifacts(
+                session,
+                now=datetime.now(UTC),
+                policy=policy,
+                limit=settings.artifact_purge_batch_size,
+            )
+
+            for artifact in expired_artifacts:
+                artifact_id = artifact.id
+                storage_path = artifact.storage_path
+
+                if artifact.storage_backend == "local":
+                    if delete_local_artifact(storage_path):
+                        deleted_file_count += 1
+                    else:
+                        missing_file_count += 1
+
+                artifact_retention_service.delete_artifact_record(session, artifact_id=artifact_id)
+                deleted_record_count += 1
+        except Exception:
+            session.rollback()
+            logger.exception(ARTIFACT_PURGE_FAILED_MESSAGE)
+            raise
+
+    logger.info(
+        "Purged expired artifacts.",
+        extra={
+            "deleted_record_count": deleted_record_count,
+            "deleted_file_count": deleted_file_count,
+            "missing_file_count": missing_file_count,
+        },
+    )
+
+    return {
+        "deleted_record_count": deleted_record_count,
+        "deleted_file_count": deleted_file_count,
+        "missing_file_count": missing_file_count,
     }
 
 

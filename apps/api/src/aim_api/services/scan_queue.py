@@ -10,6 +10,7 @@ RUN_AI_REPORT_TASK_NAME = "aim_worker.generate_ai_report"
 DELIVER_EMAIL_ALERTS_TASK_NAME = "aim_worker.deliver_pending_email_alerts"
 SCHEDULE_CHECK_RUNS_TASK_NAME = "aim_worker.schedule_due_check_runs"
 RUN_AGENT_INVESTIGATION_TASK_NAME = "aim_worker.run_agent_investigation"
+PURGE_EXPIRED_ARTIFACTS_TASK_NAME = "aim_worker.purge_expired_artifacts"
 
 
 class ScanQueueUnavailableError(Exception):

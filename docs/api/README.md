@@ -238,5 +238,5 @@ critical step이 실패하면 해당 step은 `FAILED`, 이후 step은 `SKIPPED`�
 
 - recurring scan 차단 규칙과 스케줄러 연결
 - verification token 재발급 API
-- MinIO/GCS 업로드
+- 아티팩트 객체 스토리지 백엔드 (현재는 로컬 파일시스템만)
 - 로그인 UI와 연결된 frontend result page

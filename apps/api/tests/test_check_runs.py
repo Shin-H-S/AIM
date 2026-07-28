@@ -408,7 +408,7 @@ def test_get_check_run_includes_ai_report_summary(client: TestClient) -> None:
         "grade": "D",
         "deployment_risk": "RISK",
         "gate_reason": "Critical scenario run failed.",
-        "generated_at": "2026-06-30T04:00:00",
+        "generated_at": "2026-06-30T04:00:00Z",
         "created_at": body["ai_report"]["created_at"],
         "updated_at": body["ai_report"]["updated_at"],
     }
@@ -531,7 +531,7 @@ def test_get_check_run_includes_scanner_results(client: TestClient) -> None:
         "service_url": "https://example.com/health",
         "is_applicable": True,
         "is_valid": True,
-        "expires_at": "2027-06-26T00:00:00",
+        "expires_at": "2027-06-26T00:00:00Z",
         "days_until_expiration": 365,
         "failure_reason": None,
         "created_at": body["ssl_result"]["created_at"],
@@ -611,7 +611,7 @@ def test_get_check_run_ai_report(client: TestClient) -> None:
     assert body["grade"] == "D"
     assert body["deployment_risk"] == "RISK"
     assert body["gate_reason"] == "Critical scenario run failed."
-    assert body["generated_at"] == "2026-06-30T04:00:00"
+    assert body["generated_at"] == "2026-06-30T04:00:00Z"
     assert body["created_at"]
     assert body["updated_at"]
     assert body["report_json"]["check_run_id"] == check_run["id"]

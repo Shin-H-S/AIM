@@ -1,39 +1,102 @@
 """테스트 전역 픽스처 — 테스트용 데이터베이스와 API 클라이언트.
 
-같은 엔진 생성 코드가 31개 테스트 파일에 복붙돼 있었다. 테스트 데이터베이스를
-바꾸려면 31곳을 고쳐야 했고, 그래서 아무도 바꾸지 않았다. 여기로 모아 한 곳만
-고치면 되게 한다.
+**테스트는 운영과 같은 PostgreSQL에서, 운영과 같은 마이그레이션으로 만든
+스키마 위에서 돈다.** 이전에는 SQLite in-memory + `Base.metadata.create_all()`
+이었는데, 그 조합은 두 가지를 통째로 검증 밖에 두었다:
 
-파일별로 추가 설정이 필요하면(외부 호출 monkeypatch 등) 이 픽스처를 받아
-자기 `client`/`session` 픽스처를 얹으면 된다.
+1. 마이그레이션이 모델과 일치하는지 — 테스트가 create_all로 스키마를 만들면
+   마이그레이션에 빠진 컬럼이 있어도 전부 통과한다.
+2. PostgreSQL 고유 동작 — 제약 위반 시 트랜잭션 abort, timezone-aware
+   timestamp, 정렬 시 NULL 순서, 행 잠금(FOR UPDATE)은 SQLite에서 다르거나
+   아예 무시된다.
+
+스키마는 세션당 한 번 `alembic upgrade head` 로 만들고, 테스트 사이에는
+TRUNCATE로만 비운다. 테스트마다 마이그레이션을 다시 도는 것은 너무 느리다.
 """
 
+import os
 from collections.abc import Iterator
 
-import pytest
-from aim_api.database import Base, get_db
-from aim_api.main import app
-from fastapi.testclient import TestClient
-from sqlalchemy import Engine, create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+# aim_api.database 는 임포트 시점에 settings.database_url 로 엔진을 만든다.
+# 그래서 aim_api 를 임포트하기 전에 테스트 DB를 가리키게 해야 한다 — 그러지
+# 않으면 SessionLocal 이 운영 설정의 데이터베이스를 향한 채로 굳는다.
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+psycopg://aim:aim@localhost:5432/aim_test",
+)
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+
+import pytest  # noqa: E402
+from aim_api.database import Base, get_db  # noqa: E402
+from aim_api.main import app  # noqa: E402
+from alembic import command  # noqa: E402
+from alembic.config import Config  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import Engine, create_engine, text  # noqa: E402
+from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
+
+ALEMBIC_CONFIG_PATH = "migrations/alembic.ini"
 
 
-@pytest.fixture()
-def db_engine() -> Iterator[Engine]:
-    """테스트 하나가 쓰는 데이터베이스. 스키마 생성과 폐기까지 책임진다."""
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
+def ensure_test_database_exists() -> None:
+    """테스트 데이터베이스가 없으면 만든다.
 
+    CREATE DATABASE는 트랜잭션 안에서 못 돌아서 AUTOCOMMIT으로 연결한다.
+    """
+    maintenance_url = TEST_DATABASE_URL.rsplit("/", 1)[0] + "/postgres"
+    database_name = TEST_DATABASE_URL.rsplit("/", 1)[1]
+
+    engine = create_engine(maintenance_url, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as connection:
+            exists = connection.scalar(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                {"name": database_name},
+            )
+            if not exists:
+                connection.execute(text(f'CREATE DATABASE "{database_name}"'))
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def migrated_engine() -> Iterator[Engine]:
+    """마이그레이션 헤드까지 올린 테스트 데이터베이스 엔진.
+
+    `create_all` 이 아니라 Alembic으로 만드는 것이 핵심이다 — 테스트가 도는
+    스키마가 운영에 배포되는 스키마와 같은 절차로 생성된다.
+    """
+    ensure_test_database_exists()
+
+    alembic_config = Config(ALEMBIC_CONFIG_PATH)
+    alembic_config.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
+    # 이전 실행이 남긴 스키마가 있어도 헤드까지만 맞추면 된다.
+    command.upgrade(alembic_config, "head")
+
+    engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)
     try:
         yield engine
     finally:
-        Base.metadata.drop_all(bind=engine)
         engine.dispose()
+
+
+def truncate_all_tables(engine: Engine) -> None:
+    """테스트 사이 격리. alembic_version은 남겨 스키마를 다시 만들지 않는다."""
+    table_names = ", ".join(f'"{table.name}"' for table in Base.metadata.sorted_tables)
+    if not table_names:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(text(f"TRUNCATE TABLE {table_names} RESTART IDENTITY CASCADE"))
+
+
+@pytest.fixture()
+def db_engine(migrated_engine: Engine) -> Iterator[Engine]:
+    """테스트 하나가 쓰는 데이터베이스. 끝나면 모든 테이블을 비운다."""
+    try:
+        yield migrated_engine
+    finally:
+        truncate_all_tables(migrated_engine)
 
 
 @pytest.fixture()

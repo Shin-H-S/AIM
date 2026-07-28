@@ -8,6 +8,7 @@ import redis
 
 from aim_api.config import get_settings
 from aim_api.security import AccessTokenClaims
+from aim_api.services.ops_alerts import notify_ops_in_background
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +41,32 @@ class RedisTokenRevocationStore:
             socket_timeout=REDIS_SOCKET_TIMEOUT_SECONDS,
         )
         self._storage_unavailable_until = 0.0
+        self._outage_notified = False
 
     def _storage_available(self) -> bool:
         return time.monotonic() >= self._storage_unavailable_until
 
     def _mark_storage_unavailable(self) -> None:
         self._storage_unavailable_until = time.monotonic() + STORAGE_RETRY_BACKOFF_SECONDS
+        # fail-open은 로그아웃·비밀번호 재설정으로 폐기한 토큰이 남은 수명 동안
+        # 계속 통하는 상태다. 전환 순간 1회만 알리고, 복구가 확인되면 재무장한다.
+        if not self._outage_notified:
+            self._outage_notified = True
+            notify_ops_in_background(
+                title="Token revocation fail-open",
+                detail=(
+                    "Redis is unreachable, so revoked access tokens stay valid for "
+                    "their remaining lifetime (up to the 30-minute expiry)."
+                ),
+            )
+
+    def _mark_storage_recovered(self) -> None:
+        if self._outage_notified:
+            self._outage_notified = False
+            notify_ops_in_background(
+                title="Token revocation recovered",
+                detail="Redis is reachable again; the revocation list is enforced.",
+            )
 
     def revoke(self, *, token_id: str, ttl_seconds: int) -> None:
         if not self._storage_available():
@@ -57,6 +78,7 @@ class RedisTokenRevocationStore:
                 "1",
                 ex=max(ttl_seconds, MIN_REVOCATION_TTL_SECONDS),
             )
+            self._mark_storage_recovered()
         except redis.RedisError:
             self._mark_storage_unavailable()
             logger.warning("Token revocation storage is unavailable; skipping revoke.")
@@ -68,6 +90,7 @@ class RedisTokenRevocationStore:
         try:
             # redis-py 타입 스텁이 sync/async 반환을 유니온으로 노출해 cast가 필요하다.
             count = cast("int", self._client.exists(f"{REVOKED_TOKEN_KEY_PREFIX}:{token_id}"))
+            self._mark_storage_recovered()
             return count > 0
         except redis.RedisError:
             self._mark_storage_unavailable()

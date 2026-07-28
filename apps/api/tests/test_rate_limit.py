@@ -1,4 +1,5 @@
 import pytest
+import redis as redis_module
 from aim_api.config import Settings
 from aim_api.services import rate_limit
 from aim_api.services.rate_limit import RedisRateLimiter, get_client_ip
@@ -152,3 +153,55 @@ def test_deploy_hook_is_rate_limited(
 
     assert response.status_code == 429
     assert limiter.keys == ["rate-limit:deploy-hook:testclient"]
+
+
+class RecordingNotifier:
+    def __init__(self) -> None:
+        self.titles: list[str] = []
+
+    def __call__(self, *, title: str, detail: str, request_id: str | None = None) -> None:
+        self.titles.append(title)
+
+
+def test_fail_open_notifies_once_per_outage(monkeypatch: pytest.MonkeyPatch) -> None:
+    """백오프 창마다 재알림하면 장애 하나가 알림 수십 건이 된다."""
+    notifier = RecordingNotifier()
+    monkeypatch.setattr(rate_limit, "notify_ops_in_background", notifier)
+    limiter = RedisRateLimiter("redis://127.0.0.1:1/0")
+
+    assert limiter.hit(key="rate-limit:test:ip", limit=1, window_seconds=60) is True
+    # 백오프를 지나 재시도가 다시 실패해도 알림은 처음 1회뿐이어야 한다.
+    limiter._storage_unavailable_until = 0.0
+    assert limiter.hit(key="rate-limit:test:ip", limit=1, window_seconds=60) is True
+
+    assert notifier.titles == ["Rate limiter fail-open"]
+
+
+def test_recovery_notifies_and_rearms(monkeypatch: pytest.MonkeyPatch) -> None:
+    """복구를 알리지 않으면 운영자는 장애가 끝났는지 모른 채 남는다."""
+    notifier = RecordingNotifier()
+    monkeypatch.setattr(rate_limit, "notify_ops_in_background", notifier)
+    limiter = RedisRateLimiter("redis://127.0.0.1:1/0")
+
+    class FakePipeline:
+        def incr(self, key: str) -> None: ...
+        def expire(self, key: str, window: int, nx: bool) -> None: ...
+        def execute(self) -> list[int]:
+            return [1]
+
+    limiter.hit(key="rate-limit:test:ip", limit=1, window_seconds=60)  # 장애 알림
+    limiter._storage_unavailable_until = 0.0
+    monkeypatch.setattr(limiter._client, "pipeline", lambda: FakePipeline())
+    limiter.hit(key="rate-limit:test:ip", limit=1, window_seconds=60)  # 복구 알림
+
+    assert notifier.titles == ["Rate limiter fail-open", "Rate limiter recovered"]
+
+    # 복구 뒤 다시 장애가 나면 재무장돼 다시 알린다.
+    def broken_pipeline() -> FakePipeline:
+        raise redis_module.RedisError("down again")
+
+    monkeypatch.setattr(limiter._client, "pipeline", broken_pipeline)
+    limiter._storage_unavailable_until = 0.0
+    limiter.hit(key="rate-limit:test:ip", limit=1, window_seconds=60)
+
+    assert notifier.titles[-1] == "Rate limiter fail-open"

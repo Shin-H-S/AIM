@@ -196,3 +196,40 @@ def test_redis_store_fails_open_without_redis() -> None:
 
     store.revoke(token_id="abc", ttl_seconds=60)
     assert store.is_revoked(token_id="abc") is False
+
+
+class RecordingNotifier:
+    def __init__(self) -> None:
+        self.titles: list[str] = []
+
+    def __call__(self, *, title: str, detail: str, request_id: str | None = None) -> None:
+        self.titles.append(title)
+
+
+def test_revocation_fail_open_notifies_once_per_outage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """폐기한 토큰이 계속 통하는 상태는 로그 한 줄로 지나가면 안 된다."""
+    notifier = RecordingNotifier()
+    monkeypatch.setattr(token_revocation, "notify_ops_in_background", notifier)
+    store = RedisTokenRevocationStore("redis://127.0.0.1:1/0")
+
+    store.revoke(token_id="t1", ttl_seconds=60)
+    # 백오프를 지나 재시도가 또 실패해도 재알림하지 않는다.
+    store._storage_unavailable_until = 0.0
+    assert store.is_revoked(token_id="t1") is False
+
+    assert notifier.titles == ["Token revocation fail-open"]
+
+
+def test_revocation_recovery_notifies_and_rearms(monkeypatch: pytest.MonkeyPatch) -> None:
+    notifier = RecordingNotifier()
+    monkeypatch.setattr(token_revocation, "notify_ops_in_background", notifier)
+    store = RedisTokenRevocationStore("redis://127.0.0.1:1/0")
+
+    store.revoke(token_id="t1", ttl_seconds=60)  # 장애 알림
+    store._storage_unavailable_until = 0.0
+    monkeypatch.setattr(store._client, "exists", lambda key: 0)
+    store.is_revoked(token_id="t1")  # 복구 알림
+
+    assert notifier.titles == ["Token revocation fail-open", "Token revocation recovered"]

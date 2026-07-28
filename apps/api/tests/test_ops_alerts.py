@@ -109,3 +109,45 @@ def test_the_title_is_always_present(title: str) -> None:
 
     _, payload = sender.sent[0]
     assert title in payload["content"]
+
+
+def test_background_notify_delivers_off_the_calling_thread(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """요청 경로에서 webhook timeout만큼 붙잡히면 fail-open의 목적이 무너진다."""
+    import threading
+
+    delivered: list[tuple[str, str]] = []
+
+    def recording_notify(
+        *, title: str, detail: str, request_id: str | None = None, **_: object
+    ) -> bool:
+        delivered.append((title, threading.current_thread().name))
+        return True
+
+    monkeypatch.setattr(ops_alerts, "notify_ops", recording_notify)
+
+    thread = ops_alerts.notify_ops_in_background(title="outage", detail="d")
+    thread.join(timeout=5)
+
+    assert not thread.is_alive()
+    assert len(delivered) == 1
+    title, thread_name = delivered[0]
+    assert title == "outage"
+    assert thread_name != threading.main_thread().name
+
+
+def test_background_notify_swallows_delivery_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """알림 실패가 어디로도 전파되면 안 된다 — 스레드는 조용히 끝나야 한다."""
+
+    def failing_notify(**_: object) -> bool:
+        raise RuntimeError("must never escape")
+
+    monkeypatch.setattr(ops_alerts, "notify_ops", failing_notify)
+
+    thread = ops_alerts.notify_ops_in_background(title="outage", detail="d")
+    thread.join(timeout=5)
+
+    assert not thread.is_alive()

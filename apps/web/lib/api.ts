@@ -3087,8 +3087,29 @@ export type AgentInvestigation = {
   violations: string[];
   llm_calls: AgentLlmCall[];
   duration_ms: number;
+  feedback_verdict: AgentInvestigationVerdict | null;
+  feedback_root_cause: string | null;
+  feedback_note: string | null;
+  feedback_at: string | null;
   created_at: string;
 };
+
+export type AgentInvestigationVerdict = "accurate" | "inaccurate";
+
+export type AgentInvestigationFeedbackResult =
+  | {
+      state: "success";
+      investigation: AgentInvestigation;
+    }
+  | {
+      state: "unauthorized";
+    }
+  | {
+      state: "not-found";
+    }
+  | {
+      state: "unavailable";
+    };
 
 export type AgentInvestigationResult =
   | {
@@ -3133,6 +3154,128 @@ export function getCheckRunInvestigationUrl(
     )}/investigation`,
     getApiBaseUrl(apiBaseUrl)
   ).toString();
+}
+
+export function getCheckRunInvestigationFeedbackUrl(
+  projectId: string,
+  checkRunId: string,
+  apiBaseUrl = getApiBaseUrl()
+): string {
+  return `${getCheckRunInvestigationUrl(projectId, checkRunId, apiBaseUrl)}/feedback`;
+}
+
+/**
+ * 조사가 맞았는지 남긴다. 이 값이 조사 정확도를 합성 평가셋이 아니라
+ * 실운영 데이터로 재는 유일한 원자료다.
+ */
+export async function submitAgentInvestigationFeedback({
+  projectId,
+  checkRunId,
+  accessToken,
+  verdict,
+  rootCause,
+  note,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  checkRunId: string;
+  accessToken: string;
+  verdict: AgentInvestigationVerdict;
+  rootCause?: string | null;
+  note?: string | null;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<AgentInvestigationFeedbackResult> {
+  return sendAgentInvestigationFeedback({
+    projectId,
+    checkRunId,
+    accessToken,
+    method: "PUT",
+    body: {
+      verdict,
+      root_cause: rootCause ?? null,
+      note: note ?? null
+    },
+    fetcher,
+    apiBaseUrl
+  });
+}
+
+/** 잘못 누른 피드백을 되돌린다 — 오입력이 라벨로 굳으면 안 된다. */
+export async function clearAgentInvestigationFeedback({
+  projectId,
+  checkRunId,
+  accessToken,
+  fetcher = fetch,
+  apiBaseUrl
+}: {
+  projectId: string;
+  checkRunId: string;
+  accessToken: string;
+  fetcher?: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<AgentInvestigationFeedbackResult> {
+  return sendAgentInvestigationFeedback({
+    projectId,
+    checkRunId,
+    accessToken,
+    method: "DELETE",
+    fetcher,
+    apiBaseUrl
+  });
+}
+
+async function sendAgentInvestigationFeedback({
+  projectId,
+  checkRunId,
+  accessToken,
+  method,
+  body,
+  fetcher,
+  apiBaseUrl
+}: {
+  projectId: string;
+  checkRunId: string;
+  accessToken: string;
+  method: "PUT" | "DELETE";
+  body?: Record<string, unknown>;
+  fetcher: typeof fetch;
+  apiBaseUrl?: string;
+}): Promise<AgentInvestigationFeedbackResult> {
+  try {
+    const response = await fetcher(
+      getCheckRunInvestigationFeedbackUrl(projectId, checkRunId, apiBaseUrl ?? getApiBaseUrl()),
+      {
+        method,
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          ...(body ? { "Content-Type": "application/json" } : {})
+        },
+        ...(body ? { body: JSON.stringify(body) } : {})
+      }
+    );
+
+    if (response.status === 401) {
+      return { state: "unauthorized" };
+    }
+
+    if (response.status === 404) {
+      return { state: "not-found" };
+    }
+
+    if (!response.ok) {
+      return { state: "unavailable" };
+    }
+
+    return {
+      state: "success",
+      investigation: (await response.json()) as AgentInvestigation
+    };
+  } catch {
+    return { state: "unavailable" };
+  }
 }
 
 export async function fetchAgentInvestigation({

@@ -12,8 +12,10 @@ from aim_api.models.check_run import CheckRunStatus
 from aim_api.models.user import User
 from aim_api.schemas.agent_investigation import (
     AgentInvestigationEnqueueRead,
+    AgentInvestigationFeedbackWrite,
     AgentInvestigationRead,
 )
+from aim_api.services import agent_feedback as agent_feedback_service
 from aim_api.services import check_runs as check_run_service
 from aim_api.services import projects as project_service
 from aim_api.services import scan_queue
@@ -143,3 +145,60 @@ def request_agent_investigation(
     except scan_queue.ScanQueueUnavailableError as exc:
         raise scan_queue_unavailable() from exc
     return AgentInvestigationEnqueueRead(task_id=task_id)
+
+
+@router.put("/feedback", response_model=AgentInvestigationRead)
+def submit_agent_investigation_feedback(
+    project_id: UUID,
+    check_run_id: UUID,
+    payload: AgentInvestigationFeedbackWrite,
+    session: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentInvestigationRead:
+    """조사가 맞았는지 남긴다. 다시 보내면 덮어쓴다 — 사람은 마음을 바꾼다.
+
+    여기 쌓이는 값이 조사 정확도를 합성이 아닌 실데이터로 재는 유일한 원자료다.
+    """
+    require_owned_check_run(
+        session,
+        owner_id=current_user.id,
+        project_id=project_id,
+        check_run_id=check_run_id,
+    )
+    try:
+        investigation = agent_feedback_service.record_feedback(
+            session,
+            check_run_id=check_run_id,
+            user_id=current_user.id,
+            verdict=payload.verdict,
+            root_cause=payload.root_cause,
+            note=payload.note,
+        )
+    except agent_feedback_service.InvestigationNotFoundError as exc:
+        raise investigation_not_found() from exc
+    except agent_feedback_service.InvalidFeedbackError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    return AgentInvestigationRead.model_validate(investigation)
+
+
+@router.delete("/feedback", response_model=AgentInvestigationRead)
+def clear_agent_investigation_feedback(
+    project_id: UUID,
+    check_run_id: UUID,
+    session: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentInvestigationRead:
+    """잘못 누른 피드백을 되돌린다 — 오입력이 라벨로 굳으면 안 된다."""
+    require_owned_check_run(
+        session,
+        owner_id=current_user.id,
+        project_id=project_id,
+        check_run_id=check_run_id,
+    )
+    try:
+        investigation = agent_feedback_service.clear_feedback(session, check_run_id=check_run_id)
+    except agent_feedback_service.InvestigationNotFoundError as exc:
+        raise investigation_not_found() from exc
+    return AgentInvestigationRead.model_validate(investigation)

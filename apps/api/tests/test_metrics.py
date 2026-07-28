@@ -279,3 +279,39 @@ def test_metrics_are_closed_when_no_token_is_configured(
     response = disabled_metrics_client.get("/metrics", headers=authorized())
 
     assert response.status_code == 404
+
+
+def test_agent_feedback_is_counted_by_verdict(session: Session) -> None:
+    """피드백이 쌓이는지 볼 수단이 없으면 채널이 죽어도 모른다."""
+    project = create_project(session)
+    for verdict in ("accurate", "accurate", "inaccurate", None):
+        check_run = add_check_run(session, project=project)
+        session.add(
+            AgentInvestigation(
+                project_id=project.id,
+                check_run_id=check_run.id,
+                trigger="incident",
+                root_cause="ui_regression",
+                confidence="high",
+                summary="s",
+                recommendation="r",
+                generator="rule",
+                recheck_used=False,
+                duration_ms=100,
+                feedback_verdict=verdict,
+            )
+        )
+    session.commit()
+
+    rendered = render_metrics(collect_metrics(session))
+
+    assert 'aim_agent_feedback_total{verdict="accurate"} 2.0' in rendered
+    assert 'aim_agent_feedback_total{verdict="inaccurate"} 1.0' in rendered
+
+
+def test_agent_feedback_emits_both_buckets_when_empty(session: Session) -> None:
+    """라벨이 사라지면 스크레이퍼의 시계열이 끊긴다."""
+    rendered = render_metrics(collect_metrics(session))
+
+    assert 'aim_agent_feedback_total{verdict="accurate"} 0.0' in rendered
+    assert 'aim_agent_feedback_total{verdict="inaccurate"} 0.0' in rendered

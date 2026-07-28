@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from aim_api.database import get_db
@@ -102,6 +103,12 @@ def trigger_deploy_check_run(
             scan_queue.enqueue_scenario_run(scenario_run_id=scenario_run.id)
     except check_run_service.ProjectNotVerifiedError as exc:
         raise project_not_verified() from exc
+    except IntegrityError as exc:
+        # 위 has_active_check_run 가드는 check-then-act라, 배포 훅이 동시에 두 번
+        # 들어오면 둘 다 통과한다. 부분 유니크 인덱스가 뒤늦게 거절한 경우이며
+        # 사용자에게는 같은 상황이므로 같은 409를 돌려준다.
+        session.rollback()
+        raise check_run_already_active() from exc
     except scan_queue.ScanQueueUnavailableError as exc:
         check_run_service.mark_check_run_failed(
             session,

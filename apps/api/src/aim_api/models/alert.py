@@ -8,11 +8,13 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -68,6 +70,12 @@ class AlertStatus(StrEnum):
 class Incident(Base):
     __tablename__ = "incidents"
     __table_args__ = (
+        Index(
+            "ix_incidents_project_id_started_at",
+            "project_id",
+            text("started_at DESC"),
+            text("id DESC"),
+        ),
         CheckConstraint(
             (
                 "trigger_type IN ("
@@ -142,6 +150,18 @@ class Incident(Base):
 class Alert(Base):
     __tablename__ = "alerts"
     __table_args__ = (
+        Index(
+            "ix_alerts_project_id_created_at",
+            "project_id",
+            text("created_at DESC"),
+            text("id DESC"),
+        ),
+        Index(
+            "ix_alerts_pending_created_at",
+            "created_at",
+            "id",
+            postgresql_where=text("status = 'PENDING'"),
+        ),
         CheckConstraint(
             (
                 "alert_type IN ('INCIDENT_OPENED', 'INCIDENT_RECOVERED', "

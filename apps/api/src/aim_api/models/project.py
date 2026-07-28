@@ -7,11 +7,13 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy import (
     false as sa_false,
@@ -32,6 +34,11 @@ def generate_verification_token() -> str:
 class Project(Base):
     __tablename__ = "projects"
     __table_args__ = (
+        Index(
+            "ix_projects_owner_id_created_at",
+            "owner_id",
+            text("created_at DESC"),
+        ),
         CheckConstraint(
             "environment IN ('development', 'staging', 'production')",
             name="ck_projects_environment",

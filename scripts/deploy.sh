@@ -13,19 +13,51 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# 이 저장소에서 빌드해 배포하는 애플리케이션 서비스.
+DEFAULT_SERVICES=(api worker worker-agent beat web)
+# 이미지를 그대로 쓰는 서비스 — 배포 때 재빌드하지 않는다.
+INFRA_SERVICES=(postgres redis caddy)
+
 SERVICES=("$@")
 if [ "${#SERVICES[@]}" -eq 0 ]; then
-  SERVICES=(api worker beat web)
+  SERVICES=("${DEFAULT_SERVICES[@]}")
 fi
 
 compose() {
   docker compose --env-file .env.production -f infra/compose.yaml "$@"
 }
 
+# compose에 새 서비스를 추가하고 이 목록에 넣는 것을 잊으면, 그 서비스는 배포되지
+# 않은 채 조용히 빠진다. 큐를 소비하는 워커가 그렇게 빠지면 태스크가 실행되지
+# 않고 쌓이기만 하는데, 어디에도 오류가 나지 않아 알아채기 어렵다.
+UNKNOWN_SERVICES="$(
+  comm -23 \
+    <(compose config --services | sort) \
+    <(printf '%s\n' "${DEFAULT_SERVICES[@]}" "${INFRA_SERVICES[@]}" | sort)
+)"
+if [ -n "$UNKNOWN_SERVICES" ]; then
+  echo "배포 대상에 없는 compose 서비스가 있습니다: ${UNKNOWN_SERVICES}" >&2
+  echo "scripts/deploy.sh의 DEFAULT_SERVICES 또는 INFRA_SERVICES에 추가하세요." >&2
+  exit 1
+fi
+
 git pull --ff-only
 compose build "${SERVICES[@]}"
 compose run --rm migrate
 compose up -d "${SERVICES[@]}"
+
+# Caddyfile은 읽기 전용 바인드 마운트라 파일만 바뀌고 프로세스는 옛 설정을 그대로
+# 들고 있다. reload는 무중단이고 인증서를 다시 받지도 않으므로 매번 해도 안전하다.
+# 실패해도 배포 자체는 이미 끝났으므로 중단하지 않되, 조용히 넘어가면 보안 헤더가
+# 적용되지 않은 사실을 모르게 되므로 크게 알린다.
+if compose ps --status running --services 2>/dev/null | grep -qx caddy; then
+  if compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
+    echo "caddy: 설정 reload 완료."
+  else
+    echo "caddy: reload 실패 — Caddyfile 변경이 적용되지 않았을 수 있습니다." >&2
+  fi
+fi
+
 compose ps
 
 # 매 배포마다 buildkit 캐시가 쌓여 디스크를 채우지 않도록 상한을 두고 정리하고,

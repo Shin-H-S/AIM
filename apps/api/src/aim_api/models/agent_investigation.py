@@ -46,6 +46,19 @@ class AgentInvestigation(Base):
             name="ck_agent_investigations_trigger",
         ),
         CheckConstraint(
+            "feedback_verdict IS NULL OR feedback_verdict IN ('accurate', 'inaccurate')",
+            name="ck_agent_investigations_feedback_verdict",
+        ),
+        CheckConstraint(
+            (
+                "feedback_root_cause IS NULL OR feedback_root_cause IN ("
+                "'service_down', 'ssl_invalid', 'server_slow', "
+                "'frontend_regression', 'ui_regression', 'scenario_stale', "
+                "'measurement_noise')"
+            ),
+            name="ck_agent_investigations_feedback_root_cause",
+        ),
+        CheckConstraint(
             "duration_ms >= 0",
             name="ck_agent_investigations_duration_non_negative",
         ),
@@ -92,6 +105,22 @@ class AgentInvestigation(Base):
     # LLM 호출 실측 [{model, input_tokens, output_tokens, latency_ms}] — 비용 추적
     llm_calls: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
     duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    # 사용자 피드백 — 이 조사가 맞았는지에 대한 실운영 라벨.
+    #
+    # ADR 0002가 스스로 밝혔듯 게이트를 통과시킨 test 83건은 전부 합성이고,
+    # 그 100%는 "합성 분포 안에서의 상한"이지 실운영 정확도가 아니다. 문제는
+    # 지금 구조로는 실운영 정확도를 **앞으로도 알 수 없다**는 점이었다 —
+    # 사용자가 맞았다/틀렸다를 남길 채널이 아예 없었기 때문이다.
+    # 여기 쌓이는 값이 다음 게이트를 실데이터로 칠 수 있게 하는 원자료다.
+    feedback_verdict: Mapped[str | None] = mapped_column(String(16), index=True)
+    # 틀렸다고 했을 때 사용자가 지목한 진짜 원인. 라벨로서 가장 값어치 있는 값이다.
+    feedback_root_cause: Mapped[str | None] = mapped_column(String(32))
+    feedback_note: Mapped[str | None] = mapped_column(Text)
+    feedback_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    feedback_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

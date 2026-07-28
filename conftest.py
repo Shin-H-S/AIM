@@ -26,6 +26,15 @@ TEST_DATABASE_URL = os.environ.get(
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
+# 레이트 리밋은 IP당 고정 윈도우다. 테스트는 전부 같은 IP(testclient)에서 수십 번
+# 가입·로그인하므로, Redis가 **실제로 떠 있으면** 스위트가 한도를 넘어 429로
+# 무너진다. 지금까지 통과한 이유는 Redis가 없어 rate limiter가 fail-open 했기
+# 때문이지 격리가 돼 있어서가 아니었다 — 개발자가 `compose.dev.yaml up -d`로
+# redis까지 띄우면 120건 넘게 실패한다.
+#
+# 레이트 리밋 자체는 test_rate_limit.py가 가짜 limiter로 직접 검증한다.
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
+
 import pytest  # noqa: E402
 from aim_api.database import Base, get_db  # noqa: E402
 from aim_api.main import app  # noqa: E402

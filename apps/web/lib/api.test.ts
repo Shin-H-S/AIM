@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   cancelCheckRun,
+  clearAgentInvestigationFeedback,
   clearProjectBaseline,
   confirmEmailVerification,
   confirmPasswordReset,
@@ -33,9 +34,11 @@ import {
   getCheckRunsUrl,
   getCheckRunAIReportUrl,
   getCheckRunDetailUrl,
+  getCheckRunInvestigationFeedbackUrl,
   getCurrentUserUrl,
   getCreateScenarioRunUrl,
   getLoginUrl,
+  submitAgentInvestigationFeedback,
   getLogoutUrl,
   getProjectAlertsUrl,
   getProjectBaselineUrl,
@@ -2872,5 +2875,107 @@ describe("confirmEmailVerification", () => {
         apiBaseUrl: "http://localhost:8000"
       })
     ).resolves.toEqual({ state: "unavailable" });
+  });
+});
+
+describe("agent investigation feedback", () => {
+  const investigation = {
+    id: "inv-1",
+    check_run_id: "run-1",
+    incident_id: null,
+    trigger: "incident",
+    root_cause: "ui_regression",
+    confidence: "high",
+    summary: "s",
+    recommendation: "r",
+    generator: "llm:claude-haiku-4-5",
+    recheck_used: false,
+    recheck_check_run_id: null,
+    tool_calls: [],
+    violations: [],
+    llm_calls: [],
+    duration_ms: 10,
+    feedback_verdict: "inaccurate",
+    feedback_root_cause: "scenario_stale",
+    feedback_note: null,
+    feedback_at: "2026-07-28T00:00:00Z",
+    created_at: "2026-07-28T00:00:00Z"
+  };
+
+  it("builds the feedback url under the investigation resource", () => {
+    expect(
+      getCheckRunInvestigationFeedbackUrl("p 1", "r 1", "https://api.example.com")
+    ).toBe("https://api.example.com/projects/p%201/check-runs/r%201/investigation/feedback");
+  });
+
+  it("sends the verdict and the corrected root cause", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify(investigation), { status: 200 }));
+
+    const result = await submitAgentInvestigationFeedback({
+      projectId: "p1",
+      checkRunId: "r1",
+      accessToken: "token",
+      verdict: "inaccurate",
+      rootCause: "scenario_stale",
+      fetcher: fetcher as unknown as typeof fetch,
+      apiBaseUrl: "https://api.example.com"
+    });
+
+    expect(result).toEqual({ state: "success", investigation });
+    const [, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body as string)).toEqual({
+      verdict: "inaccurate",
+      root_cause: "scenario_stale",
+      note: null
+    });
+  });
+
+  it("clears feedback with DELETE and no body", async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify(investigation), { status: 200 }));
+
+    await clearAgentInvestigationFeedback({
+      projectId: "p1",
+      checkRunId: "r1",
+      accessToken: "token",
+      fetcher: fetcher as unknown as typeof fetch,
+      apiBaseUrl: "https://api.example.com"
+    });
+
+    const [, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.method).toBe("DELETE");
+    expect(init.body).toBeUndefined();
+  });
+
+  it("reports unauthorized so the page can prompt a re-login", async () => {
+    const fetcher = vi.fn(async () => new Response("", { status: 401 }));
+
+    const result = await submitAgentInvestigationFeedback({
+      projectId: "p1",
+      checkRunId: "r1",
+      accessToken: "expired",
+      verdict: "accurate",
+      fetcher: fetcher as unknown as typeof fetch,
+      apiBaseUrl: "https://api.example.com"
+    });
+
+    expect(result).toEqual({ state: "unauthorized" });
+  });
+
+  it("treats a network failure as unavailable rather than throwing", async () => {
+    const fetcher = vi.fn(async () => {
+      throw new Error("offline");
+    });
+
+    const result = await submitAgentInvestigationFeedback({
+      projectId: "p1",
+      checkRunId: "r1",
+      accessToken: "token",
+      verdict: "accurate",
+      fetcher: fetcher as unknown as typeof fetch,
+      apiBaseUrl: "https://api.example.com"
+    });
+
+    expect(result).toEqual({ state: "unavailable" });
   });
 });

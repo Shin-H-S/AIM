@@ -34,6 +34,11 @@ class CheckRunStatus(StrEnum):
 class CheckRun(Base):
     __tablename__ = "check_runs"
     __table_args__ = (
+        Index(
+            "ix_check_runs_project_id_created_at",
+            "project_id",
+            text("created_at DESC"),
+        ),
         CheckConstraint(
             "status IN ('QUEUED', 'RUNNING', 'ANALYZING', 'COMPLETED', 'FAILED', 'CANCELLED')",
             name="ck_check_runs_status",

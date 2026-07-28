@@ -55,6 +55,17 @@ def client(api_client: TestClient) -> TestClient:
     return api_client
 
 
+@pytest.fixture(autouse=True)
+def rate_limiting_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """이 파일은 레이트 리밋 자체를 검증하므로 명시적으로 켠다.
+
+    스위트 전체는 레이트 리밋을 끄고 돈다(conftest.py) — 모든 테스트가 같은
+    IP에서 요청하므로, 켜 두면 한도를 넘겨 서로를 망가뜨린다. 그러니 여기서
+    주변 설정에 기대지 않고 직접 켜야 한다.
+    """
+    monkeypatch.setattr(rate_limit, "get_settings", lambda: Settings(rate_limit_enabled=True))
+
+
 def test_login_returns_429_when_limit_is_exceeded(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

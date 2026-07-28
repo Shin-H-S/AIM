@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     alert_webhook_timeout_seconds: float = 10.0
     # 알림 본문에 넣을 웹 UI 기본 URL (예: https://qaaimsync.com). 없으면 링크를 생략한다.
     web_base_url: str | None = None
+    # AIM 자신의 장애(미처리 예외·태스크 실패)를 운영자에게 알릴 incoming webhook.
+    # 사용자 대상 인시던트 알림과는 별개 채널이다. 없으면 알림을 건너뛴다.
+    ops_webhook_url: str | None = None
+    # /metrics 스크레이퍼용 정적 토큰. 없으면 엔드포인트가 404로 닫힌다 —
+    # 운영 현황은 공개 정보가 아니므로 기본값은 '꺼짐'이어야 한다.
+    metrics_token: str | None = None
     anthropic_api_key: str | None = None
     ai_report_model: str = "claude-opus-4-8"
     ai_report_llm_timeout_seconds: float = 30.0

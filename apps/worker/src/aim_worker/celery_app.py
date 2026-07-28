@@ -7,6 +7,7 @@ from aim_api.services.ops_alerts import notify_ops
 from aim_api.services.scan_queue import (
     PURGE_EXPIRED_ARTIFACTS_TASK_NAME,
     SCHEDULE_CHECK_RUNS_TASK_NAME,
+    TASK_ROUTES,
 )
 from celery import Celery
 from celery.signals import (
@@ -25,6 +26,9 @@ PURGE_EXPIRED_ARTIFACTS_INTERVAL_SECONDS = 60 * 60 * 6
 
 # 태스크 메시지에 실어 보내는 상관관계 헤더 이름.
 REQUEST_ID_TASK_HEADER = "aim_request_id"
+
+# 큐 라우팅은 aim_api.services.scan_queue가 소유한다 — 태스크를 넣는 쪽이
+# 대부분 API 프로세스라, 양쪽이 같은 정의를 봐야 분리가 실제로 동작한다.
 
 
 @setup_logging.connect  # type: ignore[untyped-decorator]
@@ -108,6 +112,7 @@ def create_celery_app() -> Celery:
         task_time_limit=300,
         task_soft_time_limit=240,
         worker_prefetch_multiplier=1,
+        task_routes=TASK_ROUTES,
         timezone="UTC",
         beat_schedule={
             "schedule-due-check-runs": {

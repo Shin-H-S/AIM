@@ -525,12 +525,24 @@ Expected checks may include:
 
 ### Python
 
+테스트는 **운영과 같은 PostgreSQL**에서 돌고, 스키마는 `create_all`이 아니라
+`alembic upgrade head`로 만든다. 그래서 실행 전에 PostgreSQL이 떠 있어야 한다.
+
 ```bash
+docker compose -f infra/compose.dev.yaml up -d postgres
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy .
 uv run pytest
 ```
+
+`conftest.py`가 `aim_test` 데이터베이스를 없으면 만들고, 마이그레이션은 세션당
+한 번 적용한 뒤 테스트 사이에는 TRUNCATE로만 비운다. 접속 주소는
+`TEST_DATABASE_URL`로 바꿀 수 있다(기본 `postgresql+psycopg://aim:aim@localhost:5432/aim_test`).
+
+SQLite로 되돌리지 말 것. 그 조합은 마이그레이션이 모델과 어긋나도, PostgreSQL
+고유 동작(제약 위반 시 트랜잭션 abort, timezone-aware timestamp, 행 잠금)이
+달라도 전부 통과시킨다.
 
 ### Frontend
 

@@ -14,6 +14,25 @@ jobs:
     name: Python checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # 테스트는 운영과 같은 PostgreSQL에서 돈다 — 스키마도 alembic upgrade head로
+    # 만든다. SQLite에서는 마이그레이션 정합성도, PostgreSQL 고유 동작도 검증되지
+    # 않는다. 자세한 근거는 conftest.py 참조.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: aim
+          POSTGRES_USER: aim
+          POSTGRES_PASSWORD: aim
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aim -d aim"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://aim:aim@localhost:5432/aim_test
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5

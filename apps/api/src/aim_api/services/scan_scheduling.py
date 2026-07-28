@@ -1,7 +1,9 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from aim_api.models.check_run import CheckRun, CheckRunStatus
@@ -9,11 +11,45 @@ from aim_api.models.project import Project
 
 SCHEDULED_TRIGGER_SOURCE = "scheduled"
 
+# 정기 스캔 스케줄러의 advisory lock 키. 임의의 상수이며, 같은 데이터베이스에서
+# 다른 용도로 재사용하지 않기만 하면 된다.
+SCHEDULER_ADVISORY_LOCK_KEY = 8_413_207_001
+
 ACTIVE_CHECK_RUN_STATUSES = (
     CheckRunStatus.QUEUED.value,
     CheckRunStatus.RUNNING.value,
     CheckRunStatus.ANALYZING.value,
 )
+
+
+@contextmanager
+def scheduler_lock(session: Session) -> Iterator[bool]:
+    """정기 스캔 스케줄링을 한 번에 하나만 돌게 만든다.
+
+    "만료된 프로젝트를 읽고 → 검사를 만든다"는 read-then-write라, beat가 둘이면
+    같은 프로젝트에 검사가 두 개 생긴다. 지금까지 무사했던 이유는 코드가 아니라
+    "beat 1개"라는 배포 형상뿐이었다.
+
+    pg_try_advisory_lock은 기다리지 않고 즉시 실패를 알려준다 — 스케줄러는
+    주기적으로 다시 도니까, 잠금을 못 얻으면 이번 회차를 건너뛰는 것이 맞다.
+    잠금은 세션 단위라 끝나고 반드시 푼다.
+    """
+    acquired = bool(
+        session.scalar(
+            text("SELECT pg_try_advisory_lock(:key)"),
+            {"key": SCHEDULER_ADVISORY_LOCK_KEY},
+        )
+    )
+
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            session.execute(
+                text("SELECT pg_advisory_unlock(:key)"),
+                {"key": SCHEDULER_ADVISORY_LOCK_KEY},
+            )
+            session.commit()
 
 
 def as_utc(value: datetime) -> datetime:

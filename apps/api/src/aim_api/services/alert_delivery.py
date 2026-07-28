@@ -217,12 +217,23 @@ def build_webhook_payload(*, url: str, subject: str, body: str) -> dict[str, str
 
 
 def list_pending_alerts(session: Session, *, limit: int) -> list[Alert]:
+    """발송할 알림을 집어 다른 워커가 같은 것을 집지 못하게 잠근다.
+
+    FOR UPDATE SKIP LOCKED가 없으면 워커 두 개가 같은 PENDING 알림을 함께 읽어
+    **같은 장애를 두 번 발송한다.** 모니터링 제품에서 중복 알림은 신뢰를 가장
+    빨리 무너뜨리는 종류의 버그다. 지금까지 이 문제가 없었던 이유는 코드가
+    아니라 "워커 1개"라는 배포 형상뿐이었다.
+
+    SKIP LOCKED라 이미 잠긴 행은 건너뛴다 — 워커가 서로를 기다리지 않고
+    각자 다른 알림을 가져간다. 잠금은 호출자의 트랜잭션이 끝날 때 풀린다.
+    """
     return list(
         session.scalars(
             select(Alert)
             .where(Alert.status == AlertStatus.PENDING.value)
             .order_by(Alert.created_at.asc(), Alert.id.asc())
             .limit(limit)
+            .with_for_update(skip_locked=True)
         )
     )
 

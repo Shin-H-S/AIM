@@ -31,6 +31,7 @@ from aim_api.services.scan_queue import (
     SCHEDULE_CHECK_RUNS_TASK_NAME,
 )
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from aim_worker.agent import investigation as agent_investigation_service
@@ -253,7 +254,17 @@ def enqueue_scheduled_check_run(*, check_run_id: UUID) -> str:
 def schedule_due_check_runs() -> dict[str, int]:
     scheduled_count = 0
     enqueue_failed_count = 0
-    with SessionLocal() as session:
+    with SessionLocal() as session, scan_scheduling_service.scheduler_lock(session) as acquired:
+        if not acquired:
+            # 다른 스케줄러가 이번 회차를 돌고 있다. 주기적으로 다시 오므로
+            # 기다리지 않고 넘긴다 — 기다리면 같은 일을 두 번 하게 된다.
+            logger.info("Another scheduler holds the lock; skipping this tick.")
+            return {
+                "due_project_count": 0,
+                "scheduled_count": 0,
+                "enqueue_failed_count": 0,
+            }
+
         try:
             due_projects = scan_scheduling_service.list_due_projects(session)
         except Exception:
@@ -262,10 +273,21 @@ def schedule_due_check_runs() -> dict[str, int]:
             raise
 
         for project in due_projects:
-            check_run = scan_scheduling_service.create_scheduled_check_run(
-                session,
-                project=project,
-            )
+            try:
+                check_run = scan_scheduling_service.create_scheduled_check_run(
+                    session,
+                    project=project,
+                )
+            except IntegrityError:
+                # 자동 트리거 검사가 이미 활성이다(부분 유니크 인덱스가 거절).
+                # 큐를 쌓지 않는 것이 목적이므로 이 프로젝트는 다음 회차에 본다.
+                session.rollback()
+                logger.info(
+                    "Skipped a scheduled check run that is already active.",
+                    extra={"project_id": str(project.id)},
+                )
+                continue
+
             try:
                 enqueue_scheduled_check_run(check_run_id=check_run.id)
             except scan_queue.ScanQueueUnavailableError:

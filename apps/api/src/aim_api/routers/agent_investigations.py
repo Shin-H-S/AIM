@@ -178,7 +178,7 @@ def submit_agent_investigation_feedback(
         raise investigation_not_found() from exc
     except agent_feedback_service.InvalidFeedbackError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc
     return AgentInvestigationRead.model_validate(investigation)
 

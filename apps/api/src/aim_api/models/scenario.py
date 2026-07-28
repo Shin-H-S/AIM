@@ -9,11 +9,13 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,6 +29,13 @@ def utc_now() -> datetime:
 class TestScenario(Base):
     __tablename__ = "test_scenarios"
     __test__ = False
+    __table_args__ = (
+        Index(
+            "ix_test_scenarios_project_id_created_at",
+            "project_id",
+            text("created_at DESC"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     project_id: Mapped[UUID] = mapped_column(
@@ -116,6 +125,11 @@ class StepResultStatus(StrEnum):
 class ScenarioRun(Base):
     __tablename__ = "scenario_runs"
     __table_args__ = (
+        Index(
+            "ix_scenario_runs_scenario_id_created_at",
+            "scenario_id",
+            text("created_at DESC"),
+        ),
         CheckConstraint(
             "status IN ('QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED')",
             name="ck_scenario_runs_status",

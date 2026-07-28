@@ -21,6 +21,7 @@ from aim_api.models.alert import (
 from aim_api.models.check_run import CheckRun
 from aim_api.models.project import Project
 from aim_api.models.scanner_result import ScoreResult
+from aim_api.services import llm_budget as llm_budget_service
 from aim_api.services import scan_queue
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -84,13 +85,25 @@ def run_agent_investigation_for_check_run(
     toolbox = DbToolbox(session, project=project, check_run=check_run)
     llm_policy: LlmPolicy | None = None
     llm_factory = build_llm_policy_factory()
+    budget = llm_budget_service.get_budget_status(session)
     policy: Policy
-    if llm_factory is not None:
+    if llm_factory is not None and not budget.exhausted:
         llm_policy = llm_factory()
         policy = RouterPolicy(llm_policy)
     else:
-        # API 키 없음 — 규칙 전용으로도 조사는 항상 종결된다(G4 사상).
+        # API 키가 없거나 예산 상한에 닿았다 — 규칙 전용으로도 조사는 항상
+        # 종결된다(G4 사상). 비용 때문에 장애 진단이 사라지는 쪽이 더 나쁘다.
         policy = RulePolicy()
+        if budget.exhausted:
+            logger.warning(
+                "Agent downgraded to the rule policy by the LLM budget breaker.",
+                extra={
+                    "check_run_id": str(check_run_id),
+                    "budget_reason": budget.reason,
+                    "daily_spend_usd": round(budget.daily_spend_usd, 4),
+                    "monthly_spend_usd": round(budget.monthly_spend_usd, 4),
+                },
+            )
 
     loop = InvestigationLoop(policy, toolbox, fallback_policy=RulePolicy())
     started = time.perf_counter()

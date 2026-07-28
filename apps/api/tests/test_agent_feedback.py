@@ -8,6 +8,7 @@ from aim_api.models.project import Project
 from aim_api.models.user import User
 from aim_api.services import agent_feedback
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 
@@ -209,3 +210,122 @@ def test_an_invalid_verdict_is_rejected_by_the_endpoint(
     )
 
     assert response.status_code in {404, 422}
+
+
+def seed_investigation_for(session: Session, *, owner_email: str) -> tuple[UUID, UUID]:
+    """로그인한 사용자가 소유한 프로젝트에 조사를 심는다.
+
+    엔드포인트의 성공 경로는 소유권 검사를 통과해야 닿는다 — 그래서 조사를
+    아무 사용자가 아니라 **그 사용자** 밑에 만들어야 한다.
+    """
+    user = session.scalars(select(User).where(User.email == owner_email)).one()
+    project = Project(
+        owner_id=user.id,
+        name="AIM Website",
+        service_url="https://example.com",
+        verified_at=datetime.now(UTC),
+        environment="production",
+    )
+    session.add(project)
+    session.flush()
+    check_run = CheckRun(
+        project_id=project.id,
+        requested_by_id=user.id,
+        status=CheckRunStatus.COMPLETED.value,
+        trigger_source="manual",
+    )
+    session.add(check_run)
+    session.flush()
+    session.add(
+        AgentInvestigation(
+            project_id=project.id,
+            check_run_id=check_run.id,
+            trigger="incident",
+            root_cause="ui_regression",
+            confidence="high",
+            summary="The page lost its markup.",
+            recommendation="Roll back.",
+            generator="llm:claude-haiku-4-5",
+            recheck_used=False,
+            duration_ms=1200,
+        )
+    )
+    session.commit()
+    return project.id, check_run.id
+
+
+def signup_and_login_as(client: TestClient, email: str) -> dict[str, str]:
+    payload = {"email": email, "password": "correct horse battery staple"}
+    client.post("/auth/signup", json=payload)
+    token = client.post("/auth/login", json=payload).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_the_endpoint_records_a_correction_and_returns_it(
+    client: TestClient, session: Session
+) -> None:
+    email = f"{uuid4()}@example.com"
+    headers = signup_and_login_as(client, email)
+    project_id, check_run_id = seed_investigation_for(session, owner_email=email)
+
+    response = client.put(
+        f"/projects/{project_id}/check-runs/{check_run_id}/investigation/feedback",
+        json={"verdict": "inaccurate", "root_cause": "scenario_stale", "note": "셀렉터만 이사함"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["feedback_verdict"] == "inaccurate"
+    assert body["feedback_root_cause"] == "scenario_stale"
+    assert body["feedback_note"] == "셀렉터만 이사함"
+    assert body["feedback_at"] is not None
+    # 원래 결론은 그대로 남아야 라벨 대조가 된다.
+    assert body["root_cause"] == "ui_regression"
+
+
+def test_the_endpoint_clears_feedback(client: TestClient, session: Session) -> None:
+    email = f"{uuid4()}@example.com"
+    headers = signup_and_login_as(client, email)
+    project_id, check_run_id = seed_investigation_for(session, owner_email=email)
+    path = f"/projects/{project_id}/check-runs/{check_run_id}/investigation/feedback"
+    client.put(path, json={"verdict": "accurate"}, headers=headers)
+
+    response = client.delete(path, headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["feedback_verdict"] is None
+    assert body["feedback_at"] is None
+
+
+def test_the_endpoint_rejects_a_self_contradictory_verdict(
+    client: TestClient, session: Session
+) -> None:
+    """맞았다면서 원인을 고치는 요청은 422로 막혀야 라벨이 오염되지 않는다."""
+    email = f"{uuid4()}@example.com"
+    headers = signup_and_login_as(client, email)
+    project_id, check_run_id = seed_investigation_for(session, owner_email=email)
+
+    response = client.put(
+        f"/projects/{project_id}/check-runs/{check_run_id}/investigation/feedback",
+        json={"verdict": "accurate", "root_cause": "server_slow"},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+
+
+def test_clearing_feedback_on_a_missing_investigation_is_404(
+    client: TestClient, session: Session
+) -> None:
+    email = f"{uuid4()}@example.com"
+    headers = signup_and_login_as(client, email)
+    project_id, _ = seed_investigation_for(session, owner_email=email)
+
+    response = client.delete(
+        f"/projects/{project_id}/check-runs/{uuid4()}/investigation/feedback",
+        headers=headers,
+    )
+
+    assert response.status_code == 404

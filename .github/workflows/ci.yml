@@ -46,8 +46,19 @@ jobs:
         run: uv run ruff format --check .
       - name: Type check
         run: uv run mypy .
+      # 커버리지 게이트는 목표치가 아니라 래칫이다 — 커버리지 자체를 목표로
+      # 삼으면 라인만 훑는 무의미한 테스트를 쓰게 되므로, "덮여 있던 곳이
+      # 벗겨지는" 것만 잡는다.
+      #
+      # 실측은 90.2%인데 기준선을 89로 둔 이유: 기능이 하나 붙을 때마다 전체
+      # 비율은 소수점 단위로 흔들린다. 여유가 0.2pp면 래칫이 아니라 지뢰선이라,
+      # 정상적인 기능 추가마다 CI가 터진다. 1pp 남겨 두면 노이즈는 넘기고
+      # 실제 회귀(테스트가 통째로 빠지는 수준)는 그대로 걸린다.
+      #
+      # 기본 addopts에 넣지 않은 이유: 파일 하나만 돌릴 때도 게이트가 걸려
+      # 개발 중에 계속 실패한다.
       - name: Test
-        run: uv run pytest
+        run: uv run pytest --cov --cov-report=term --cov-fail-under=89
 
   web:
     name: Web checks

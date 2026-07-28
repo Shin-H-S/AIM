@@ -40,32 +40,49 @@ from aim_api.database import Base, get_db  # noqa: E402
 from aim_api.main import app  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
+from alembic.util.exc import CommandError  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import Engine, create_engine, text  # noqa: E402
 from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 
 ALEMBIC_CONFIG_PATH = "migrations/alembic.ini"
 
+MAINTENANCE_URL = TEST_DATABASE_URL.rsplit("/", 1)[0] + "/postgres"
+TEST_DATABASE_NAME = TEST_DATABASE_URL.rsplit("/", 1)[1]
 
-def ensure_test_database_exists() -> None:
-    """테스트 데이터베이스가 없으면 만든다.
 
-    CREATE DATABASE는 트랜잭션 안에서 못 돌아서 AUTOCOMMIT으로 연결한다.
-    """
-    maintenance_url = TEST_DATABASE_URL.rsplit("/", 1)[0] + "/postgres"
-    database_name = TEST_DATABASE_URL.rsplit("/", 1)[1]
-
-    engine = create_engine(maintenance_url, isolation_level="AUTOCOMMIT")
+def run_maintenance_statement(statement: str) -> None:
+    """CREATE/DROP DATABASE는 트랜잭션 안에서 못 돌아서 AUTOCOMMIT으로 연결한다."""
+    engine = create_engine(MAINTENANCE_URL, isolation_level="AUTOCOMMIT")
     try:
         with engine.connect() as connection:
-            exists = connection.scalar(
-                text("SELECT 1 FROM pg_database WHERE datname = :name"),
-                {"name": database_name},
-            )
-            if not exists:
-                connection.execute(text(f'CREATE DATABASE "{database_name}"'))
+            connection.execute(text(statement))
     finally:
         engine.dispose()
+
+
+def test_database_exists() -> bool:
+    engine = create_engine(MAINTENANCE_URL, isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as connection:
+            return bool(
+                connection.scalar(
+                    text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                    {"name": TEST_DATABASE_NAME},
+                )
+            )
+    finally:
+        engine.dispose()
+
+
+def recreate_test_database() -> None:
+    run_maintenance_statement(f'DROP DATABASE IF EXISTS "{TEST_DATABASE_NAME}" WITH (FORCE)')
+    run_maintenance_statement(f'CREATE DATABASE "{TEST_DATABASE_NAME}"')
+
+
+def ensure_test_database_exists() -> None:
+    if not test_database_exists():
+        run_maintenance_statement(f'CREATE DATABASE "{TEST_DATABASE_NAME}"')
 
 
 @pytest.fixture(scope="session")
@@ -79,8 +96,18 @@ def migrated_engine() -> Iterator[Engine]:
 
     alembic_config = Config(ALEMBIC_CONFIG_PATH)
     alembic_config.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
-    # 이전 실행이 남긴 스키마가 있어도 헤드까지만 맞추면 된다.
-    command.upgrade(alembic_config, "head")
+
+    try:
+        # 이전 실행이 남긴 스키마가 있어도 헤드까지만 맞추면 된다.
+        command.upgrade(alembic_config, "head")
+    except CommandError:
+        # 테스트 DB에 이 브랜치에 없는 리비전이 찍혀 있다 — 마이그레이션을 추가한
+        # 다른 브랜치에서 테스트를 돌린 뒤 넘어오면 늘 이렇게 된다. Alembic은
+        # 그 리비전을 못 찾아 "Can't locate revision"으로 멈추는데, 원인이
+        # 드러나지 않아 브랜치를 옮길 때마다 사람을 붙잡는다.
+        # 테스트 데이터베이스는 정의상 언제 버려도 되는 것이라 다시 만든다.
+        recreate_test_database()
+        command.upgrade(alembic_config, "head")
 
     engine = create_engine(TEST_DATABASE_URL, pool_pre_ping=True)
     try:

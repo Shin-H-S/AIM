@@ -24,6 +24,7 @@ dependencies = [
 dev = [
     "mypy",
     "pytest",
+    "pytest-cov>=7.1.0",
     "ruff",
 ]
 
@@ -33,6 +34,20 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["apps/api/src/aim_api", "apps/worker/src/aim_worker"]
+
+[tool.coverage.run]
+source = ["apps/api/src/aim_api", "apps/worker/src/aim_worker"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+    # 런타임에 실행되지 않는 타입 전용 분기.
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    '\.\.\.',
+]
 
 [tool.pytest.ini_options]
 addopts = "-ra"

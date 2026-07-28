@@ -78,6 +78,15 @@ class Settings(BaseSettings):
     aim_agent_escalation_model: str = "claude-sonnet-5"
     # 같은 프로젝트 조사 사이의 최소 간격 — 인시던트 연쇄로 인한 조사 폭주 방지
     aim_agent_cooldown_minutes: int = 30
+    # LLM 지출 상한(USD). 쿨다운은 한 프로젝트의 폭주만 막을 뿐, 프로젝트 수가
+    # 늘면 월 지출에 상한이 없다. 넘으면 조사를 멈추는 게 아니라 규칙 정책으로
+    # 강등한다 — 비용 때문에 장애 진단이 통째로 사라지는 쪽이 더 나쁘다.
+    # None이면 상한 없음.
+    aim_agent_daily_budget_usd: float | None = None
+    aim_agent_monthly_budget_usd: float | None = None
+    # 모델별 백만 토큰당 단가 덮어쓰기: {"model": [input, output]}.
+    # 단가는 앱보다 빨리 바뀌므로 배포 없이 고칠 수 있어야 한다.
+    aim_agent_model_rates_json: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

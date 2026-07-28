@@ -20,7 +20,7 @@ from aim_api.models.scenario import (
     TestStep,
 )
 from aim_api.models.user import User
-from aim_api.services import scan_queue
+from aim_api.services import llm_budget, scan_queue
 from aim_worker import tasks
 from aim_worker.agent import investigation as investigation_module
 from aim_worker.agent.db_toolbox import DbToolbox, is_bad_result
@@ -719,3 +719,93 @@ def test_relocation_reader_distinguishes_empty_from_uncollected(session: Session
 
     assert (empty.relocation_checked, empty.relocation_hint) == (True, None)
     assert (uncollected.relocation_checked, uncollected.relocation_hint) == (False, None)
+
+
+def test_budget_breaker_downgrades_the_agent_to_the_rule_policy(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """예산 상한에 닿아도 조사는 결론을 낸다 — 멈추는 게 아니라 강등한다.
+
+    비용 때문에 장애 진단이 통째로 사라지는 쪽이 훨씬 나쁘다.
+    """
+    used_llm: list[bool] = []
+
+    def factory_that_should_not_be_used() -> object:
+        used_llm.append(True)
+        raise AssertionError("LLM policy must not be built once the budget is exhausted.")
+
+    monkeypatch.setattr(
+        investigation_module, "build_llm_policy_factory", lambda: factory_that_should_not_be_used
+    )
+    monkeypatch.setattr(
+        llm_budget,
+        "get_budget_status",
+        lambda _session: llm_budget.BudgetStatus(
+            daily_spend_usd=10.0,
+            monthly_spend_usd=10.0,
+            daily_limit_usd=5.0,
+            monthly_limit_usd=None,
+        ),
+    )
+
+    project = seed_project(session)
+    check_run = seed_check_run(
+        session,
+        project,
+        ssl_valid=False,
+        ssl_failure="certificate expired 3 days ago",
+        lighthouse_performance=None,
+        available=False,
+        availability_failure="Service request failed.",
+        response_time_ms=None,
+        overall_score=12,
+    )
+
+    investigation = run_agent_investigation_for_check_run(session, check_run_id=check_run.id)
+
+    assert investigation is not None
+    assert investigation.generator == "rule"
+    assert investigation.llm_calls == []
+    assert used_llm == []
+
+
+def test_the_agent_uses_the_llm_while_within_budget(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """상한 안에서는 강등되지 않아야 한다 — 그러지 않으면 브레이커가 항상 켜진 셈이다."""
+    built: list[bool] = []
+
+    monkeypatch.setattr(
+        llm_budget,
+        "get_budget_status",
+        lambda _session: llm_budget.BudgetStatus(
+            daily_spend_usd=1.0,
+            monthly_spend_usd=1.0,
+            daily_limit_usd=5.0,
+            monthly_limit_usd=None,
+        ),
+    )
+
+    def recording_factory() -> None:
+        built.append(True)
+        raise RuntimeError("stop here — we only need to know the factory was consulted")
+
+    monkeypatch.setattr(investigation_module, "build_llm_policy_factory", lambda: recording_factory)
+
+    project = seed_project(session)
+    check_run = seed_check_run(
+        session,
+        project,
+        ssl_valid=False,
+        ssl_failure="certificate expired 3 days ago",
+        lighthouse_performance=None,
+        available=False,
+        availability_failure="Service request failed.",
+        response_time_ms=None,
+        overall_score=12,
+    )
+
+    with pytest.raises(RuntimeError):
+        run_agent_investigation_for_check_run(session, check_run_id=check_run.id)
+
+    assert built == [True]

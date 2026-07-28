@@ -46,8 +46,13 @@ jobs:
         run: uv run ruff format --check .
       - name: Type check
         run: uv run mypy .
+      # 커버리지 게이트는 목표치가 아니라 래칫이다 — 현재 수준(측정 90.30%)
+      # 아래로 내려가는 것만 막는다. 커버리지 자체를 목표로 삼으면 의미 없는
+      # 테스트를 쓰게 되므로, 여기서는 "덮여 있던 곳이 벗겨지는" 것만 잡는다.
+      # 기본 addopts에 넣지 않은 이유: 파일 하나만 돌릴 때도 게이트가 걸려
+      # 개발 중에 계속 실패한다.
       - name: Test
-        run: uv run pytest
+        run: uv run pytest --cov --cov-report=term --cov-fail-under=90
 
   web:
     name: Web checks

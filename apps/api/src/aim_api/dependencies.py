@@ -1,17 +1,19 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
+from aim_api.auth_cookies import ACCESS_TOKEN_COOKIE
 from aim_api.database import get_db
 from aim_api.models.user import User
 from aim_api.security import decode_access_token
 from aim_api.services import token_revocation
 from aim_api.services import users as user_service
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+# auto_error=False: 헤더가 없어도 401을 내지 않는다 — 쿠키 폴백이 이어받는다.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
 def authentication_error() -> HTTPException:
@@ -30,10 +32,26 @@ def as_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
+def get_request_token(request: Request, bearer_token: str | None) -> str | None:
+    """Bearer 우선, 없으면 httpOnly 쿠키.
+
+    명시적으로 실은 Authorization 헤더는 호출자의 의도다(스크립트·배포 훅·테스트).
+    브라우저 세션은 쿠키로 온다 — JS가 토큰을 만질 수 없는 것이 전환의 목적이다.
+    """
+    if bearer_token:
+        return bearer_token
+    return request.cookies.get(ACCESS_TOKEN_COOKIE)
+
+
 def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
+    request: Request,
+    bearer_token: Annotated[str | None, Depends(oauth2_scheme)],
     session: Annotated[Session, Depends(get_db)],
 ) -> User:
+    token = get_request_token(request, bearer_token)
+    if token is None:
+        raise authentication_error()
+
     claims = decode_access_token(token)
     if claims is None:
         raise authentication_error()

@@ -57,7 +57,8 @@ def test_create_project_requires_authentication(client: TestClient) -> None:
     response = client.post("/projects", json=project_payload())
 
     assert response.status_code == 401
-    assert response.json() == {"detail": "Not authenticated"}
+    # auto_error=False 전환으로 401 본문이 우리 메시지로 바뀌었다 — 계약은 401 그 자체다.
+    assert response.json() == {"detail": "Could not validate credentials."}
 
 
 def test_create_project(client: TestClient) -> None:

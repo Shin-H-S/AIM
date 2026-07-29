@@ -2,7 +2,7 @@
 // api-schema.d.ts를 재수출한다. 백엔드 스키마가 바뀌면 CI가 스냅샷·타입
 // 재생성을 강제하고, 낡은 필드를 쓰는 프런트 코드는 컴파일 에러로 드러난다.
 import type { components } from "./api-schema";
-import { CSRF_HEADER_NAME, getCsrfToken } from "./auth";
+import { CSRF_HEADER_NAME, getCsrfToken, notifySessionChanged } from "./auth";
 
 /**
  * 세션이 쿠키로 오가는 세계의 기본 fetch.
@@ -12,12 +12,17 @@ import { CSRF_HEADER_NAME, getCsrfToken } from "./auth";
  * 요구하는 double-submit 증명이다 — GET에는 불필요하지만 항상 실어도
  * 무해하고, 메서드별 분기를 없애 실수 표면을 줄인다.
  *
+ * 세션이 있다고 믿었던 요청(csrf 쿠키가 있었음)이 401로 돌아오면 세션이
+ * 서버에서 끝난 것이다(만료·폐기). 이때 세션 변경 이벤트를 쏴 헤더 같은
+ * 전역 UI가 즉시 로그인 상태로 돌아서게 한다. 세션 없이 맞는 401(로그인
+ * 실패 등)은 이벤트를 쏘지 않는다 — 바뀐 세션이 없기 때문이다.
+ *
  * 각 API 함수의 fetcher 기본값이 이것이다. 테스트는 이전처럼 fetcher를
  * 주입해 네트워크 없이 검증한다.
  */
-export const sessionFetch: typeof fetch = (input, init = {}) => {
+export const sessionFetch: typeof fetch = async (input, init = {}) => {
   const csrfToken = getCsrfToken();
-  return fetch(input, {
+  const response = await fetch(input, {
     ...init,
     credentials: "include",
     headers: {
@@ -25,6 +30,12 @@ export const sessionFetch: typeof fetch = (input, init = {}) => {
       ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {})
     }
   });
+
+  if (response.status === 401 && csrfToken) {
+    notifySessionChanged();
+  }
+
+  return response;
 };
 
 

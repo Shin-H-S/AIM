@@ -310,6 +310,22 @@ mkdir -p ~/backups/aim
 scripts/monitor-vm-health.sh test   # 발송 경로 확인
 ```
 
+### 서비스 메트릭 경보 (15분 크론)
+
+`scripts/monitor-metrics.sh`가 `/metrics`를 읽어 검사 큐 정체(기본 3건 이상)와
+조치 필요 인시던트를 같은 webhook으로 알립니다. VM 헬스와 마찬가지로 에지 트리거.
+스크레이프 실패 자체도 경보합니다 — 감시가 눈을 감은 상태를 조용히 두지 않기 위해서입니다.
+
+```bash
+( crontab -l 2>/dev/null | grep -vF 'monitor-metrics.sh'; \
+  echo '*/15 * * * * $HOME/AIM/scripts/monitor-metrics.sh >> $HOME/backups/aim/health.log 2>&1' ) | crontab -
+```
+
+VM 밖 감시는 GitHub Actions `uptime` 워크플로가 맡습니다(15분 주기로 웹·API를
+외부에서 프로브). VM이 통째로 죽으면 위의 크론 경보도 같이 죽는데, 그 경우를
+잡는 것이 이 워크플로입니다. Discord 경보까지 받으려면 저장소 시크릿
+`OPS_WEBHOOK_URL`에 같은 webhook URL을 넣습니다(없으면 GitHub 실패 알림만).
+
 ### 수동 백업
 
 ```bash

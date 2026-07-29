@@ -1,7 +1,7 @@
 # 백업 복구 런북
 
 운영 데이터(단일 VM, Docker Compose — 2026-07-17부터 오라클 클라우드 도쿄 A1)의 백업 구조와 복구 절차.
-마지막 리허설: **2026-07-14 (성공, GCP 시절 — DB만)**.
+마지막 리허설: **2026-07-29 (성공, 오라클 — DB + 아티팩트 아카이브)**.
 
 ## 백업 구조
 
@@ -95,7 +95,7 @@ docker compose --env-file .env.production -f infra/compose.yaml exec -T postgres
    오라클이면 OS iptables **와** VCN 보안 목록 양쪽에서 80/443을 열어야 한다.
 2. 수동 재구성: `.env.production`(시크릿 포함), `~/.config/aim/deploy-token`(웹에서 재발급),
    `~/.config/aim/scenario-secrets/secrets.env`(디렉토리 2750·파일 640·그룹 999),
-   `~/.config/aim/ops-webhook`, `~/.config/aim/backup-par-url`(PAR 재발급), 크론 3줄(DB 백업·아티팩트 백업·헬스).
+   `~/.config/aim/ops-webhook`, `~/.config/aim/backup-par-url`(PAR 재발급), 크론 4줄(DB 백업·아티팩트 백업·VM 헬스·서비스 메트릭).
 3. `docker compose ... up -d` 로 기동 후 **절차 A의 2~4단계**로 오프박스 덤프 복원,
    이어서 **절차 A-2**로 오프박스 아티팩트 아카이브 복원. 아티팩트를 건너뛰면 서비스는
    뜨지만 과거 리포트의 근거 링크가 전부 깨진다.
@@ -106,26 +106,21 @@ docker compose --env-file .env.production -f infra/compose.yaml exec -T postgres
 
 ## 복원 리허설 (분기 1회 권장)
 
-운영에 영향 없이 스크래치 컨테이너로 복원만 검증한다:
+운영에 영향 없이 스크래치 컨테이너로 복원을 검증한다. 판정까지 자동이다:
 
 ```bash
 cd ~/AIM
-source <(grep -E '^POSTGRES_(USER|PASSWORD|DB)=' .env.production)
-IMG=$(docker inspect aim-postgres-1 --format '{{.Config.Image}}')
-docker run -d --name aim-restore-rehearsal \
-  -e POSTGRES_USER="$POSTGRES_USER" -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" -e POSTGRES_DB="$POSTGRES_DB" "$IMG"
-until docker exec aim-restore-rehearsal pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do sleep 2; done
-gunzip -c <최신덤프> | docker exec -i aim-restore-rehearsal \
-  psql -q -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1
-docker exec aim-restore-rehearsal psql -tA -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
-  "select version_num from alembic_version; select count(*) from check_runs;"
-docker rm -f aim-restore-rehearsal
+scripts/restore-rehearsal.sh          # 최신 로컬 덤프·아카이브
+scripts/restore-rehearsal.sh <덤프.sql.gz>
 ```
 
-합격 기준: SQL 오류 0건, `alembic_version` = `migrations/versions/` 마지막 파일, 주요 테이블 행 수가 운영과 시점 차 내에서 일치.
+합격 기준(스크립트가 판정): SQL 오류 0건, `alembic_version` = `migrations/versions/` 헤드,
+주요 테이블 조회 성공(행 수는 운영과 시점 차 내 일치 — 출력으로 눈 확인), 아티팩트
+아카이브 gzip/tar 무결성. 실패 시 종료 코드 1과 사유 목록.
 
 ### 리허설 기록
 
 | 일자 | 덤프 | 결과 |
 |---|---|---|
 | 2026-07-14 | aim-20260713-180001.sql.gz (208K) | 성공 — 오류 0, alembic `20260713_0031`, 테이블 21, projects/users 운영 일치, check_runs 159(운영 164, 시점 차 5건) |
+| 2026-07-29 | aim-20260729-180001.sql.gz (408K) | 성공(scripts/restore-rehearsal.sh, 5초) — 오류 0, alembic `20260728_0038`=헤드, users 6·projects 5·check_runs 287·artifacts 141 전부 운영 일치, 아티팩트 아카이브 26M/296파일 무결 |

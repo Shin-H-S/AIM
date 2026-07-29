@@ -173,3 +173,61 @@ def test_the_bearer_path_still_works_end_to_end(client: TestClient) -> None:
     response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 200
+
+
+def stale_session(client: TestClient) -> str:
+    """반감기(15분)를 지난 쿠키 세션을 만든다. 심어 둔 csrf 값을 돌려준다."""
+    from datetime import timedelta
+    from uuid import UUID
+
+    from aim_api.security import create_access_token
+
+    login(client)
+    user_id = UUID(client.get("/auth/me").json()["id"])
+    stale_token = create_access_token(user_id, expires_delta=timedelta(minutes=10))
+    client.cookies.set(ACCESS_TOKEN_COOKIE, stale_token)
+    client.cookies.set(CSRF_COOKIE, "existing-csrf-value")
+    return "existing-csrf-value"
+
+
+def test_a_stale_cookie_session_is_renewed(client: TestClient) -> None:
+    """반감기를 지난 세션으로 요청하면 응답이 쿠키를 새로 심어 만료를 미룬다."""
+    csrf_value = stale_session(client)
+
+    response = client.get("/auth/me")
+
+    assert response.status_code == 200
+    set_cookie_headers = response.headers.get_list("set-cookie")
+    access = next(h for h in set_cookie_headers if h.startswith(f"{ACCESS_TOKEN_COOKIE}="))
+    csrf = next(h for h in set_cookie_headers if h.startswith(f"{CSRF_COOKIE}="))
+    assert "HttpOnly" in access
+    # csrf 값은 유지된다 — 회전하면 옛 값을 실은 in-flight 요청이 403으로 튕긴다.
+    assert f"{CSRF_COOKIE}={csrf_value}" in csrf
+
+
+def test_a_fresh_cookie_session_is_not_renewed(client: TestClient) -> None:
+    """수명이 절반 넘게 남은 세션까지 갱신하면 모든 응답이 Set-Cookie를 실어 나른다."""
+    login(client)
+
+    response = client.get("/auth/me")
+
+    assert response.status_code == 200
+    assert not response.headers.get_list("set-cookie")
+
+
+def test_bearer_requests_are_never_renewed(client: TestClient) -> None:
+    """Bearer 호출자는 토큰 수명을 스스로 관리한다 — 서버가 끼어들면 안 된다."""
+    from datetime import timedelta
+    from uuid import UUID
+
+    from aim_api.security import create_access_token
+
+    login(client)
+    user_id = UUID(client.get("/auth/me").json()["id"])
+    stale_token = create_access_token(user_id, expires_delta=timedelta(minutes=10))
+    client.cookies.clear()
+
+    response = client.get("/auth/me", headers={"Authorization": f"Bearer {stale_token}"})
+
+    assert response.status_code == 200
+    assert not response.headers.get_list("set-cookie")

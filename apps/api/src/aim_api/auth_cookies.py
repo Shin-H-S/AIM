@@ -34,11 +34,20 @@ def new_csrf_token() -> str:
     return secrets.token_hex(CSRF_TOKEN_BYTES)
 
 
-def set_auth_cookies(response: Response, *, access_token: str) -> str:
-    """로그인 응답에 세션 쿠키 한 쌍을 싣는다. 발급한 csrf 토큰을 돌려준다."""
+def set_auth_cookies(
+    response: Response, *, access_token: str, csrf_token: str | None = None
+) -> str:
+    """세션 쿠키 한 쌍을 싣는다. 사용한 csrf 토큰을 돌려준다.
+
+    csrf_token을 넘기면 그 값을 유지한 채 만료만 연장한다 — 세션 연장 때
+    csrf를 회전시키면, 옛 값을 헤더에 실은 in-flight 요청이 403으로 튕긴다.
+    double-submit의 안전성은 값의 신선도가 아니라 "우리 도메인 쿠키를 읽을 수
+    있는가"에서 나오므로 세션 수명 동안 값을 유지해도 잃는 것이 없다.
+    """
     settings = get_settings()
     max_age_seconds = settings.jwt_access_token_expire_minutes * 60
-    csrf_token = new_csrf_token()
+    if csrf_token is None:
+        csrf_token = new_csrf_token()
 
     response.set_cookie(
         ACCESS_TOKEN_COOKIE,

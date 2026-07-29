@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  sessionFetch,
   cancelCheckRun,
   clearAgentInvestigationFeedback,
   clearProjectBaseline,
@@ -2836,5 +2837,51 @@ describe("agent investigation feedback", () => {
     });
 
     expect(result).toEqual({ state: "unavailable" });
+  });
+});
+
+describe("sessionFetch", () => {
+  const SESSION_CHANGE_EVENT = "aim:session-changed";
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubBrowser(cookie: string, status: number) {
+    const fetchMock = vi.fn(async () => new Response(null, { status }));
+    const dispatchEvent = vi.fn();
+    vi.stubGlobal("document", { cookie });
+    vi.stubGlobal("window", { dispatchEvent });
+    vi.stubGlobal("fetch", fetchMock);
+    return { fetchMock, dispatchEvent };
+  }
+
+  it("includes credentials and the csrf proof when a session exists", async () => {
+    const { fetchMock } = stubBrowser("aim_csrf=proof-value", 200);
+
+    await sessionFetch("http://localhost:8000/projects", { method: "POST" });
+
+    expect(fetchMock).toHaveBeenCalledWith("http://localhost:8000/projects", {
+      method: "POST",
+      credentials: "include",
+      headers: { "X-CSRF-Token": "proof-value" }
+    });
+  });
+
+  it("announces the session change when a believed session gets a 401", async () => {
+    const { dispatchEvent } = stubBrowser("aim_csrf=proof-value", 401);
+
+    await sessionFetch("http://localhost:8000/auth/me");
+
+    expect(dispatchEvent).toHaveBeenCalledTimes(1);
+    expect(dispatchEvent.mock.calls[0][0].type).toBe(SESSION_CHANGE_EVENT);
+  });
+
+  it("stays quiet on a 401 without a session — nothing changed", async () => {
+    const { dispatchEvent } = stubBrowser("", 401);
+
+    await sessionFetch("http://localhost:8000/auth/login", { method: "POST" });
+
+    expect(dispatchEvent).not.toHaveBeenCalled();
   });
 });

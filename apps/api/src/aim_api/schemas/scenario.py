@@ -88,12 +88,23 @@ class TestStepCreate(TestStepBase):
     pass
 
 
-class TestStepRead(TestStepBase):
+class TestStepRead(BaseModel):
+    """조회 응답 — TestStepBase를 상속하지 않는다(ProjectRead와 같은 이유).
+
+    Create 기본값이 응답 스키마에 새면 생성된 타입에서 전 필드가 optional로
+    떨어진다. 검증 로직도 불필요하다 — 저장된 행은 이미 검증을 통과했다.
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     scenario_id: UUID
     step_order: int
+    action: TestStepAction
+    target: str | None
+    value: str | None
+    timeout_ms: int | None
+    is_critical: bool
     created_at: datetime
     updated_at: datetime
 

@@ -2244,9 +2244,9 @@
         "type": "string"
       },
       "ProjectRead": {
+        "description": "조회 응답 — ProjectBase를 상속하지 않는다.\n\n상속하면 Create용 기본값이 응답 스키마에 그대로 실려, OpenAPI에서 이\n필드들이 전부 \"생략 가능\"으로 표현되고 생성된 프런트 타입이 불필요한\noptional 투성이가 된다. ORM 행에는 모든 컬럼이 항상 있다 — 응답 필드는\n전부 required이고, nullable 여부만 컬럼을 따른다.",
         "properties": {
           "alert_email_enabled": {
-            "default": false,
             "title": "Alert Email Enabled",
             "type": "boolean"
           },
@@ -2296,7 +2296,6 @@
           "description": {
             "anyOf": [
               {
-                "maxLength": 1000,
                 "type": "string"
               },
               {
@@ -2306,8 +2305,7 @@
             "title": "Description"
           },
           "environment": {
-            "$ref": "#/components/schemas/ProjectEnvironment",
-            "default": "development"
+            "$ref": "#/components/schemas/ProjectEnvironment"
           },
           "id": {
             "format": "uuid",
@@ -2319,8 +2317,6 @@
             "type": "boolean"
           },
           "name": {
-            "maxLength": 120,
-            "minLength": 1,
             "title": "Name",
             "type": "string"
           },
@@ -2330,34 +2326,23 @@
             "type": "string"
           },
           "quality_score_threshold": {
-            "default": 80,
-            "maximum": 100.0,
-            "minimum": 0.0,
             "title": "Quality Score Threshold",
             "type": "integer"
           },
           "response_time_threshold_ms": {
-            "default": 2000,
-            "maximum": 600000.0,
-            "minimum": 1.0,
             "title": "Response Time Threshold Ms",
             "type": "integer"
           },
           "scan_interval_minutes": {
-            "default": 60,
-            "maximum": 43200.0,
-            "minimum": 1.0,
             "title": "Scan Interval Minutes",
             "type": "integer"
           },
           "scheduled_scans_enabled": {
-            "default": false,
             "title": "Scheduled Scans Enabled",
             "type": "boolean"
           },
           "scoring_preset": {
-            "$ref": "#/components/schemas/ScoringPreset",
-            "default": "service"
+            "$ref": "#/components/schemas/ScoringPreset"
           },
           "service_url": {
             "format": "uri",
@@ -2373,10 +2358,20 @@
           }
         },
         "required": [
-          "name",
-          "service_url",
           "id",
           "owner_id",
+          "name",
+          "service_url",
+          "description",
+          "environment",
+          "scoring_preset",
+          "scan_interval_minutes",
+          "scheduled_scans_enabled",
+          "response_time_threshold_ms",
+          "quality_score_threshold",
+          "alert_email_enabled",
+          "alert_recipient_email",
+          "alert_webhook_url",
           "is_verified",
           "baseline_check_run_id",
           "created_at",
@@ -3645,6 +3640,7 @@
         "type": "object"
       },
       "TestStepRead": {
+        "description": "조회 응답 — TestStepBase를 상속하지 않는다(ProjectRead와 같은 이유).\n\nCreate 기본값이 응답 스키마에 새면 생성된 타입에서 전 필드가 optional로\n떨어진다. 검증 로직도 불필요하다 — 저장된 행은 이미 검증을 통과했다.",
         "properties": {
           "action": {
             "$ref": "#/components/schemas/TestStepAction"
@@ -3660,7 +3656,6 @@
             "type": "string"
           },
           "is_critical": {
-            "default": true,
             "title": "Is Critical",
             "type": "boolean"
           },
@@ -3676,8 +3671,6 @@
           "target": {
             "anyOf": [
               {
-                "maxLength": 2048,
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -3689,8 +3682,6 @@
           "timeout_ms": {
             "anyOf": [
               {
-                "maximum": 120000.0,
-                "minimum": 1.0,
                 "type": "integer"
               },
               {
@@ -3707,8 +3698,6 @@
           "value": {
             "anyOf": [
               {
-                "maxLength": 10000,
-                "minLength": 1,
                 "type": "string"
               },
               {
@@ -3719,10 +3708,14 @@
           }
         },
         "required": [
-          "action",
           "id",
           "scenario_id",
           "step_order",
+          "action",
+          "target",
+          "value",
+          "timeout_ms",
+          "is_critical",
           "created_at",
           "updated_at"
         ],

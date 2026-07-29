@@ -159,11 +159,31 @@ class ProjectBaselineUpdate(BaseModel):
     check_run_id: UUID
 
 
-class ProjectRead(ProjectBase):
+class ProjectRead(BaseModel):
+    """조회 응답 — ProjectBase를 상속하지 않는다.
+
+    상속하면 Create용 기본값이 응답 스키마에 그대로 실려, OpenAPI에서 이
+    필드들이 전부 "생략 가능"으로 표현되고 생성된 프런트 타입이 불필요한
+    optional 투성이가 된다. ORM 행에는 모든 컬럼이 항상 있다 — 응답 필드는
+    전부 required이고, nullable 여부만 컬럼을 따른다.
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     owner_id: UUID
+    name: str
+    service_url: HttpUrl
+    description: str | None
+    environment: ProjectEnvironment
+    scoring_preset: ScoringPreset
+    scan_interval_minutes: int
+    scheduled_scans_enabled: bool
+    response_time_threshold_ms: int
+    quality_score_threshold: int
+    alert_email_enabled: bool
+    alert_recipient_email: EmailStr | None
+    alert_webhook_url: HttpUrl | None
     is_verified: bool
     baseline_check_run_id: UUID | None
     created_at: datetime

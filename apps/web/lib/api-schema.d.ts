@@ -1472,17 +1472,22 @@ export interface components {
          * @enum {string}
          */
         ProjectEnvironment: "development" | "staging" | "production";
-        /** ProjectRead */
+        /**
+         * ProjectRead
+         * @description 조회 응답 — ProjectBase를 상속하지 않는다.
+         *
+         *     상속하면 Create용 기본값이 응답 스키마에 그대로 실려, OpenAPI에서 이
+         *     필드들이 전부 "생략 가능"으로 표현되고 생성된 프런트 타입이 불필요한
+         *     optional 투성이가 된다. ORM 행에는 모든 컬럼이 항상 있다 — 응답 필드는
+         *     전부 required이고, nullable 여부만 컬럼을 따른다.
+         */
         ProjectRead: {
-            /**
-             * Alert Email Enabled
-             * @default false
-             */
+            /** Alert Email Enabled */
             alert_email_enabled: boolean;
             /** Alert Recipient Email */
-            alert_recipient_email?: string | null;
+            alert_recipient_email: string | null;
             /** Alert Webhook Url */
-            alert_webhook_url?: string | null;
+            alert_webhook_url: string | null;
             /** Baseline Check Run Id */
             baseline_check_run_id: string | null;
             /**
@@ -1491,8 +1496,7 @@ export interface components {
              */
             created_at: string;
             /** Description */
-            description?: string | null;
-            /** @default development */
+            description: string | null;
             environment: components["schemas"]["ProjectEnvironment"];
             /**
              * Id
@@ -1508,27 +1512,14 @@ export interface components {
              * Format: uuid
              */
             owner_id: string;
-            /**
-             * Quality Score Threshold
-             * @default 80
-             */
+            /** Quality Score Threshold */
             quality_score_threshold: number;
-            /**
-             * Response Time Threshold Ms
-             * @default 2000
-             */
+            /** Response Time Threshold Ms */
             response_time_threshold_ms: number;
-            /**
-             * Scan Interval Minutes
-             * @default 60
-             */
+            /** Scan Interval Minutes */
             scan_interval_minutes: number;
-            /**
-             * Scheduled Scans Enabled
-             * @default false
-             */
+            /** Scheduled Scans Enabled */
             scheduled_scans_enabled: boolean;
-            /** @default service */
             scoring_preset: components["schemas"]["ScoringPreset"];
             /**
              * Service Url
@@ -1949,7 +1940,13 @@ export interface components {
             /** Value */
             value?: string | null;
         };
-        /** TestStepRead */
+        /**
+         * TestStepRead
+         * @description 조회 응답 — TestStepBase를 상속하지 않는다(ProjectRead와 같은 이유).
+         *
+         *     Create 기본값이 응답 스키마에 새면 생성된 타입에서 전 필드가 optional로
+         *     떨어진다. 검증 로직도 불필요하다 — 저장된 행은 이미 검증을 통과했다.
+         */
         TestStepRead: {
             action: components["schemas"]["TestStepAction"];
             /**
@@ -1962,10 +1959,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /**
-             * Is Critical
-             * @default true
-             */
+            /** Is Critical */
             is_critical: boolean;
             /**
              * Scenario Id
@@ -1975,16 +1969,16 @@ export interface components {
             /** Step Order */
             step_order: number;
             /** Target */
-            target?: string | null;
+            target: string | null;
             /** Timeout Ms */
-            timeout_ms?: number | null;
+            timeout_ms: number | null;
             /**
              * Updated At
              * Format: date-time
              */
             updated_at: string;
             /** Value */
-            value?: string | null;
+            value: string | null;
         };
         /** UserCreate */
         UserCreate: {

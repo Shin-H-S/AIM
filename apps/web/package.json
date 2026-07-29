@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@tailwindcss/postcss": "4.3.1",
@@ -19,11 +20,14 @@
     "tailwindcss": "4.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@types/node": "26.0.0",
+    "@types/pg": "^8.20.0",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.9",
+    "pg": "^8.22.0",
     "typescript": "6.0.3",
     "vitest": "4.1.9"
   }

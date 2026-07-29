@@ -121,3 +121,58 @@ jobs:
       # 만들기 때문에 그 드리프트를 잡지 못한다 — 여기가 유일한 방어선이다.
       - name: Check for model/migration drift
         run: uv run alembic -c migrations/alembic.ini check
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: aim
+          POSTGRES_USER: aim
+          POSTGRES_PASSWORD: aim
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aim -d aim"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: |
+          uv sync --locked
+          pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --filter @aim/web exec playwright install --with-deps chromium
+      # 실제 API(uvicorn)와 빌드된 웹(next start)을 Playwright webServer가 띄운다.
+      # DB 초기화·마이그레이션도 그 기동 명령에 들어 있다 — 로컬과 같은 경로.
+      - name: Run E2E
+        run: pnpm --filter @aim/web e2e
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          retention-days: 7

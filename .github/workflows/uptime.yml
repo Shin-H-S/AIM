@@ -1,0 +1,50 @@
+# VM 밖에서 보는 외부 감시.
+#
+# monitor-vm-health.sh와 monitor-metrics.sh는 VM 안에서 돈다 — VM이 통째로
+# 죽는 순간 감시도 같이 죽고, 아무도 그 사실을 모른다. 이 워크플로는 GitHub
+# 러너(외부)에서 웹·API를 찔러, VM 유실이라는 최악의 경우를 정확히 그때
+# 알 수 있게 한다.
+#
+# 실패 시: OPS_WEBHOOK_URL 저장소 시크릿이 있으면 Discord로 경보를 보낸다.
+# 시크릿이 없어도 워크플로 실패 자체가 GitHub 알림(메일)으로 간다.
+# 스케줄 러너는 상태가 없어 장애가 지속되면 주기마다 다시 경보한다 — VM 유실은
+# 드물고 치명적이라 반복 경보가 오히려 맞다.
+name: uptime
+
+on:
+  schedule:
+    # GitHub cron은 UTC이고 스케줄 시각은 부하에 따라 수 분 밀릴 수 있다.
+    # 정밀 감시가 아니라 "VM이 죽었는데 아무도 모르는 상태"를 없애는 것이 목적.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe web and API from outside the VM
+        id: probe
+        run: |
+          down=""
+          # 러너 쪽 순간 결함으로 오탐하지 않게 재시도 후에만 실패로 본다.
+          curl -fsS --max-time 20 --retry 3 --retry-delay 10 --retry-all-errors \
+            https://qaaimsync.com >/dev/null || down="web"
+          curl -fsS --max-time 20 --retry 3 --retry-delay 10 --retry-all-errors \
+            https://api.qaaimsync.com/health >/dev/null || down="${down:+$down,}api"
+          if [ -n "$down" ]; then
+            echo "down=$down" >> "$GITHUB_OUTPUT"
+            echo "unreachable: $down"
+            exit 1
+          fi
+
+      - name: Alert the ops webhook
+        if: failure()
+        env:
+          OPS_WEBHOOK_URL: ${{ secrets.OPS_WEBHOOK_URL }}
+          DOWN: ${{ steps.probe.outputs.down }}
+        run: |
+          [ -n "$OPS_WEBHOOK_URL" ] || { echo "OPS_WEBHOOK_URL 시크릿 미설정 — GitHub 실패 알림만 나간다."; exit 0; }
+          curl -fsS -X POST -H "Content-Type: application/json" \
+            -d "{\"content\": \"🔴 외부 감시: qaaimsync.com 도달 불가 (${DOWN:-unknown}). VM 자체가 죽었을 수 있다 — 내부 경보는 함께 죽었으니 이 메시지가 유일한 신호다.\"}" \
+            "$OPS_WEBHOOK_URL" >/dev/null

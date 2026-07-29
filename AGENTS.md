@@ -569,6 +569,21 @@ pnpm test
 pnpm build
 ```
 
+### End-to-end
+
+핵심 사용자 여정(가입 → 프로젝트 생성 → 도메인 인증 → 검사 시작)을 실제
+API·웹 서버 위에서 검증한다. PostgreSQL과 Redis가 떠 있어야 하며, 서버 기동과
+전용 DB(`aim_e2e`) 초기화는 Playwright가 알아서 한다.
+
+```bash
+docker compose -f infra/compose.dev.yaml up -d postgres redis
+pnpm --filter @aim/web e2e
+```
+
+테스트 더블은 도메인 소유권 인증 하나뿐이다(대상 사이트에 meta 태그를 심을 수
+없으므로 DB에서 마킹) — 그 단계의 실검증은 lab 실험대 도그푸딩이 담당한다.
+인증 흐름을 바꾸는 작업(쿠키 전환 등)은 이 스위트가 통과해야 한다.
+
 Use the repository’s actual scripts if they differ.
 
 Important test targets:

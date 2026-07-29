@@ -8,6 +8,7 @@ import redis
 from fastapi import HTTPException, Request, status
 
 from aim_api.config import get_settings
+from aim_api.services.ops_alerts import notify_ops_in_background
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class RedisRateLimiter:
             socket_timeout=REDIS_SOCKET_TIMEOUT_SECONDS,
         )
         self._storage_unavailable_until = 0.0
+        self._outage_notified = False
 
     def hit(self, *, key: str, limit: int, window_seconds: int) -> bool:
         if time.monotonic() < self._storage_unavailable_until:
@@ -52,7 +54,27 @@ class RedisRateLimiter:
         except redis.RedisError:
             self._storage_unavailable_until = time.monotonic() + STORAGE_RETRY_BACKOFF_SECONDS
             logger.warning("Rate limiter storage is unavailable; allowing requests.")
+            # fail-open은 브루트포스 방어가 꺼진 상태다. warning 로그만으로는
+            # 아무도 모른 채 지나간다 — 전환되는 순간 운영자에게 한 번 알린다.
+            # 백오프 창마다 반복하면 장애 하나에 알림 수십 건이 되므로 1회로 막고,
+            # 복구를 확인하면 아래에서 다시 무장한다.
+            if not self._outage_notified:
+                self._outage_notified = True
+                notify_ops_in_background(
+                    title="Rate limiter fail-open",
+                    detail=(
+                        "Redis is unreachable, so per-IP rate limits are not enforced — "
+                        "login/signup endpoints accept unlimited attempts until it recovers."
+                    ),
+                )
             return True
+
+        if self._outage_notified:
+            self._outage_notified = False
+            notify_ops_in_background(
+                title="Rate limiter recovered",
+                detail="Redis is reachable again; per-IP rate limits are enforced.",
+            )
 
         return int(count) <= limit
 

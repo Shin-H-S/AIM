@@ -84,6 +84,29 @@ def collect_agent_token_samples(session: Session) -> list[tuple[dict[str, str], 
     ]
 
 
+def collect_agent_feedback_samples(session: Session) -> list[tuple[dict[str, str], float]]:
+    """조사에 대한 사용자 판정(정확/부정확) 건수.
+
+    피드백 채널은 조사 정확도를 합성 평가셋이 아닌 실데이터로 재기 위해 만들었다
+    (ADR 0002의 남은 한계). 그런데 쌓이는지 볼 수단이 없으면 채널이 죽어 있어도
+    모른다 — 이 메트릭이 그 감시다. 정확도 자체는 소비자가 두 값으로 계산한다.
+
+    두 버킷을 항상 내보내는 이유는 인시던트 메트릭과 같다: 라벨이 사라지면
+    스크레이퍼의 시계열이 끊긴다. 미피드백 조사 수는 조사 총수에서 빼면 나온다.
+    """
+    rows = session.execute(
+        select(AgentInvestigation.feedback_verdict, func.count())
+        .where(AgentInvestigation.feedback_verdict.is_not(None))
+        .group_by(AgentInvestigation.feedback_verdict)
+    ).all()
+
+    counts = {"accurate": 0.0, "inaccurate": 0.0}
+    for verdict, count in rows:
+        counts[str(verdict)] = float(count)
+
+    return [({"verdict": verdict}, count) for verdict, count in sorted(counts.items())]
+
+
 def collect_open_incident_samples(
     session: Session, *, now: datetime
 ) -> list[tuple[dict[str, str], float]]:
@@ -184,6 +207,16 @@ def collect_metrics(session: Session, *, now: datetime | None = None) -> list[Me
                 ({"root_cause": labels["value"]}, count)
                 for labels, count in count_by(session, AgentInvestigation.root_cause)
             ],
+        ),
+        Metric(
+            name="aim_agent_feedback_total",
+            help_text=(
+                "User verdicts on agent investigations. Accuracy against real incidents "
+                "is accurate / (accurate + inaccurate); investigations without feedback "
+                "are the investigations total minus the sum of these."
+            ),
+            metric_type="gauge",
+            samples=collect_agent_feedback_samples(session),
         ),
         Metric(
             name="aim_agent_llm_tokens_total",

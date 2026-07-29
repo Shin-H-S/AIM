@@ -329,8 +329,11 @@ Do not introduce a second queue framework without a clear reason.
 
 ### Artifact storage
 
-* MinIO for local development
-* Object storage (e.g., Oracle Cloud Object Storage) for production later
+* Local filesystem is the only implemented backend today (`ARTIFACT_LOCAL_ROOT`),
+  with retention (`purge_expired_artifacts`) and weekly off-box backups.
+* Object storage (e.g., Oracle Cloud Object Storage) is a possible later move;
+  do not pre-wire its settings before implementing the backend — dead
+  configuration misleads operators about what the system can do.
 * Store only artifact metadata and paths in PostgreSQL
 
 Artifacts include:

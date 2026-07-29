@@ -12,6 +12,7 @@ incoming webhook을 그대로 쓴다. 새 인프라를 들이지 않는다.
 """
 
 import logging
+import threading
 from typing import Protocol
 
 import httpx
@@ -90,3 +91,29 @@ def notify_ops(
         return False
 
     return True
+
+
+def notify_ops_in_background(
+    *,
+    title: str,
+    detail: str,
+    request_id: str | None = None,
+) -> threading.Thread:
+    """운영 알림을 요청 경로 밖에서 보낸다.
+
+    rate limit·토큰 폐기 같은 요청 경로에서 notify_ops를 직접 부르면 webhook
+    timeout(기본 10초)만큼 사용자 요청이 붙잡힌다 — fail-open의 목적이 "저장소
+    장애가 서비스 장애가 되지 않게"인데, 그 알림이 서비스를 느리게 하면
+    본말전도다. daemon 스레드라 프로세스 종료를 막지 않고, notify_ops가 모든
+    예외를 삼키므로 스레드가 죽어도 아무것도 전파되지 않는다.
+
+    스레드 객체를 돌려주는 것은 테스트가 완료를 기다릴 수 있게 하기 위해서다.
+    운영 코드는 반환값을 무시한다.
+    """
+    thread = threading.Thread(
+        target=notify_ops,
+        kwargs={"title": title, "detail": detail, "request_id": request_id},
+        daemon=True,
+    )
+    thread.start()
+    return thread

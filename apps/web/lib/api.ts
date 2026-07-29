@@ -2,6 +2,31 @@
 // api-schema.d.ts를 재수출한다. 백엔드 스키마가 바뀌면 CI가 스냅샷·타입
 // 재생성을 강제하고, 낡은 필드를 쓰는 프런트 코드는 컴파일 에러로 드러난다.
 import type { components } from "./api-schema";
+import { CSRF_HEADER_NAME, getCsrfToken } from "./auth";
+
+/**
+ * 세션이 쿠키로 오가는 세계의 기본 fetch.
+ *
+ * credentials:"include"가 없으면 브라우저는 크로스 오리진(API 서브도메인)
+ * 요청에 세션 쿠키를 싣지 않는다. csrf 헤더는 상태 변경 요청에서 서버가
+ * 요구하는 double-submit 증명이다 — GET에는 불필요하지만 항상 실어도
+ * 무해하고, 메서드별 분기를 없애 실수 표면을 줄인다.
+ *
+ * 각 API 함수의 fetcher 기본값이 이것이다. 테스트는 이전처럼 fetcher를
+ * 주입해 네트워크 없이 검증한다.
+ */
+export const sessionFetch: typeof fetch = (input, init = {}) => {
+  const csrfToken = getCsrfToken();
+  return fetch(input, {
+    ...init,
+    credentials: "include",
+    headers: {
+      ...(init.headers as Record<string, string> | undefined),
+      ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {})
+    }
+  });
+};
+
 
 const DEFAULT_API_BASE_URL = "http://localhost:8000";
 
@@ -337,8 +362,6 @@ export type VerifyProjectDomainResult =
 export type LoginResult =
   | {
       state: "success";
-      accessToken: string;
-      tokenType: string;
     }
   | {
       state: "invalid-credentials";
@@ -1032,7 +1055,7 @@ export async function fetchApiHealth(
 export async function loginUser({
   email,
   password,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   email: string;
@@ -1062,18 +1085,14 @@ export async function loginUser({
       return { state: "unavailable" };
     }
 
+    // 세션은 응답의 Set-Cookie(httpOnly)로 성립한다. 본문 토큰은 스크립트용
+    // Bearer 경로의 잔재이므로 여기서는 발급 여부만 확인한다.
     const payload = (await response.json()) as AccessTokenPayload;
-    const accessToken = payload.access_token?.trim();
-
-    if (!accessToken) {
+    if (!payload.access_token?.trim()) {
       return { state: "unavailable" };
     }
 
-    return {
-      state: "success",
-      accessToken,
-      tokenType: payload.token_type ?? "bearer"
-    };
+    return { state: "success" };
   } catch {
     return { state: "unavailable" };
   }
@@ -1081,7 +1100,7 @@ export async function loginUser({
 
 export async function signupUser({
   payload,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   payload: SignupPayload;
@@ -1121,7 +1140,7 @@ export async function signupUser({
 
 export async function requestPasswordReset({
   email,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   email: string;
@@ -1151,7 +1170,7 @@ export async function requestPasswordReset({
 export async function confirmPasswordReset({
   token,
   newPassword,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   token: string;
@@ -1185,7 +1204,7 @@ export async function confirmPasswordReset({
 
 export async function requestEmailVerification({
   email,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   email: string;
@@ -1214,7 +1233,7 @@ export async function requestEmailVerification({
 
 export async function confirmEmailVerification({
   token,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   token: string;
@@ -1246,20 +1265,16 @@ export async function confirmEmailVerification({
 }
 
 export async function fetchCurrentUser({
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<CurrentUserResult> {
   try {
     const response = await fetcher(getCurrentUserUrl(apiBaseUrl ?? getApiBaseUrl()), {
       cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
+      headers: {}
     });
 
     if (response.status === 401 || response.status === 403) {
@@ -1280,11 +1295,9 @@ export async function fetchCurrentUser({
 }
 
 export async function logoutUser({
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<LogoutResult> {
@@ -1292,9 +1305,7 @@ export async function logoutUser({
     const response = await fetcher(getLogoutUrl(apiBaseUrl ?? getApiBaseUrl()), {
       method: "POST",
       cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
+      headers: {}
     });
 
     if (response.status === 401 || response.status === 403) {
@@ -1312,13 +1323,11 @@ export async function logoutUser({
 }
 
 export async function fetchProjects({
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl,
   limit,
   offset
 }: {
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
   limit?: number;
@@ -1329,9 +1338,7 @@ export async function fetchProjects({
       getProjectsUrl(apiBaseUrl ?? getApiBaseUrl(), { limit, offset }),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -1354,12 +1361,10 @@ export async function fetchProjects({
 
 export async function fetchProject({
   projectId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<ProjectDetailResult> {
@@ -1368,9 +1373,7 @@ export async function fetchProject({
       getProjectDetailUrl(projectId, apiBaseUrl ?? getApiBaseUrl()),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -1396,12 +1399,10 @@ export async function fetchProject({
 }
 
 export async function createProject({
-  accessToken,
   payload,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
-  accessToken: string;
   payload: ProjectPayload;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
@@ -1411,7 +1412,6 @@ export async function createProject({
       method: "POST",
       cache: "no-store",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
@@ -1425,13 +1425,11 @@ export async function createProject({
 
 export async function updateProject({
   projectId,
-  accessToken,
   payload,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
-  accessToken: string;
   payload: ProjectPayload;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
@@ -1443,7 +1441,6 @@ export async function updateProject({
         method: "PATCH",
         cache: "no-store",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)
@@ -1458,12 +1455,10 @@ export async function updateProject({
 
 export async function fetchProjectVerification({
   projectId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<ProjectVerificationReadResult> {
@@ -1472,9 +1467,7 @@ export async function fetchProjectVerification({
       getProjectVerificationUrl(projectId, apiBaseUrl ?? getApiBaseUrl()),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -1501,12 +1494,10 @@ export async function fetchProjectVerification({
 
 export async function verifyProjectDomain({
   projectId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<VerifyProjectDomainResult> {
@@ -1516,9 +1507,7 @@ export async function verifyProjectDomain({
       {
         method: "POST",
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -1576,14 +1565,12 @@ async function mapProjectMutationResponse(response: Response): Promise<ProjectMu
 
 export async function fetchCheckRuns({
   projectId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl,
   limit,
   offset
 }: {
   projectId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
   limit?: number;
@@ -1594,9 +1581,7 @@ export async function fetchCheckRuns({
       getCheckRunsUrl(projectId, apiBaseUrl ?? getApiBaseUrl(), { limit, offset }),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -1623,14 +1608,12 @@ export async function fetchCheckRuns({
 
 export async function fetchProjectIncidents({
   projectId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl,
   limit,
   offset
 }: {
   projectId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
   limit?: number;
@@ -1641,9 +1624,7 @@ export async function fetchProjectIncidents({
       getProjectIncidentsUrl(projectId, apiBaseUrl ?? getApiBaseUrl(), { limit, offset }),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -1670,14 +1651,12 @@ export async function fetchProjectIncidents({
 
 export async function fetchProjectAlerts({
   projectId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl,
   limit,
   offset
 }: {
   projectId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
   limit?: number;
@@ -1688,9 +1667,7 @@ export async function fetchProjectAlerts({
       getProjectAlertsUrl(projectId, apiBaseUrl ?? getApiBaseUrl(), { limit, offset }),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -1718,13 +1695,11 @@ export async function fetchProjectAlerts({
 export async function retryAlert({
   projectId,
   alertId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   alertId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<RetryAlertResult> {
@@ -1734,9 +1709,7 @@ export async function retryAlert({
       {
         method: "POST",
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -1767,12 +1740,10 @@ export async function retryAlert({
 
 export async function createCheckRun({
   projectId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<CreateCheckRunResult> {
@@ -1783,7 +1754,6 @@ export async function createCheckRun({
         method: "POST",
         cache: "no-store",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json"
         },
         body: "{}"
@@ -1817,12 +1787,10 @@ export async function createCheckRun({
 
 export async function downloadArtifact({
   artifactId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   artifactId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<ArtifactDownloadResult> {
@@ -1831,9 +1799,7 @@ export async function downloadArtifact({
       getArtifactDownloadUrl(artifactId, apiBaseUrl ?? getApiBaseUrl()),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -1893,13 +1859,11 @@ function getFilenameFromContentDisposition(value: string | null): string | null 
 export async function fetchCheckRunDetail({
   projectId,
   checkRunId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   checkRunId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<CheckRunDetailResult> {
@@ -1908,9 +1872,7 @@ export async function fetchCheckRunDetail({
       getCheckRunDetailUrl(projectId, checkRunId, apiBaseUrl ?? getApiBaseUrl()),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -1938,13 +1900,11 @@ export async function fetchCheckRunDetail({
 export async function fetchCheckRunAIReport({
   projectId,
   checkRunId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   checkRunId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<AIReportDetailResult> {
@@ -1953,9 +1913,7 @@ export async function fetchCheckRunAIReport({
       getCheckRunAIReportUrl(projectId, checkRunId, apiBaseUrl ?? getApiBaseUrl()),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -1983,13 +1941,11 @@ export async function fetchCheckRunAIReport({
 export async function cancelCheckRun({
   projectId,
   checkRunId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   checkRunId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<CancelCheckRunResult> {
@@ -1999,9 +1955,7 @@ export async function cancelCheckRun({
       {
         method: "POST",
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -2028,12 +1982,10 @@ export async function cancelCheckRun({
 
 export async function deleteProject({
   projectId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<DeleteProjectResult> {
@@ -2043,9 +1995,7 @@ export async function deleteProject({
       {
         method: "DELETE",
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -2070,13 +2020,11 @@ export async function deleteProject({
 export async function setProjectBaseline({
   projectId,
   checkRunId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   checkRunId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<ProjectBaselineMutationResult> {
@@ -2087,7 +2035,6 @@ export async function setProjectBaseline({
         method: "PUT",
         cache: "no-store",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ check_run_id: checkRunId })
@@ -2121,12 +2068,10 @@ export async function setProjectBaseline({
 
 export async function clearProjectBaseline({
   projectId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<ProjectBaselineMutationResult> {
@@ -2136,9 +2081,7 @@ export async function clearProjectBaseline({
       {
         method: "DELETE",
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -2167,14 +2110,12 @@ export async function fetchBaselineComparison({
   projectId,
   checkRunId,
   baselineCheckRunId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   checkRunId: string;
   baselineCheckRunId?: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<BaselineComparisonResult> {
@@ -2188,9 +2129,7 @@ export async function fetchBaselineComparison({
       ),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -2223,14 +2162,12 @@ export async function fetchScenarioRunDetail({
   projectId,
   scenarioId,
   scenarioRunId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   scenarioId: string;
   scenarioRunId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<ScenarioRunDetailResult> {
@@ -2244,9 +2181,7 @@ export async function fetchScenarioRunDetail({
       ),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -2274,15 +2209,13 @@ export async function fetchScenarioRunDetail({
 export async function fetchScenarioRuns({
   projectId,
   scenarioId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl,
   limit,
   offset
 }: {
   projectId: string;
   scenarioId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
   limit?: number;
@@ -2296,9 +2229,7 @@ export async function fetchScenarioRuns({
       }),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -2325,21 +2256,17 @@ export async function fetchScenarioRuns({
 
 export async function fetchScenarios({
   projectId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<ScenarioListResult> {
   try {
     const response = await fetcher(getScenariosUrl(projectId, apiBaseUrl ?? getApiBaseUrl()), {
       cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
+      headers: {}
     });
 
     if (response.status === 401) {
@@ -2365,13 +2292,11 @@ export async function fetchScenarios({
 
 export async function createScenario({
   projectId,
-  accessToken,
   payload,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
-  accessToken: string;
   payload: TestScenarioPayload;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
@@ -2381,7 +2306,6 @@ export async function createScenario({
       method: "POST",
       cache: "no-store",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
@@ -2415,14 +2339,12 @@ export async function createScenario({
 export async function updateScenario({
   projectId,
   scenarioId,
-  accessToken,
   payload,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   scenarioId: string;
-  accessToken: string;
   payload: TestScenarioPayload;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
@@ -2434,7 +2356,6 @@ export async function updateScenario({
         method: "PATCH",
         cache: "no-store",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)
@@ -2469,13 +2390,11 @@ export async function updateScenario({
 export async function deleteScenario({
   projectId,
   scenarioId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   scenarioId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<DeleteScenarioResult> {
@@ -2485,9 +2404,7 @@ export async function deleteScenario({
       {
         method: "DELETE",
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -2512,13 +2429,11 @@ export async function deleteScenario({
 export async function createScenarioRun({
   projectId,
   scenarioId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   scenarioId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<CreateScenarioRunResult> {
@@ -2529,7 +2444,6 @@ export async function createScenarioRun({
         method: "POST",
         cache: "no-store",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json"
         },
         body: "{}"
@@ -2633,13 +2547,11 @@ export function getProjectApiTokenUrl(
 export async function createProjectApiToken({
   projectId,
   name,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   name: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<CreateProjectApiTokenResult> {
@@ -2648,7 +2560,6 @@ export async function createProjectApiToken({
       method: "POST",
       cache: "no-store",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ name })
@@ -2677,12 +2588,10 @@ export async function createProjectApiToken({
 
 export async function fetchProjectApiTokens({
   projectId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<ProjectApiTokenListResult> {
@@ -2690,9 +2599,7 @@ export async function fetchProjectApiTokens({
     const response = await fetcher(getProjectApiTokensUrl(projectId, apiBaseUrl), {
       method: "GET",
       cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
+      headers: {}
     });
 
     if (response.status === 401 || response.status === 403) {
@@ -2719,13 +2626,11 @@ export async function fetchProjectApiTokens({
 export async function revokeProjectApiToken({
   projectId,
   tokenId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   tokenId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<RevokeProjectApiTokenResult> {
@@ -2733,9 +2638,7 @@ export async function revokeProjectApiToken({
     const response = await fetcher(getProjectApiTokenUrl(projectId, tokenId, apiBaseUrl), {
       method: "DELETE",
       cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
+      headers: {}
     });
 
     if (response.status === 401 || response.status === 403) {
@@ -2843,16 +2746,14 @@ export function getCheckRunInvestigationFeedbackUrl(
 export async function submitAgentInvestigationFeedback({
   projectId,
   checkRunId,
-  accessToken,
   verdict,
   rootCause,
   note,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   checkRunId: string;
-  accessToken: string;
   verdict: AgentInvestigationVerdict;
   rootCause?: string | null;
   note?: string | null;
@@ -2862,7 +2763,6 @@ export async function submitAgentInvestigationFeedback({
   return sendAgentInvestigationFeedback({
     projectId,
     checkRunId,
-    accessToken,
     method: "PUT",
     body: {
       verdict,
@@ -2878,20 +2778,17 @@ export async function submitAgentInvestigationFeedback({
 export async function clearAgentInvestigationFeedback({
   projectId,
   checkRunId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   checkRunId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<AgentInvestigationFeedbackResult> {
   return sendAgentInvestigationFeedback({
     projectId,
     checkRunId,
-    accessToken,
     method: "DELETE",
     fetcher,
     apiBaseUrl
@@ -2901,7 +2798,6 @@ export async function clearAgentInvestigationFeedback({
 async function sendAgentInvestigationFeedback({
   projectId,
   checkRunId,
-  accessToken,
   method,
   body,
   fetcher,
@@ -2909,7 +2805,6 @@ async function sendAgentInvestigationFeedback({
 }: {
   projectId: string;
   checkRunId: string;
-  accessToken: string;
   method: "PUT" | "DELETE";
   body?: Record<string, unknown>;
   fetcher: typeof fetch;
@@ -2922,7 +2817,6 @@ async function sendAgentInvestigationFeedback({
         method,
         cache: "no-store",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           ...(body ? { "Content-Type": "application/json" } : {})
         },
         ...(body ? { body: JSON.stringify(body) } : {})
@@ -2953,13 +2847,11 @@ async function sendAgentInvestigationFeedback({
 export async function fetchAgentInvestigation({
   projectId,
   checkRunId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   checkRunId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<AgentInvestigationResult> {
@@ -2968,9 +2860,7 @@ export async function fetchAgentInvestigation({
       getCheckRunInvestigationUrl(projectId, checkRunId, apiBaseUrl ?? getApiBaseUrl()),
       {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 
@@ -2998,13 +2888,11 @@ export async function fetchAgentInvestigation({
 export async function requestAgentInvestigation({
   projectId,
   checkRunId,
-  accessToken,
-  fetcher = fetch,
+  fetcher = sessionFetch,
   apiBaseUrl
 }: {
   projectId: string;
   checkRunId: string;
-  accessToken: string;
   fetcher?: typeof fetch;
   apiBaseUrl?: string;
 }): Promise<AgentInvestigationRequestResult> {
@@ -3014,9 +2902,7 @@ export async function requestAgentInvestigation({
       {
         method: "POST",
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: {}
       }
     );
 

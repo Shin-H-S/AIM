@@ -16,6 +16,7 @@ TRUNCATE로만 비운다. 테스트마다 마이그레이션을 다시 도는 �
 
 import os
 from collections.abc import Iterator
+from typing import Any
 
 # aim_api.database 는 임포트 시점에 settings.database_url 로 엔진을 만든다.
 # 그래서 aim_api 를 임포트하기 전에 테스트 DB를 가리키게 해야 한다 — 그러지
@@ -152,6 +153,23 @@ def session(session_factory: sessionmaker[Session]) -> Iterator[Session]:
         yield testing_session
 
 
+class StatelessTestClient(TestClient):
+    """응답 쿠키를 보관하지 않는 클라이언트.
+
+    로그인이 httpOnly 세션 쿠키를 발급하게 되면서, 쿠키를 보관하는 클라이언트는
+    로그인 이후의 모든 상태 변경 요청에 CSRF 증명을 요구받는다. 기존 테스트
+    수십 개는 순수 Bearer 세계를 전제로 쓰였고 검증 대상도 인증이 아니라 각자의
+    기능이다 — 쿠키 세션이라는 배경 소음을 지워 그 의도를 보존한다.
+    쿠키·CSRF 동작 자체는 test_cookie_auth.py가 쿠키를 보관하는 별도
+    클라이언트로 검증한다.
+    """
+
+    def send(self, *args: Any, **kwargs: Any) -> Any:
+        response = super().send(*args, **kwargs)
+        self.cookies.clear()
+        return response
+
+
 @pytest.fixture()
 def api_client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
     """get_db가 테스트 데이터베이스를 보도록 덮어쓴 FastAPI 클라이언트."""
@@ -163,6 +181,6 @@ def api_client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
     app.dependency_overrides[get_db] = override_database
 
     try:
-        yield TestClient(app)
+        yield StatelessTestClient(app)
     finally:
         app.dependency_overrides.clear()

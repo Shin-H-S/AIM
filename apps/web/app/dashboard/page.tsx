@@ -15,7 +15,7 @@ import {
   type Project
 } from "@/lib/api";
 import { MiniDonut, Sparkline } from "@/components/charts";
-import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
+import { hasSession, notifySessionChanged } from "@/lib/auth";
 import { formatRelativeTime } from "@/lib/format";
 import { deploymentRiskLabel, environmentLabel, triggerSourceLabel } from "@/lib/statusLabels";
 import {
@@ -83,9 +83,7 @@ export default function DashboardPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 
   const loadDashboard = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setDashboard({ state: "signed-out" });
       setLastUpdatedAt(null);
       return;
@@ -94,13 +92,12 @@ export default function DashboardPage() {
     setDashboard({ state: "loading" });
 
     const projectsResult = await fetchProjects({
-      accessToken,
       limit: PROJECT_DASHBOARD_LIMIT
     });
 
     if (projectsResult.state !== "success") {
       if (projectsResult.state === "unauthorized") {
-        clearStoredAccessToken();
+        notifySessionChanged();
       }
 
       setDashboard({ state: projectsResult.state });
@@ -113,7 +110,6 @@ export default function DashboardPage() {
         // 목록 응답에 점수 요약과 linked ScenarioRun이 포함되므로 상세 조회 없이 구성한다.
         const checkRunsResult = await fetchCheckRuns({
           projectId: project.id,
-          accessToken,
           limit: PROJECT_TREND_RUN_LIMIT
         });
         const checkRuns = checkRunsResult.state === "success" ? checkRunsResult.checkRuns : [];
@@ -179,9 +175,7 @@ export default function DashboardPage() {
   }, [dashboard]);
 
   async function handleStartCheckRun(project: Project) {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setCheckRunStartStates((currentStates) => ({
         ...currentStates,
         [project.id]: "unauthorized"
@@ -196,12 +190,11 @@ export default function DashboardPage() {
 
     const result = await createCheckRun({
       projectId: project.id,
-      accessToken
     });
 
     if (result.state !== "success") {
       if (result.state === "unauthorized") {
-        clearStoredAccessToken();
+        notifySessionChanged();
       }
 
       setCheckRunStartStates((currentStates) => ({

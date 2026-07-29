@@ -5,7 +5,6 @@ import { downloadArtifact, type ArtifactDownloadResult } from "@/lib/api";
 
 type ArtifactImagePreviewProps = {
   artifactId: string;
-  accessToken: string;
   alt: string;
 };
 
@@ -13,13 +12,11 @@ type PreviewState = "idle" | "loading" | "loaded" | "error";
 
 export function ArtifactImagePreview({
   artifactId,
-  accessToken,
   alt
 }: ArtifactImagePreviewProps) {
   const [state, setState] = useState<PreviewState>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
-  const trimmedToken = accessToken.trim();
 
   useEffect(() => {
     return () => {
@@ -39,19 +36,10 @@ export function ArtifactImagePreview({
   };
 
   const loadPreview = async () => {
-    if (!trimmedToken) {
-      setState("error");
-      setMessage("미리보기를 불러오려면 Bearer token이 필요합니다.");
-      return;
-    }
-
     setState("loading");
     setMessage(null);
 
-    const result = await downloadArtifact({
-      artifactId,
-      accessToken: trimmedToken
-    });
+    const result = await downloadArtifact({ artifactId });
 
     if (result.state !== "success") {
       setState("error");
@@ -80,7 +68,7 @@ export function ArtifactImagePreview({
         <button
           className="rounded-xl border border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 disabled:cursor-not-allowed disabled:opacity-50"
           type="button"
-          disabled={!trimmedToken || state === "loading"}
+          disabled={state === "loading"}
           onClick={() => {
             void loadPreview();
           }}

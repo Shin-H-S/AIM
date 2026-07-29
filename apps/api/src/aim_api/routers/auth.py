@@ -1,10 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
+from aim_api.auth_cookies import clear_auth_cookies, set_auth_cookies
 from aim_api.database import get_db
-from aim_api.dependencies import get_current_user, oauth2_scheme
+from aim_api.dependencies import get_current_user, get_request_token, oauth2_scheme
 from aim_api.models.user import User
 from aim_api.schemas.auth import (
     AccessToken,
@@ -68,6 +69,7 @@ def signup(
 @router.post("/login", response_model=AccessToken, dependencies=[Depends(login_rate_limit)])
 def login(
     payload: UserLogin,
+    response: Response,
     session: Annotated[Session, Depends(get_db)],
 ) -> AccessToken:
     user = user_service.authenticate_user(
@@ -89,7 +91,13 @@ def login(
             detail="Email is not verified.",
         )
 
-    return AccessToken(access_token=create_access_token(user.id))
+    access_token = create_access_token(user.id)
+    # 브라우저 세션은 httpOnly 쿠키로 나간다 — JS가 토큰을 만질 수 없다.
+    # 본문에도 토큰을 유지하는 이유: Bearer로 쓰는 호출자(스크립트·테스트)에게는
+    # 이 응답이 유일한 전달 경로고, XSS는 사용자의 비밀번호를 모르므로 이
+    # 엔드포인트를 통해 토큰을 얻을 수 없다.
+    set_auth_cookies(response, access_token=access_token)
+    return AccessToken(access_token=access_token)
 
 
 @router.get("/me", response_model=UserRead)
@@ -99,16 +107,20 @@ def read_me(current_user: Annotated[User, Depends(get_current_user)]) -> UserRea
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
-    token: Annotated[str, Depends(oauth2_scheme)],
+    bearer_token: Annotated[str | None, Depends(oauth2_scheme)],
 ) -> Response:
     _ = current_user
-    # 남은 수명 동안 이 토큰을 서버 측에서도 무효화한다.
-    claims = decode_access_token(token)
+    # 남은 수명 동안 이 토큰을 서버 측에서도 무효화한다 — Bearer든 쿠키든.
+    token = get_request_token(request, bearer_token)
+    claims = decode_access_token(token) if token else None
     if claims is not None:
         token_revocation.revoke_token(claims)
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    clear_auth_cookies(response)
+    return response
 
 
 @router.post(

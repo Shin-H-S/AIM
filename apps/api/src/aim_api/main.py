@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from aim_api.auth_cookies import ACCESS_TOKEN_COOKIE, CSRF_COOKIE, CSRF_HEADER
 from aim_api.config import get_settings
 from aim_api.observability import (
     REQUEST_ID_HEADER,
@@ -45,9 +46,43 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
+        # 세션이 httpOnly 쿠키로 오므로 credentialed CORS가 필수다. 오리진이
+        # 명시 목록이라(와일드카드 아님) credentials 허용이 안전하다.
+        allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
     )
+
+    @app.middleware("http")
+    async def require_csrf_for_cookie_sessions(
+        request: Request, call_next: RequestHandler
+    ) -> Response:
+        """쿠키 세션의 상태 변경 요청에 double-submit CSRF를 요구한다.
+
+        쿠키는 브라우저가 자동 첨부하므로, 공격자 사이트가 사용자의 브라우저로
+        상태 변경 요청을 쏘게 만들 수 있다(CSRF). 우리 프런트만이 자기 도메인의
+        csrf 쿠키를 읽어 헤더로 되돌릴 수 있다 — 둘의 일치가 "우리 프런트에서 온
+        요청"의 증명이다.
+
+        Authorization 헤더가 실린 요청은 면제한다: 공격자 사이트는 피해자의
+        토큰으로 그 헤더를 만들 수 없으므로 Bearer 경로는 CSRF가 성립하지 않는다.
+        세션 쿠키가 없는 요청도 면제한다 — 인증 자체가 없으니 위조할 세션도 없다.
+        """
+        needs_csrf = (
+            request.method not in ("GET", "HEAD", "OPTIONS")
+            and "authorization" not in request.headers
+            and ACCESS_TOKEN_COOKIE in request.cookies
+        )
+        if needs_csrf:
+            cookie_value = request.cookies.get(CSRF_COOKIE)
+            header_value = request.headers.get(CSRF_HEADER)
+            if not cookie_value or cookie_value != header_value:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "CSRF token missing or invalid."},
+                )
+
+        return await call_next(request)
 
     @app.middleware("http")
     async def attach_request_id(request: Request, call_next: RequestHandler) -> Response:

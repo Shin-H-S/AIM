@@ -6,7 +6,7 @@ import {
   type ScenarioRun,
   type ScenarioRunListResult
 } from "@/lib/api";
-import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import { hasSession, notifySessionChanged } from "@/lib/auth";
 import { formatDateTime, formatMilliseconds, formatNullableDateTime } from "@/lib/format";
 import { triggerSourceLabel } from "@/lib/statusLabels";
 import {
@@ -51,9 +51,7 @@ export function ScenarioRunListPageClient({
   const summary = summarizeScenarioRuns(scenarioRuns);
 
   const loadScenarioRuns = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setResult({ state: "signed-out" });
       setHasMoreScenarioRuns(false);
       setIsLoadingMore(false);
@@ -67,12 +65,11 @@ export function ScenarioRunListPageClient({
     const nextResult = await fetchScenarioRuns({
       projectId,
       scenarioId,
-      accessToken,
       limit: LIST_LIMIT
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     setResult(nextResult);
@@ -84,9 +81,7 @@ export function ScenarioRunListPageClient({
   }, [projectId, scenarioId]);
 
   async function handleLoadMoreScenarioRuns() {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken || result.state !== "success" || isLoadingMore) {
+    if (!hasSession() || result.state !== "success" || isLoadingMore) {
       return;
     }
 
@@ -96,13 +91,12 @@ export function ScenarioRunListPageClient({
     const nextResult = await fetchScenarioRuns({
       projectId,
       scenarioId,
-      accessToken,
       limit: LIST_LIMIT,
       offset: result.scenarioRuns.length
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     if (nextResult.state !== "success") {

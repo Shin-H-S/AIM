@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     artifact_purge_batch_size: int = 500
     scan_scheduler_interval_seconds: int = 60
     jwt_secret_key: str = DEVELOPMENT_JWT_SECRET_KEY
+    # 세션 쿠키 속성. 운영은 도메인 간 공유를 위해 부모 도메인(.qaaimsync.com)과
+    # Secure가 필요하고, 로컬 http는 Secure를 켤 수 없어 환경 설정으로 가른다.
+    auth_cookie_domain: str | None = None
+    auth_cookie_secure: bool = False
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
     password_reset_token_expire_minutes: int = 30

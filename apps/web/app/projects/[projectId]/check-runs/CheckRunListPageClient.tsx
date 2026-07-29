@@ -8,7 +8,7 @@ import {
   type CheckRunStatus,
   type CheckRunSummary
 } from "@/lib/api";
-import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import { hasSession, notifySessionChanged } from "@/lib/auth";
 import { formatDateWithWeekday, formatDuration, formatTimeOfDay } from "@/lib/format";
 import { deploymentRiskLabel, triggerSourceLabel } from "@/lib/statusLabels";
 import { ScoreTrendPanel } from "@/components/charts";
@@ -48,9 +48,7 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
   const summary = summarizeCheckRuns(checkRuns);
 
   const loadCheckRuns = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setResult({ state: "signed-out" });
       setHasMoreCheckRuns(false);
       setIsLoadingMore(false);
@@ -63,12 +61,11 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
     setListMessage(null);
     const nextResult = await fetchCheckRuns({
       projectId,
-      accessToken,
       limit: LIST_LIMIT
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     setResult(nextResult);
@@ -80,9 +77,7 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
   }, [projectId]);
 
   async function handleLoadMoreCheckRuns() {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken || result.state !== "success" || isLoadingMore) {
+    if (!hasSession() || result.state !== "success" || isLoadingMore) {
       return;
     }
 
@@ -91,13 +86,12 @@ export function CheckRunListPageClient({ projectId }: { projectId: string }) {
 
     const nextResult = await fetchCheckRuns({
       projectId,
-      accessToken,
       limit: LIST_LIMIT,
       offset: result.checkRuns.length
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     if (nextResult.state !== "success") {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { getStoredAccessToken } from "@/lib/auth";
+import { hasSession } from "@/lib/auth";
 
 // 마케팅 홈. 로그인 폼은 /login 으로 분리되었고(2026-07-18 리디자인),
 // 이 페이지의 역할은 "무엇을 얻는지(히어로 리포트)"와 "무엇을 하면 되는지(4단계 흐름)"를
@@ -12,7 +12,7 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    if (getStoredAccessToken()) {
+    if (hasSession()) {
       router.replace("/dashboard");
     }
   }, [router]);

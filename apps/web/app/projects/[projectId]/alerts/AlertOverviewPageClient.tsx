@@ -235,7 +235,9 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
       payload: {
         name: project.name,
         service_url: project.service_url,
-        description: project.description,
+        // Read 스키마가 Create의 default를 물려받아 optional로 생성된다 —
+        // 응답에는 항상 실려 오므로 여기서 null로 정규화한다.
+        description: project.description ?? null,
         environment: project.environment,
         scan_interval_minutes: project.scan_interval_minutes,
         response_time_threshold_ms: project.response_time_threshold_ms,
@@ -595,7 +597,7 @@ function IncidentCard({ incident, projectId }: { incident: Incident; projectId: 
 
       {incident.is_stale && (
         <p className="mt-4 break-keep rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-          이 프로젝트는 {formatNullableDateTime(incident.project_last_checked_at)} 이후 검사되지
+          이 프로젝트는 {formatNullableDateTime(incident.project_last_checked_at ?? null)} 이후 검사되지
           않았습니다. 장애 해소는 다음 검사에서 판정되므로, 서비스가 이미 회복됐더라도 이
           장애는 열린 채로 남아 있습니다 — <b>현재 상태가 아니라 그때의 기록</b>입니다.
           정기 검사를 켜면 다시 확인됩니다.

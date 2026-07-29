@@ -59,6 +59,10 @@ jobs:
       # 개발 중에 계속 실패한다.
       - name: Test
         run: uv run pytest --cov --cov-report=term --cov-fail-under=89
+      # API 표면이 바뀌면 스냅샷 재생성을 강제한다. 이 스냅샷에서 프런트 타입이
+      # 생성되므로, 여기서 멈추면 백엔드 변경이 프런트에 조용히 스며들 수 없다.
+      - name: OpenAPI snapshot is fresh
+        run: uv run python scripts/export_openapi.py --check
 
   web:
     name: Web checks
@@ -79,6 +83,12 @@ jobs:
         run: pnpm --filter @aim/web typecheck
       - name: Test
         run: pnpm --filter @aim/web test
+      # 스냅샷이 바뀌면 생성 타입도 함께 갱신돼야 한다. 낡은 타입으로 코드를
+      # 쓰면 컴파일은 통과해도 런타임에 깨진다 — 그 간극을 diff로 막는다.
+      - name: Generated API types are fresh
+        run: |
+          pnpm --filter @aim/web generate:api
+          git diff --exit-code apps/web/lib/api-schema.d.ts
       - name: Build
         run: pnpm --filter @aim/web build
 

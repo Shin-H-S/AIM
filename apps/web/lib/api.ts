@@ -1,3 +1,8 @@
+// 서버 응답 타입은 손으로 쓰지 않는다 — FastAPI의 OpenAPI 스냅샷에서 생성된
+// api-schema.d.ts를 재수출한다. 백엔드 스키마가 바뀌면 CI가 스냅샷·타입
+// 재생성을 강제하고, 낡은 필드를 쓰는 프런트 코드는 컴파일 에러로 드러난다.
+import type { components } from "./api-schema";
+
 const DEFAULT_API_BASE_URL = "http://localhost:8000";
 
 type ApiHealthPayload = {
@@ -10,14 +15,7 @@ type AccessTokenPayload = {
   token_type?: string;
 };
 
-export type User = {
-  id: string;
-  email: string;
-  is_active: boolean;
-  email_verified_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
+export type User = components["schemas"]["UserRead"];
 
 export type SignupPayload = {
   email: string;
@@ -58,27 +56,7 @@ export type ProjectEnvironment = "development" | "staging" | "production";
 
 export type ScoringPreset = "service" | "content" | "internal";
 
-export type Project = {
-  id: string;
-  owner_id: string;
-  name: string;
-  service_url: string;
-  description: string | null;
-  environment: ProjectEnvironment;
-  // API가 프리셋을 아직 배포하지 않은 경우를 대비해 optional로 둔다.
-  scoring_preset?: ScoringPreset;
-  scan_interval_minutes: number;
-  scheduled_scans_enabled: boolean;
-  response_time_threshold_ms: number;
-  quality_score_threshold: number;
-  alert_email_enabled: boolean;
-  alert_recipient_email: string | null;
-  alert_webhook_url: string | null;
-  is_verified: boolean;
-  baseline_check_run_id: string | null;
-  created_at: string;
-  updated_at: string;
-};
+export type Project = components["schemas"]["ProjectRead"];
 
 export type ProjectPayload = {
   name: string;
@@ -95,120 +73,21 @@ export type ProjectPayload = {
   alert_webhook_url?: string | null;
 };
 
-export type Incident = {
-  id: string;
-  project_id: string;
-  opened_check_run_id: string;
-  resolved_check_run_id: string | null;
-  trigger_type: string;
-  severity: string;
-  status: string;
-  title: string;
-  summary: string;
-  evidence_json: Record<string, unknown>;
-  started_at: string;
-  resolved_at: string | null;
-  created_at: string;
-  updated_at: string;
-  /** 이 인시던트가 마지막으로 확인된 시점 — 해당 프로젝트의 최근 검사 시각. */
-  project_last_checked_at: string | null;
-  /**
-   * 열려 있지만 오랫동안 재확인되지 않은 인시던트. 해소 판정은 그 프로젝트의
-   * 다음 검사에서만 일어나므로, 검사가 멈추면 회복돼도 열린 채 남는다.
-   */
-  is_stale: boolean;
-};
+export type Incident = components["schemas"]["IncidentRead"];
 
-export type Alert = {
-  id: string;
-  project_id: string;
-  // 배포 요약 알림은 incident 없이 발송된다.
-  incident_id: string | null;
-  check_run_id: string | null;
-  alert_type: string;
-  trigger_type: string;
-  channel: string;
-  status: string;
-  recipient_email: string | null;
-  subject: string;
-  body: string;
-  delivery_attempts: number;
-  last_error: string | null;
-  sent_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
+export type Alert = components["schemas"]["AlertRead"];
 
-export type ProjectVerification = {
-  project_id: string;
-  verification_token: string;
-  meta_tag: string;
-  is_verified: boolean;
-  verified_at: string | null;
-};
+export type ProjectVerification = components["schemas"]["ProjectVerificationRead"];
 
-export type AvailabilityResult = {
-  service_url: string;
-  final_url: string | null;
-  is_available: boolean;
-  status_code: number | null;
-  response_time_ms: number | null;
-  redirect_count: number;
-  uses_https: boolean;
-  timed_out: boolean;
-  failure_reason: string | null;
-  created_at: string;
-  updated_at: string;
-};
+export type AvailabilityResult = components["schemas"]["AvailabilityResultRead"];
 
-export type SslResult = {
-  service_url: string;
-  is_applicable: boolean;
-  is_valid: boolean | null;
-  expires_at: string | null;
-  days_until_expiration: number | null;
-  failure_reason: string | null;
-  created_at: string;
-  updated_at: string;
-};
+export type SslResult = components["schemas"]["SslResultRead"];
 
-export type LighthouseTopAudit = {
-  id: string;
-  category: string;
-  title: string;
-  display_value: string | null;
-  score: number | null;
-  savings_ms: number | null;
-  savings_bytes: number | null;
-};
+export type LighthouseTopAudit = components["schemas"]["LighthouseAuditRead"];
 
-export type LighthouseResult = {
-  service_url: string;
-  is_successful: boolean;
-  performance_score: number | null;
-  accessibility_score: number | null;
-  seo_score: number | null;
-  best_practices_score: number | null;
-  largest_contentful_paint_ms: number | null;
-  cumulative_layout_shift: number | null;
-  total_blocking_time_ms: number | null;
-  top_audits: LighthouseTopAudit[] | null;
-  raw_json_artifact_id: string | null;
-  failure_reason: string | null;
-  created_at: string;
-  updated_at: string;
-};
+export type LighthouseResult = components["schemas"]["LighthouseResultRead"];
 
-export type Artifact = {
-  id: string;
-  artifact_type: string;
-  storage_backend: string;
-  storage_path: string;
-  content_type: string;
-  size_bytes: number;
-  checksum_sha256: string;
-  created_at: string;
-};
+export type Artifact = components["schemas"]["ArtifactRead"];
 
 export type ScoreBreakdownReason = {
   code: string;
@@ -253,69 +132,17 @@ export type ScoreBreakdown = {
   };
 };
 
-export type ScoreResult = {
-  availability_score: number | null;
-  functional_stability_score: number | null;
-  web_performance_score: number | null;
-  accessibility_score: number | null;
-  seo_basic_quality_score: number | null;
-  regression_stability_score: number | null;
-  overall_score: number;
-  evaluated_weight: number;
-  grade: "A" | "B" | "C" | "D" | "F";
-  deployment_risk: "STABLE" | "WARNING" | "RISK";
-  gate_reason: string | null;
+// score_breakdown은 자유 JSON이라 스키마가 구조를 모른다. 그 필드 하나만
+// 수기 구조(ScoreBreakdown)로 좁히고 나머지는 생성 타입을 그대로 쓴다.
+export type ScoreResult = Omit<components["schemas"]["ScoreResultRead"], "score_breakdown"> & {
   score_breakdown: ScoreBreakdown | null;
-  scoring_version: string;
-  created_at: string;
-  updated_at: string;
 };
 
-export type RunComparison = {
-  baseline_check_run_id: string;
-  comparison_type: string;
-  overall_score_delta: number | null;
-  availability_score_delta: number | null;
-  web_performance_score_delta: number | null;
-  accessibility_score_delta: number | null;
-  seo_basic_quality_score_delta: number | null;
-  response_time_delta_ms: number | null;
-  performance_score_delta: number | null;
-  deployment_risk_changed: boolean;
-  summary: string;
-  created_at: string;
-  updated_at: string;
-};
+export type RunComparison = components["schemas"]["RunComparisonRead"];
 
-export type BaselineComparison = {
-  check_run_id: string;
-  baseline_check_run_id: string;
-  comparison_type: string;
-  overall_score_delta: number;
-  availability_score_delta: number | null;
-  web_performance_score_delta: number | null;
-  accessibility_score_delta: number | null;
-  seo_basic_quality_score_delta: number | null;
-  response_time_delta_ms: number | null;
-  performance_score_delta: number | null;
-  current_deployment_risk: "STABLE" | "WARNING" | "RISK";
-  baseline_deployment_risk: "STABLE" | "WARNING" | "RISK";
-  deployment_risk_changed: boolean;
-  summary: string;
-};
+export type BaselineComparison = components["schemas"]["BaselineComparisonRead"];
 
-export type AIReportSummary = {
-  id: string;
-  check_run_id: string;
-  summary: string;
-  overall_score: number;
-  grade: "A" | "B" | "C" | "D" | "F";
-  deployment_risk: "STABLE" | "WARNING" | "RISK";
-  gate_reason: string | null;
-  generated_at: string;
-  created_at: string;
-  updated_at: string;
-};
+export type AIReportSummary = components["schemas"]["AIReportSummaryRead"];
 
 export type AIReportStatementType =
   | "confirmed_observation"
@@ -357,6 +184,9 @@ export type AIReportChange = {
   delta: string | number | boolean | null;
 };
 
+// AI 리포트 상세는 report_json(자유 JSON)의 내부 구조다. OpenAPI 스키마는
+// dict로만 알고 있으므로 이 타입은 수기로 유지한다 — 서버의
+// docs/architecture/ai-diagnosis-report.md 가 구조의 원천이다.
 export type AIReportPayload = {
   schema_version: string;
   input_schema_version: string;
@@ -377,122 +207,27 @@ export type AIReportDetail = AIReportSummary & {
   report_json: AIReportPayload;
 };
 
-export type CheckRunDetail = {
-  id: string;
-  project_id: string;
-  requested_by_id: string;
-  status: CheckRunStatus;
-  trigger_source: string;
-  // API가 배포 커밋 참조를 아직 배포하지 않은 경우를 대비해 optional로 둔다.
-  deploy_ref?: string | null;
-  failure_reason: string | null;
-  queued_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-  created_at: string;
-  updated_at: string;
-  availability_result: AvailabilityResult | null;
-  ssl_result: SslResult | null;
-  lighthouse_result: LighthouseResult | null;
+// score_result 안의 score_breakdown(자유 JSON)을 좁힌 ScoreResult를 쓰기 위한 교차.
+export type CheckRunDetail = Omit<
+  components["schemas"]["CheckRunDetailRead"],
+  "score_result"
+> & {
   score_result: ScoreResult | null;
-  comparison_result: RunComparison | null;
-  ai_report: AIReportSummary | null;
-  artifacts: Artifact[];
-  linked_scenario_runs: ScenarioRun[];
 };
 
-export type CheckRunScoreSummary = {
-  overall_score: number;
-  grade: string;
-  deployment_risk: "STABLE" | "WARNING" | "RISK";
-  // 카테고리 점수는 확장된 API가 배포된 뒤부터 내려온다.
-  availability_score?: number | null;
-  functional_stability_score?: number | null;
-  web_performance_score?: number | null;
-  accessibility_score?: number | null;
-  seo_basic_quality_score?: number | null;
-};
+export type CheckRunScoreSummary = components["schemas"]["CheckRunScoreSummaryRead"];
 
-export type CheckRunSummary = {
-  id: string;
-  project_id: string;
-  requested_by_id: string;
-  status: CheckRunStatus;
-  trigger_source: string;
-  // API가 배포 커밋 참조를 아직 배포하지 않은 경우를 대비해 optional로 둔다.
-  deploy_ref?: string | null;
-  failure_reason: string | null;
-  queued_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-  created_at: string;
-  updated_at: string;
-  // API가 점수 요약을 아직 배포하지 않은 경우를 대비해 optional로 둔다.
-  score?: CheckRunScoreSummary | null;
-  linked_scenario_runs?: ScenarioRun[];
-};
+export type CheckRunSummary = components["schemas"]["CheckRunListItemRead"];
 
-export type StepResult = {
-  id: string;
-  scenario_run_id: string;
-  test_step_id: string | null;
-  step_order: number;
-  action: TestStepAction;
-  target: string | null;
-  status: StepResultStatus;
-  started_at: string | null;
-  finished_at: string | null;
-  duration_ms: number | null;
-  error_message: string | null;
-  failure_screenshot_artifact_id: string | null;
-  created_at: string;
-  updated_at: string;
-};
+export type StepResult = components["schemas"]["StepResultRead"];
 
-export type ConsoleError = {
-  id: string;
-  scenario_run_id: string;
-  level: string;
-  message: string;
-  source_url: string | null;
-  line_number: number | null;
-  column_number: number | null;
-  created_at: string;
-};
+export type ConsoleError = components["schemas"]["ConsoleErrorRead"];
 
-export type NetworkFailure = {
-  id: string;
-  scenario_run_id: string;
-  request_url: string;
-  method: string;
-  resource_type: string | null;
-  failure_text: string | null;
-  created_at: string;
-};
+export type NetworkFailure = components["schemas"]["NetworkFailureRead"];
 
-export type TestStep = {
-  id: string;
-  scenario_id: string;
-  step_order: number;
-  action: TestStepAction;
-  target: string | null;
-  value: string | null;
-  timeout_ms: number | null;
-  is_critical: boolean;
-  created_at: string;
-  updated_at: string;
-};
+export type TestStep = components["schemas"]["TestStepRead"];
 
-export type TestScenario = {
-  id: string;
-  project_id: string;
-  name: string;
-  description: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  steps: TestStep[];
-};
+export type TestScenario = components["schemas"]["TestScenarioRead"];
 
 export type TestScenarioPayload = {
   name: string;
@@ -501,42 +236,9 @@ export type TestScenarioPayload = {
   steps: TestStepPayload[];
 };
 
-export type ScenarioRun = {
-  id: string;
-  project_id: string;
-  scenario_id: string;
-  check_run_id: string | null;
-  requested_by_id: string;
-  status: ScenarioRunStatus;
-  trigger_source: string;
-  failure_reason: string | null;
-  queued_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-  duration_ms: number | null;
-  created_at: string;
-  updated_at: string;
-};
+export type ScenarioRun = components["schemas"]["ScenarioRunRead"];
 
-export type ScenarioRunDetail = {
-  id: string;
-  project_id: string;
-  scenario_id: string;
-  check_run_id: string | null;
-  requested_by_id: string;
-  status: ScenarioRunStatus;
-  trigger_source: string;
-  failure_reason: string | null;
-  queued_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-  duration_ms: number | null;
-  created_at: string;
-  updated_at: string;
-  step_results: StepResult[];
-  console_errors: ConsoleError[];
-  network_failures: NetworkFailure[];
-};
+export type ScenarioRunDetail = components["schemas"]["ScenarioRunDetailRead"];
 
 export type CheckRunDetailResult =
   | {
@@ -2859,14 +2561,7 @@ export async function createScenarioRun({
   }
 }
 
-export type ProjectApiToken = {
-  id: string;
-  project_id: string;
-  name: string;
-  created_at: string;
-  last_used_at: string | null;
-  revoked_at: string | null;
-};
+export type ProjectApiToken = components["schemas"]["ProjectApiTokenRead"];
 
 export type IssuedProjectApiToken = ProjectApiToken & {
   token: string;
@@ -3065,41 +2760,11 @@ export async function revokeProjectApiToken({
 }
 
 
-export type AgentToolCall = {
-  step: number;
-  tool: string;
-  result_summary: string;
-};
+export type AgentToolCall = components["schemas"]["AgentToolCallRead"];
 
-export type AgentLlmCall = {
-  model: string;
-  input_tokens: number;
-  output_tokens: number;
-  latency_ms: number;
-};
+export type AgentLlmCall = components["schemas"]["AgentLlmCallRead"];
 
-export type AgentInvestigation = {
-  id: string;
-  check_run_id: string;
-  incident_id: string | null;
-  trigger: string;
-  root_cause: string;
-  confidence: string;
-  summary: string;
-  recommendation: string;
-  generator: string;
-  recheck_used: boolean;
-  recheck_check_run_id: string | null;
-  tool_calls: AgentToolCall[];
-  violations: string[];
-  llm_calls: AgentLlmCall[];
-  duration_ms: number;
-  feedback_verdict: AgentInvestigationVerdict | null;
-  feedback_root_cause: string | null;
-  feedback_note: string | null;
-  feedback_at: string | null;
-  created_at: string;
-};
+export type AgentInvestigation = components["schemas"]["AgentInvestigationRead"];
 
 export type AgentInvestigationVerdict = "accurate" | "inaccurate";
 

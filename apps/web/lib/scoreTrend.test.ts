@@ -70,11 +70,21 @@ describe("buildScoreTrendSeries", () => {
     expect(availability?.points.map((point) => point.score)).toEqual([80, 100]);
   });
 
-  it("handles score summaries without category fields (older API)", () => {
+  it("omits categories whose scores are null", () => {
+    // 서버 스키마상 카테고리 필드는 항상 실려 온다 — 없을 수 있는 것은 값(null)이다.
     const series = buildScoreTrendSeries([
       checkRunFixture({
-        id: "old-api",
-        score: { overall_score: 70, grade: "C", deployment_risk: "WARNING" }
+        id: "null-categories",
+        score: {
+          overall_score: 70,
+          grade: "C",
+          deployment_risk: "WARNING",
+          availability_score: null,
+          functional_stability_score: null,
+          web_performance_score: null,
+          accessibility_score: null,
+          seo_basic_quality_score: null
+        }
       })
     ]);
 

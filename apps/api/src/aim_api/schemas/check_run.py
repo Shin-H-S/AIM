@@ -1,11 +1,15 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from aim_api.models.check_run import CheckRunStatus
 from aim_api.schemas.scenario import ScenarioRunRead
+
+# DB CHECK 제약과 같은 값 집합. str로 두면 생성되는 프런트 타입이 넓어져
+# UI의 좁힌 union과 어긋난다 — 스키마가 진실을 정확히 선언해야 한다.
+DeploymentRisk = Literal["STABLE", "WARNING", "RISK"]
 
 
 class CheckRunCreate(BaseModel):
@@ -65,7 +69,7 @@ class LighthouseResultRead(BaseModel):
     largest_contentful_paint_ms: int | None
     cumulative_layout_shift: float | None
     total_blocking_time_ms: int | None
-    top_audits: list[LighthouseAuditRead] | None = None
+    top_audits: list[LighthouseAuditRead] | None
     raw_json_artifact_id: UUID | None
     failure_reason: str | None
     created_at: datetime
@@ -97,9 +101,9 @@ class ScoreResultRead(BaseModel):
     overall_score: int
     evaluated_weight: int
     grade: str
-    deployment_risk: str
+    deployment_risk: DeploymentRisk
     gate_reason: str | None
-    score_breakdown: dict[str, Any] | None = None
+    score_breakdown: dict[str, Any] | None
     scoring_version: str
     created_at: datetime
     updated_at: datetime
@@ -136,8 +140,8 @@ class BaselineComparisonRead(BaseModel):
     seo_basic_quality_score_delta: int | None
     response_time_delta_ms: int | None
     performance_score_delta: int | None
-    current_deployment_risk: str
-    baseline_deployment_risk: str
+    current_deployment_risk: DeploymentRisk
+    baseline_deployment_risk: DeploymentRisk
     deployment_risk_changed: bool
     summary: str
 
@@ -150,7 +154,7 @@ class AIReportSummaryRead(BaseModel):
     summary: str
     overall_score: int
     grade: str
-    deployment_risk: str
+    deployment_risk: DeploymentRisk
     gate_reason: str | None
     generated_at: datetime
     created_at: datetime
@@ -179,7 +183,7 @@ class CheckRunScoreSummaryRead(BaseModel):
 
     overall_score: int
     grade: str
-    deployment_risk: str
+    deployment_risk: DeploymentRisk
     availability_score: int | None
     functional_stability_score: int | None
     web_performance_score: int | None

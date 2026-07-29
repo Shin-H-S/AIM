@@ -2274,10 +2274,11 @@ function formatAuditImpact(audit: LighthouseTopAudit) {
   }
 
   const savings: string[] = [];
-  if (audit.savings_ms !== null && audit.savings_ms > 0) {
+  // top_audits는 자유 JSON에서 복원되므로 필드가 아예 없을 수도 있다.
+  if (typeof audit.savings_ms === "number" && audit.savings_ms > 0) {
     savings.push(`약 ${formatMilliseconds(audit.savings_ms)} 단축 가능`);
   }
-  if (audit.savings_bytes !== null && audit.savings_bytes > 0) {
+  if (typeof audit.savings_bytes === "number" && audit.savings_bytes > 0) {
     savings.push(`약 ${Math.round(audit.savings_bytes / 1024)}KB 절감 가능`);
   }
 

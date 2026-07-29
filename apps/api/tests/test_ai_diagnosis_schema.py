@@ -49,6 +49,7 @@ def score_result_payload() -> ScoreResultRead:
             "deployment_risk": "RISK",
             "gate_reason": "Critical scenario run failed.",
             "scoring_version": "2026-06-28.scenario-v1",
+            "score_breakdown": None,
             "created_at": datetime(2026, 6, 29, 0, 3, tzinfo=UTC),
             "updated_at": datetime(2026, 6, 29, 0, 3, tzinfo=UTC),
         }

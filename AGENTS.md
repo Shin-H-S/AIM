@@ -569,6 +569,22 @@ pnpm test
 pnpm build
 ```
 
+### API schema and generated types
+
+프런트의 서버 응답 타입은 손으로 쓰지 않는다 — `docs/api/openapi.json` 스냅샷에서
+생성된 `apps/web/lib/api-schema.d.ts`를 재수출한다. **API 라우터·스키마를 바꿨다면
+두 파일을 재생성해 커밋해야 한다** (CI가 각각 diff로 강제한다):
+
+```bash
+uv run python scripts/export_openapi.py
+pnpm --filter @aim/web generate:api
+```
+
+자유 JSON 필드(`report_json`, `score_breakdown`)의 내부 구조만 수기 타입으로
+유지한다 — OpenAPI는 그것들을 dict로만 안다. 응답 스키마에는 의미 없는
+default(`= None`)를 두지 말 것: ORM 속성은 항상 존재하므로 default는 생성된
+프런트 타입만 optional로 넓혀 놓는다.
+
 ### End-to-end
 
 핵심 사용자 여정(가입 → 프로젝트 생성 → 도메인 인증 → 검사 시작)을 실제

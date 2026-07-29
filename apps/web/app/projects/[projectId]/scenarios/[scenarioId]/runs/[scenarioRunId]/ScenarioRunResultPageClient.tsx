@@ -14,7 +14,7 @@ import {
   type StepResultStatus,
   type TestStepAction
 } from "@/lib/api";
-import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import { hasSession, notifySessionChanged } from "@/lib/auth";
 import { formatDetailDateTime, formatMilliseconds } from "@/lib/format";
 import { triggerSourceLabel } from "@/lib/statusLabels";
 import {
@@ -61,18 +61,14 @@ export function ScenarioRunResultPageClient({
   scenarioRunId: string;
 }) {
   const [result, setResult] = useState<ScenarioRunResultPageState>({ state: "checking" });
-  const [sessionToken, setSessionToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const scenarioRun = result.state === "success" ? result.scenarioRun : null;
   const shouldPoll = scenarioRun ? ACTIVE_STATUSES.has(scenarioRun.status) : false;
 
   const loadScenarioRun = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setResult({ state: "signed-out" });
-      setSessionToken("");
       return;
     }
 
@@ -81,15 +77,13 @@ export function ScenarioRunResultPageClient({
       projectId,
       scenarioId,
       scenarioRunId,
-      accessToken
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     setResult(nextResult);
-    setSessionToken(accessToken);
     setLastUpdatedAt(new Date().toLocaleTimeString("ko-KR"));
     setIsLoading(false);
   }, [projectId, scenarioId, scenarioRunId]);
@@ -178,7 +172,7 @@ export function ScenarioRunResultPageClient({
               <TimelineCard scenarioRun={scenarioRun} />
             </section>
 
-            <StepResultsCard accessToken={sessionToken} stepResults={scenarioRun.step_results} />
+            <StepResultsCard stepResults={scenarioRun.step_results} />
 
             <EvidenceSummaryCard
               consoleErrors={scenarioRun.console_errors}
@@ -237,10 +231,8 @@ function TimelineCard({ scenarioRun }: { scenarioRun: ScenarioRunDetail }) {
 }
 
 function StepResultsCard({
-  accessToken,
   stepResults
 }: {
-  accessToken: string;
   stepResults: StepResult[];
 }) {
   if (stepResults.length === 0) {
@@ -297,12 +289,10 @@ function StepResultsCard({
               <div className="mt-4 grid gap-3">
                 <ArtifactDownloadButton
                   artifactId={stepResult.failure_screenshot_artifact_id}
-                  accessToken={accessToken}
                   label="실패 스크린샷 다운로드"
                 />
                 <ArtifactImagePreview
                   artifactId={stepResult.failure_screenshot_artifact_id}
-                  accessToken={accessToken}
                   alt={`단계 #${stepResult.step_order} 실패 스크린샷`}
                 />
               </div>

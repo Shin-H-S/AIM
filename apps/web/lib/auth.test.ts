@@ -1,70 +1,51 @@
-import { describe, expect, it } from "vitest";
-import {
-  ACCESS_TOKEN_STORAGE_KEY,
-  clearStoredAccessToken,
-  clearStoredAccessTokenIfMatches,
-  getStoredAccessToken,
-  storeAccessToken
-} from "./auth";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { CSRF_COOKIE_NAME, getCsrfToken, hasSession } from "./auth";
 
-function createTokenStorage() {
-  const values = new Map<string, string>();
-
-  return {
-    getItem(key: string) {
-      return values.get(key) ?? null;
-    },
-    removeItem(key: string) {
-      values.delete(key);
-    },
-    setItem(key: string, value: string) {
-      values.set(key, value);
-    }
-  };
+function stubCookies(cookie: string) {
+  vi.stubGlobal("document", { cookie });
 }
 
-describe("access token storage", () => {
-  it("stores and reads a normalized access token", () => {
-    const storage = createTokenStorage();
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
-    storeAccessToken(" token ", storage);
+describe("cookie session state", () => {
+  it("reads the csrf token from the cookie jar", () => {
+    stubCookies(`theme=dark; ${CSRF_COOKIE_NAME}=csrf-value; other=1`);
 
-    expect(getStoredAccessToken(storage)).toBe("token");
-    expect(storage.getItem(ACCESS_TOKEN_STORAGE_KEY)).toBe("token");
+    expect(getCsrfToken()).toBe("csrf-value");
+    expect(hasSession()).toBe(true);
   });
 
-  it("clears an empty access token", () => {
-    const storage = createTokenStorage();
+  it("decodes an encoded csrf value", () => {
+    stubCookies(`${CSRF_COOKIE_NAME}=${encodeURIComponent("a=b c")}`);
 
-    storeAccessToken("token", storage);
-    storeAccessToken("   ", storage);
-
-    expect(getStoredAccessToken(storage)).toBeNull();
+    expect(getCsrfToken()).toBe("a=b c");
   });
 
-  it("clears the stored access token", () => {
-    const storage = createTokenStorage();
+  it("treats a missing csrf cookie as signed out", () => {
+    stubCookies("theme=dark");
 
-    storeAccessToken("token", storage);
-    clearStoredAccessToken(storage);
-
-    expect(getStoredAccessToken(storage)).toBeNull();
+    expect(getCsrfToken()).toBeNull();
+    expect(hasSession()).toBe(false);
   });
 
-  it("clears the stored access token only when it matches the given token", () => {
-    const storage = createTokenStorage();
+  it("treats an empty csrf cookie as signed out", () => {
+    stubCookies(`${CSRF_COOKIE_NAME}=`);
 
-    storeAccessToken("token", storage);
-    clearStoredAccessTokenIfMatches("other-token", storage);
-
-    expect(getStoredAccessToken(storage)).toBe("token");
-
-    clearStoredAccessTokenIfMatches(" token ", storage);
-
-    expect(getStoredAccessToken(storage)).toBeNull();
+    expect(getCsrfToken()).toBeNull();
+    expect(hasSession()).toBe(false);
   });
 
-  it("returns null when browser storage is unavailable", () => {
-    expect(getStoredAccessToken(null)).toBeNull();
+  it("does not match cookies whose name merely contains the csrf name", () => {
+    stubCookies(`not_${CSRF_COOKIE_NAME}=intruder`);
+
+    expect(getCsrfToken()).toBeNull();
+  });
+
+  it("returns null outside the browser", () => {
+    // vitest node 환경에는 document가 없다 — SSR 경로와 같은 조건이다.
+    expect(getCsrfToken()).toBeNull();
+    expect(hasSession()).toBe(false);
   });
 });

@@ -18,7 +18,7 @@ import {
   type TestStepAction,
   type UpdateScenarioResult
 } from "@/lib/api";
-import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import { hasSession, notifySessionChanged } from "@/lib/auth";
 import { runStatusLabel } from "@/lib/statusLabels";
 import {
   LinkButton,
@@ -117,9 +117,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
   const scenarios = result.state === "success" ? result.scenarios : [];
 
   const loadScenarios = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setResult({ state: "signed-out" });
       return;
     }
@@ -127,11 +125,10 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
     setIsLoading(true);
     const nextResult = await fetchScenarios({
       projectId,
-      accessToken
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     setResult(nextResult);
@@ -141,9 +138,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
 
   const requestScenarioRun = useCallback(
     async (scenarioId: string) => {
-      const accessToken = getStoredAccessToken();
-
-      if (!accessToken) {
+      if (!hasSession()) {
         return;
       }
 
@@ -151,11 +146,10 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       const nextResult = await createScenarioRun({
         projectId,
         scenarioId,
-        accessToken
       });
 
       if (nextResult.state === "unauthorized") {
-        clearStoredAccessTokenIfMatches(accessToken);
+        notifySessionChanged();
       }
 
       setCreatedRunResult(nextResult);
@@ -169,9 +163,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       event.preventDefault();
       setCreateMessage(null);
 
-      const accessToken = getStoredAccessToken();
-
-      if (!accessToken) {
+      if (!hasSession()) {
         setCreateState("unauthorized");
         setCreateMessage("로그인 세션이 없습니다. 로그인 후 다시 시도하세요.");
         return;
@@ -187,13 +179,12 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       setCreateState("creating");
       const nextResult = await createScenario({
         projectId,
-        accessToken,
         payload: payloadResult.payload
       });
 
       if (nextResult.state !== "success") {
         if (nextResult.state === "unauthorized") {
-          clearStoredAccessTokenIfMatches(accessToken);
+          notifySessionChanged();
         }
 
         setCreateState(nextResult.state);
@@ -223,9 +214,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       scenarioId: string,
       payload: TestScenarioPayload
     ): Promise<ScenarioMutationActionResult> => {
-      const accessToken = getStoredAccessToken();
-
-      if (!accessToken) {
+      if (!hasSession()) {
         return {
           state: "unauthorized",
           message: "로그인 세션이 없습니다. 로그인 후 다시 시도하세요."
@@ -235,13 +224,12 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       const nextResult = await updateScenario({
         projectId,
         scenarioId,
-        accessToken,
         payload
       });
 
       if (nextResult.state !== "success") {
         if (nextResult.state === "unauthorized") {
-          clearStoredAccessTokenIfMatches(accessToken);
+          notifySessionChanged();
         }
 
         return {
@@ -273,9 +261,7 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
 
   const deleteScenarioById = useCallback(
     async (scenarioId: string): Promise<ScenarioMutationActionResult> => {
-      const accessToken = getStoredAccessToken();
-
-      if (!accessToken) {
+      if (!hasSession()) {
         return {
           state: "unauthorized",
           message: "로그인 세션이 없습니다. 로그인 후 다시 시도하세요."
@@ -285,12 +271,11 @@ export function ScenarioListPageClient({ projectId }: { projectId: string }) {
       const nextResult = await deleteScenario({
         projectId,
         scenarioId,
-        accessToken
       });
 
       if (nextResult.state !== "success") {
         if (nextResult.state === "unauthorized") {
-          clearStoredAccessTokenIfMatches(accessToken);
+          notifySessionChanged();
         }
 
         return {

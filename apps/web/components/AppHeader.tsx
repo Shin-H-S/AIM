@@ -5,11 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AimMark } from "@/components/AimMark";
 import { fetchCurrentUser, fetchProject, logoutUser, type User } from "@/lib/api";
-import {
-  ACCESS_TOKEN_CHANGE_EVENT,
-  clearStoredAccessToken,
-  getStoredAccessToken
-} from "@/lib/auth";
+import { SESSION_CHANGE_EVENT, hasSession, notifySessionChanged } from "@/lib/auth";
 
 type SessionState =
   | { state: "loading" }
@@ -43,27 +39,19 @@ export function AppHeader() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // 프로젝트 이름 캐시. 조회 완료 시(비동기)에만 갱신되며, 같은 프로젝트는 재조회하지 않는다.
   const [projectNames, setProjectNames] = useState<Record<string, string>>({});
-  const lastSyncedTokenRef = useRef<string | null | undefined>(undefined);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   const syncSession = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (accessToken === lastSyncedTokenRef.current) {
-      return;
-    }
-
-    lastSyncedTokenRef.current = accessToken;
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setSession({ state: "signed-out" });
       return;
     }
 
-    const result = await fetchCurrentUser({ accessToken });
+    // 여기서 notifySessionChanged()를 부르면 안 된다 — 이 함수가 그 이벤트의
+    // 구독자라, 401 상태에서 csrf 쿠키만 남아 있으면 무한 루프가 된다.
+    const result = await fetchCurrentUser({});
 
     if (result.state === "unauthorized") {
-      clearStoredAccessToken();
       setSession({ state: "signed-out" });
       return;
     }
@@ -79,16 +67,16 @@ export function AppHeader() {
       void syncSession();
     });
 
-    const handleTokenChange = () => {
+    const handleSessionChange = () => {
       void syncSession();
     };
 
-    window.addEventListener(ACCESS_TOKEN_CHANGE_EVENT, handleTokenChange);
-    window.addEventListener("storage", handleTokenChange);
+    // storage 이벤트는 localStorage 시절의 크로스 탭 동기화였다. 쿠키에는
+    // 대응하는 이벤트가 없어, 다른 탭의 로그아웃은 다음 API 401로 드러난다.
+    window.addEventListener(SESSION_CHANGE_EVENT, handleSessionChange);
 
     return () => {
-      window.removeEventListener(ACCESS_TOKEN_CHANGE_EVENT, handleTokenChange);
-      window.removeEventListener("storage", handleTokenChange);
+      window.removeEventListener(SESSION_CHANGE_EVENT, handleSessionChange);
     };
   }, [syncSession]);
 
@@ -131,13 +119,12 @@ export function AppHeader() {
       return;
     }
 
-    const accessToken = getStoredAccessToken();
-    if (!accessToken) {
+    if (!hasSession()) {
       return;
     }
 
     let cancelled = false;
-    void fetchProject({ accessToken, projectId: contextProjectId }).then((result) => {
+    void fetchProject({ projectId: contextProjectId }).then((result) => {
       if (cancelled || result.state !== "success") {
         return;
       }
@@ -165,14 +152,12 @@ export function AppHeader() {
   }
 
   function handleLogout() {
-    const accessToken = getStoredAccessToken();
-
-    if (accessToken) {
-      void logoutUser({ accessToken });
-    }
-
-    clearStoredAccessToken();
-    window.location.assign("/");
+    // 쿠키는 서버가 지운다(Set-Cookie). 응답 전에 이동하면 요청이 취소돼
+    // 세션이 살아남을 수 있으므로, 완료를 기다린 뒤 이동한다.
+    void logoutUser({}).finally(() => {
+      notifySessionChanged();
+      window.location.assign("/");
+    });
   }
 
   const userEmail = session.state === "signed-in" ? (session.user?.email ?? null) : null;

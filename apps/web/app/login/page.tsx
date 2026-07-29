@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { loginUser } from "@/lib/api";
-import { getStoredAccessToken, storeAccessToken } from "@/lib/auth";
+import { hasSession, notifySessionChanged } from "@/lib/auth";
 
 type LoginState =
   | "idle"
@@ -21,7 +21,7 @@ export default function LoginPage() {
   const [loginState, setLoginState] = useState<LoginState>("idle");
 
   useEffect(() => {
-    if (getStoredAccessToken()) {
+    if (hasSession()) {
       router.replace("/dashboard");
     }
   }, [router]);
@@ -45,7 +45,7 @@ export default function LoginPage() {
       return;
     }
 
-    storeAccessToken(result.accessToken);
+    notifySessionChanged();
     setLoginState("success");
     router.replace("/dashboard");
   }

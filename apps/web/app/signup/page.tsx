@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { loginUser, signupUser } from "@/lib/api";
-import { storeAccessToken } from "@/lib/auth";
+import { notifySessionChanged } from "@/lib/auth";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -71,7 +71,7 @@ export default function SignupPage() {
       return;
     }
 
-    storeAccessToken(loginResult.accessToken);
+    notifySessionChanged();
     setSignupState("success");
     router.replace("/projects/new");
   }

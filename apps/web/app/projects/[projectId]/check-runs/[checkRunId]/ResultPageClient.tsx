@@ -46,7 +46,7 @@ import {
   scoreBarClassName,
   ThresholdBar
 } from "@/components/charts";
-import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import { hasSession, notifySessionChanged } from "@/lib/auth";
 import {
   formatDateTime,
   formatDetailDateTime,
@@ -93,7 +93,6 @@ export function ResultPageClient({
   checkRunId: string;
 }) {
   const [result, setResult] = useState<CheckRunResultPageState>({ state: "checking" });
-  const [sessionToken, setSessionToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [aiReportDetailResult, setAIReportDetailResult] =
     useState<AIReportDetailResult | null>(null);
@@ -131,14 +130,12 @@ export function ResultPageClient({
     if (!isCheckRunTerminal) {
       return;
     }
-    const accessToken = getStoredAccessToken();
-    if (!accessToken) {
+    if (!hasSession()) {
       return;
     }
     const nextResult = await fetchAgentInvestigation({
       projectId,
       checkRunId,
-      accessToken
     });
     if (nextResult.state === "success") {
       setInvestigation(nextResult.investigation);
@@ -161,8 +158,7 @@ export function ResultPageClient({
 
   const handleInvestigationFeedback = useCallback(
     async (verdict: AgentInvestigationVerdict, rootCause?: string) => {
-      const accessToken = getStoredAccessToken();
-      if (!accessToken) {
+      if (!hasSession()) {
         setInvestigationState("unauthorized");
         return;
       }
@@ -170,7 +166,6 @@ export function ResultPageClient({
       const result = await submitAgentInvestigationFeedback({
         projectId,
         checkRunId,
-        accessToken,
         verdict,
         rootCause
       });
@@ -187,8 +182,7 @@ export function ResultPageClient({
   );
 
   const handleClearInvestigationFeedback = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-    if (!accessToken) {
+    if (!hasSession()) {
       setInvestigationState("unauthorized");
       return;
     }
@@ -196,7 +190,6 @@ export function ResultPageClient({
     const result = await clearAgentInvestigationFeedback({
       projectId,
       checkRunId,
-      accessToken
     });
     setFeedbackPending(false);
     if (result.state === "success") {
@@ -209,8 +202,7 @@ export function ResultPageClient({
   }, [checkRunId, projectId]);
 
   const handleRequestInvestigation = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-    if (!accessToken) {
+    if (!hasSession()) {
       setInvestigationState("unauthorized");
       return;
     }
@@ -218,7 +210,6 @@ export function ResultPageClient({
     const requestResult = await requestAgentInvestigation({
       projectId,
       checkRunId,
-      accessToken
     });
     if (requestResult.state === "conflict") {
       await loadInvestigation();
@@ -240,7 +231,6 @@ export function ResultPageClient({
       const pollResult = await fetchAgentInvestigation({
         projectId,
         checkRunId,
-        accessToken
       });
       if (pollResult.state === "success") {
         setInvestigation(pollResult.investigation);
@@ -254,11 +244,8 @@ export function ResultPageClient({
   }, [checkRunId, loadInvestigation, projectId]);
 
   const loadCheckRun = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setResult({ state: "signed-out" });
-      setSessionToken("");
       return;
     }
 
@@ -266,15 +253,13 @@ export function ResultPageClient({
     const nextResult = await fetchCheckRunDetail({
       projectId,
       checkRunId,
-      accessToken
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     setResult(nextResult);
-    setSessionToken(accessToken);
     if (nextResult.state !== "success" || nextResult.checkRun.ai_report === null) {
       setAIReportDetailResult(null);
     }
@@ -286,20 +271,17 @@ export function ResultPageClient({
   }, [checkRunId, projectId]);
 
   const loadProject = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setProjectResult(null);
       return;
     }
 
     const nextResult = await fetchProject({
       projectId,
-      accessToken
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     setProjectResult(nextResult);
@@ -310,9 +292,7 @@ export function ResultPageClient({
   }, [loadCheckRun, loadProject]);
 
   const loadAIReportDetail = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setAIReportDetailResult(null);
       return;
     }
@@ -321,11 +301,10 @@ export function ResultPageClient({
     const nextResult = await fetchCheckRunAIReport({
       projectId,
       checkRunId,
-      accessToken
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     setAIReportDetailResult(nextResult);
@@ -340,10 +319,8 @@ export function ResultPageClient({
 
   useEffect(() => {
     let cancelled = false;
-    const accessToken = getStoredAccessToken();
-
     if (
-      !accessToken ||
+      !hasSession() ||
       !baselineCheckRunId ||
       baselineCheckRunId === checkRunId ||
       !isCheckRunTerminal
@@ -363,7 +340,6 @@ export function ResultPageClient({
       const nextResult = await fetchBaselineComparison({
         projectId,
         checkRunId,
-        accessToken
       });
 
       if (cancelled) {
@@ -371,7 +347,7 @@ export function ResultPageClient({
       }
 
       if (nextResult.state === "unauthorized") {
-        clearStoredAccessTokenIfMatches(accessToken);
+        notifySessionChanged();
       }
 
       setBaselineComparisonResult(nextResult);
@@ -383,9 +359,7 @@ export function ResultPageClient({
   }, [baselineCheckRunId, checkRunId, isCheckRunTerminal, projectId]);
 
   const handleSetBaseline = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken || isBaselineMutating) {
+    if (!hasSession() || isBaselineMutating) {
       return;
     }
 
@@ -394,13 +368,12 @@ export function ResultPageClient({
     const mutationResult = await setProjectBaseline({
       projectId,
       checkRunId,
-      accessToken
     });
 
     if (mutationResult.state === "success") {
       setProjectResult({ state: "success", project: mutationResult.project });
     } else if (mutationResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
       setBaselineActionError("인증이 만료되었습니다. 다시 로그인한 뒤 시도하세요.");
     } else if (mutationResult.state === "conflict") {
       setBaselineActionError(
@@ -416,9 +389,7 @@ export function ResultPageClient({
   }, [checkRunId, isBaselineMutating, projectId]);
 
   const handleClearBaseline = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken || isBaselineMutating) {
+    if (!hasSession() || isBaselineMutating) {
       return;
     }
 
@@ -426,13 +397,12 @@ export function ResultPageClient({
     setBaselineActionError(null);
     const mutationResult = await clearProjectBaseline({
       projectId,
-      accessToken
     });
 
     if (mutationResult.state === "success") {
       setProjectResult({ state: "success", project: mutationResult.project });
     } else if (mutationResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
       setBaselineActionError("인증이 만료되었습니다. 다시 로그인한 뒤 시도하세요.");
     } else if (mutationResult.state === "not-found") {
       setBaselineActionError("프로젝트를 찾을 수 없습니다.");
@@ -459,9 +429,7 @@ export function ResultPageClient({
   }, [isAIReportPending, refresh, shouldPoll]);
 
   const handleCancelCheckRun = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken || isCancelling) {
+    if (!hasSession() || isCancelling) {
       return;
     }
 
@@ -470,13 +438,12 @@ export function ResultPageClient({
     const cancelResult = await cancelCheckRun({
       projectId,
       checkRunId,
-      accessToken
     });
 
     if (cancelResult.state === "success") {
       await loadCheckRun();
     } else if (cancelResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
       setCancelError("인증이 만료되었습니다. 다시 로그인한 뒤 시도하세요.");
     } else if (cancelResult.state === "not-found") {
       setCancelError("검사를 찾을 수 없습니다.");
@@ -624,7 +591,6 @@ export function ResultPageClient({
             />
 
             <DetailSections
-              accessToken={sessionToken}
               checkRun={checkRun}
               projectId={projectId}
               qualityScoreThreshold={project?.quality_score_threshold ?? null}
@@ -1563,13 +1529,11 @@ function getScenarioSummaryLine(scenarioRuns: ScenarioRun[]): {
 }
 
 function DetailSections({
-  accessToken,
   checkRun,
   projectId,
   qualityScoreThreshold,
   responseTimeThresholdMs
 }: {
-  accessToken: string;
   checkRun: CheckRunDetail;
   projectId: string;
   qualityScoreThreshold: number | null;
@@ -1639,7 +1603,7 @@ function DetailSections({
         title="산출물"
         tone="neutral"
       >
-        <ArtifactCard accessToken={accessToken} artifacts={checkRun.artifacts} />
+        <ArtifactCard artifacts={checkRun.artifacts} />
       </DetailSection>
       <DetailSection
         summary={breakdownSummary}
@@ -2165,13 +2129,7 @@ function LighthouseTopAuditList({
   );
 }
 
-function ArtifactCard({
-  accessToken,
-  artifacts
-}: {
-  accessToken: string;
-  artifacts: Artifact[];
-}) {
+function ArtifactCard({ artifacts }: { artifacts: Artifact[] }) {
   if (artifacts.length === 0) {
     return <EmptyResultCard title="산출물" description="아직 저장된 산출물 정보가 없습니다." />;
   }
@@ -2196,7 +2154,7 @@ function ArtifactCard({
               <Metric label="생성 시각" value={formatDetailDateTime(artifact.created_at)} />
             </dl>
             <div className="mt-4">
-              <ArtifactDownloadButton artifactId={artifact.id} accessToken={accessToken} />
+              <ArtifactDownloadButton artifactId={artifact.id} />
             </div>
           </li>
         ))}

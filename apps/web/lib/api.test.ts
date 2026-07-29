@@ -247,7 +247,7 @@ describe("fetchApiHealth", () => {
 });
 
 describe("loginUser", () => {
-  it("returns an access token when login succeeds", async () => {
+  it("succeeds when the server issues a session", async () => {
     const fetcher = vi.fn(async () =>
       Response.json({
         access_token: " access-token ",
@@ -262,11 +262,7 @@ describe("loginUser", () => {
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
-    ).resolves.toEqual({
-      state: "success",
-      accessToken: "access-token",
-      tokenType: "bearer"
-    });
+    ).resolves.toEqual({ state: "success" });
 
     expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/auth/login", {
       method: "POST",
@@ -502,7 +498,6 @@ describe("fetchCurrentUser", () => {
 
     await expect(
       fetchCurrentUser({
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -519,9 +514,7 @@ describe("fetchCurrentUser", () => {
 
     expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/auth/me", {
       cache: "no-store",
-      headers: {
-        Authorization: "Bearer token"
-      }
+      headers: {}
     });
   });
 
@@ -531,7 +524,6 @@ describe("fetchCurrentUser", () => {
 
     await expect(
       fetchCurrentUser({
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -539,7 +531,6 @@ describe("fetchCurrentUser", () => {
 
     await expect(
       fetchCurrentUser({
-        accessToken: "token",
         fetcher: unavailableFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -553,7 +544,6 @@ describe("logoutUser", () => {
 
     await expect(
       logoutUser({
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -562,9 +552,7 @@ describe("logoutUser", () => {
     expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/auth/logout", {
       method: "POST",
       cache: "no-store",
-      headers: {
-        Authorization: "Bearer token"
-      }
+      headers: {}
     });
   });
 
@@ -574,7 +562,6 @@ describe("logoutUser", () => {
 
     await expect(
       logoutUser({
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -582,7 +569,6 @@ describe("logoutUser", () => {
 
     await expect(
       logoutUser({
-        accessToken: "token",
         fetcher: unavailableFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -613,7 +599,6 @@ describe("fetchProjects", () => {
 
     await expect(
       fetchProjects({
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000",
         limit: 20
@@ -639,9 +624,7 @@ describe("fetchProjects", () => {
     });
     expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects?limit=20", {
       cache: "no-store",
-      headers: {
-        Authorization: "Bearer token"
-      }
+      headers: {}
     });
   });
 
@@ -651,7 +634,6 @@ describe("fetchProjects", () => {
 
     await expect(
       fetchProjects({
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -659,7 +641,6 @@ describe("fetchProjects", () => {
 
     await expect(
       fetchProjects({
-        accessToken: "token",
         fetcher: unavailableFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -689,7 +670,6 @@ describe("fetchProject", () => {
     await expect(
       fetchProject({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -712,9 +692,7 @@ describe("fetchProject", () => {
     });
     expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id", {
       cache: "no-store",
-      headers: {
-        Authorization: "Bearer token"
-      }
+      headers: {}
     });
   });
 
@@ -725,7 +703,6 @@ describe("fetchProject", () => {
     await expect(
       fetchProject({
         projectId: "project-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -734,7 +711,6 @@ describe("fetchProject", () => {
     await expect(
       fetchProject({
         projectId: "missing-project",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -769,7 +745,6 @@ describe("createProject", () => {
 
     await expect(
       createProject({
-        accessToken: "token",
         payload,
         fetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -790,7 +765,6 @@ describe("createProject", () => {
       method: "POST",
       cache: "no-store",
       headers: {
-        Authorization: "Bearer token",
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
@@ -802,7 +776,6 @@ describe("createProject", () => {
 
     await expect(
       createProject({
-        accessToken: "token",
         payload: {
           name: "AIM Website",
           service_url: "http://localhost",
@@ -844,7 +817,6 @@ describe("updateProject", () => {
     await expect(
       updateProject({
         projectId: "project-id",
-        accessToken: "token",
         payload,
         fetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -865,7 +837,6 @@ describe("updateProject", () => {
       method: "PATCH",
       cache: "no-store",
       headers: {
-        Authorization: "Bearer token",
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
@@ -878,7 +849,6 @@ describe("updateProject", () => {
     await expect(
       updateProject({
         projectId: "missing-project",
-        accessToken: "token",
         payload: {
           name: "AIM Website",
           service_url: "https://example.com",
@@ -910,7 +880,6 @@ describe("project domain verification", () => {
     await expect(
       fetchProjectVerification({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -928,9 +897,7 @@ describe("project domain verification", () => {
       "http://localhost:8000/projects/project-id/verification",
       {
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -950,7 +917,6 @@ describe("project domain verification", () => {
     await expect(
       verifyProjectDomain({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -968,9 +934,7 @@ describe("project domain verification", () => {
     expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id/verify", {
       method: "POST",
       cache: "no-store",
-      headers: {
-        Authorization: "Bearer token"
-      }
+      headers: {}
     });
   });
 
@@ -980,7 +944,6 @@ describe("project domain verification", () => {
     await expect(
       verifyProjectDomain({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1011,7 +974,6 @@ describe("fetchCheckRuns", () => {
     await expect(
       fetchCheckRuns({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000",
         limit: 1
@@ -1038,9 +1000,7 @@ describe("fetchCheckRuns", () => {
       "http://localhost:8000/projects/project-id/check-runs?limit=1",
       {
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -1052,7 +1012,6 @@ describe("fetchCheckRuns", () => {
     await expect(
       fetchCheckRuns({
         projectId: "project-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1061,7 +1020,6 @@ describe("fetchCheckRuns", () => {
     await expect(
       fetchCheckRuns({
         projectId: "missing-project",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1094,7 +1052,6 @@ describe("fetchProjectIncidents", () => {
     await expect(
       fetchProjectIncidents({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000",
         limit: 5
@@ -1107,9 +1064,7 @@ describe("fetchProjectIncidents", () => {
       "http://localhost:8000/projects/project-id/incidents?limit=5",
       {
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -1121,7 +1076,6 @@ describe("fetchProjectIncidents", () => {
     await expect(
       fetchProjectIncidents({
         projectId: "project-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1130,7 +1084,6 @@ describe("fetchProjectIncidents", () => {
     await expect(
       fetchProjectIncidents({
         projectId: "missing-project",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1163,7 +1116,6 @@ describe("fetchProjectAlerts", () => {
     await expect(
       fetchProjectAlerts({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000",
         limit: 5,
@@ -1177,9 +1129,7 @@ describe("fetchProjectAlerts", () => {
       "http://localhost:8000/projects/project-id/alerts?limit=5&offset=10",
       {
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -1191,7 +1141,6 @@ describe("fetchProjectAlerts", () => {
     await expect(
       fetchProjectAlerts({
         projectId: "project-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1200,7 +1149,6 @@ describe("fetchProjectAlerts", () => {
     await expect(
       fetchProjectAlerts({
         projectId: "missing-project",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1234,7 +1182,6 @@ describe("retryAlert", () => {
       retryAlert({
         projectId: "project-id",
         alertId: "alert-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1248,9 +1195,7 @@ describe("retryAlert", () => {
       {
         method: "POST",
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -1265,7 +1210,6 @@ describe("retryAlert", () => {
       retryAlert({
         projectId: "project-id",
         alertId: "alert-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1275,7 +1219,6 @@ describe("retryAlert", () => {
       retryAlert({
         projectId: "missing-project",
         alertId: "alert-id",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1285,7 +1228,6 @@ describe("retryAlert", () => {
       retryAlert({
         projectId: "project-id",
         alertId: "pending-alert",
-        accessToken: "token",
         fetcher: conflictFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1295,7 +1237,6 @@ describe("retryAlert", () => {
       retryAlert({
         projectId: "project-id",
         alertId: "alert-id",
-        accessToken: "token",
         fetcher: unavailableFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1327,7 +1268,6 @@ describe("createCheckRun", () => {
     await expect(
       createCheckRun({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1354,7 +1294,6 @@ describe("createCheckRun", () => {
         method: "POST",
         cache: "no-store",
         headers: {
-          Authorization: "Bearer token",
           "Content-Type": "application/json"
         },
         body: "{}"
@@ -1371,7 +1310,6 @@ describe("createCheckRun", () => {
     await expect(
       createCheckRun({
         projectId: "project-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1380,7 +1318,6 @@ describe("createCheckRun", () => {
     await expect(
       createCheckRun({
         projectId: "missing-project",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1389,7 +1326,6 @@ describe("createCheckRun", () => {
     await expect(
       createCheckRun({
         projectId: "unverified-project",
-        accessToken: "token",
         fetcher: conflictFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1398,7 +1334,6 @@ describe("createCheckRun", () => {
     await expect(
       createCheckRun({
         projectId: "project-id",
-        accessToken: "token",
         fetcher: unavailableFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1421,7 +1356,6 @@ describe("downloadArtifact", () => {
 
     const result = await downloadArtifact({
       artifactId: "artifact-id",
-      accessToken: "token",
       fetcher,
       apiBaseUrl: "http://localhost:8000"
     });
@@ -1436,9 +1370,7 @@ describe("downloadArtifact", () => {
       "http://localhost:8000/artifacts/artifact-id/download",
       {
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -1448,7 +1380,6 @@ describe("downloadArtifact", () => {
 
     const result = await downloadArtifact({
       artifactId: "artifact-id",
-      accessToken: "token",
       fetcher,
       apiBaseUrl: "http://localhost:8000"
     });
@@ -1468,7 +1399,6 @@ describe("downloadArtifact", () => {
     await expect(
       downloadArtifact({
         artifactId: "artifact-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1477,7 +1407,6 @@ describe("downloadArtifact", () => {
     await expect(
       downloadArtifact({
         artifactId: "missing-id",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1486,7 +1415,6 @@ describe("downloadArtifact", () => {
     await expect(
       downloadArtifact({
         artifactId: "remote-id",
-        accessToken: "token",
         fetcher: conflictFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1552,7 +1480,6 @@ describe("fetchCheckRunDetail", () => {
       fetchCheckRunDetail({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1613,9 +1540,7 @@ describe("fetchCheckRunDetail", () => {
       "http://localhost:8000/projects/project-id/check-runs/check-run-id",
       {
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -1628,7 +1553,6 @@ describe("fetchCheckRunDetail", () => {
       fetchCheckRunDetail({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1638,7 +1562,6 @@ describe("fetchCheckRunDetail", () => {
       fetchCheckRunDetail({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1712,7 +1635,6 @@ describe("fetchCheckRunAIReport", () => {
     const result = await fetchCheckRunAIReport({
       projectId: "project-id",
       checkRunId: "check-run-id",
-      accessToken: "token",
       fetcher,
       apiBaseUrl: "http://localhost:8000"
     });
@@ -1729,9 +1651,7 @@ describe("fetchCheckRunAIReport", () => {
       "http://localhost:8000/projects/project-id/check-runs/check-run-id/ai-report",
       {
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -1744,7 +1664,6 @@ describe("fetchCheckRunAIReport", () => {
       fetchCheckRunAIReport({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1754,7 +1673,6 @@ describe("fetchCheckRunAIReport", () => {
       fetchCheckRunAIReport({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1786,7 +1704,6 @@ describe("fetchScenarioRuns", () => {
       fetchScenarioRuns({
         projectId: "project-id",
         scenarioId: "scenario-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000",
         limit: 5,
@@ -1801,9 +1718,7 @@ describe("fetchScenarioRuns", () => {
       "http://localhost:8000/projects/project-id/scenarios/scenario-id/runs?limit=5&offset=10",
       {
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -1816,7 +1731,6 @@ describe("fetchScenarioRuns", () => {
       fetchScenarioRuns({
         projectId: "project-id",
         scenarioId: "scenario-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1826,7 +1740,6 @@ describe("fetchScenarioRuns", () => {
       fetchScenarioRuns({
         projectId: "project-id",
         scenarioId: "missing-scenario",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1880,7 +1793,6 @@ describe("fetchScenarioRunDetail", () => {
         projectId: "project-id",
         scenarioId: "scenario-id",
         scenarioRunId: "scenario-run-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1928,9 +1840,7 @@ describe("fetchScenarioRunDetail", () => {
       "http://localhost:8000/projects/project-id/scenarios/scenario-id/runs/scenario-run-id",
       {
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -1944,7 +1854,6 @@ describe("fetchScenarioRunDetail", () => {
         projectId: "project-id",
         scenarioId: "scenario-id",
         scenarioRunId: "scenario-run-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1955,7 +1864,6 @@ describe("fetchScenarioRunDetail", () => {
         projectId: "project-id",
         scenarioId: "scenario-id",
         scenarioRunId: "scenario-run-id",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -1996,7 +1904,6 @@ describe("fetchScenarios", () => {
     await expect(
       fetchScenarios({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2031,9 +1938,7 @@ describe("fetchScenarios", () => {
 
     expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id/scenarios", {
       cache: "no-store",
-      headers: {
-        Authorization: "Bearer token"
-      }
+      headers: {}
     });
   });
 });
@@ -2087,7 +1992,6 @@ describe("createScenario", () => {
     await expect(
       createScenario({
         projectId: "project-id",
-        accessToken: "token",
         payload,
         fetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -2123,7 +2027,6 @@ describe("createScenario", () => {
       method: "POST",
       cache: "no-store",
       headers: {
-        Authorization: "Bearer token",
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
@@ -2153,7 +2056,6 @@ describe("createScenario", () => {
     await expect(
       createScenario({
         projectId: "project-id",
-        accessToken: "bad-token",
         payload,
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -2163,7 +2065,6 @@ describe("createScenario", () => {
     await expect(
       createScenario({
         projectId: "missing-project",
-        accessToken: "token",
         payload,
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -2173,7 +2074,6 @@ describe("createScenario", () => {
     await expect(
       createScenario({
         projectId: "project-id",
-        accessToken: "token",
         payload,
         fetcher: invalidFetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -2183,7 +2083,6 @@ describe("createScenario", () => {
     await expect(
       createScenario({
         projectId: "project-id",
-        accessToken: "token",
         payload,
         fetcher: unavailableFetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -2238,7 +2137,6 @@ describe("updateScenario", () => {
       updateScenario({
         projectId: "project-id",
         scenarioId: "scenario-id",
-        accessToken: "token",
         payload,
         fetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -2275,7 +2173,6 @@ describe("updateScenario", () => {
         method: "PATCH",
         cache: "no-store",
         headers: {
-          Authorization: "Bearer token",
           "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)
@@ -2307,7 +2204,6 @@ describe("updateScenario", () => {
       updateScenario({
         projectId: "project-id",
         scenarioId: "scenario-id",
-        accessToken: "bad-token",
         payload,
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -2318,7 +2214,6 @@ describe("updateScenario", () => {
       updateScenario({
         projectId: "project-id",
         scenarioId: "missing-scenario",
-        accessToken: "token",
         payload,
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -2329,7 +2224,6 @@ describe("updateScenario", () => {
       updateScenario({
         projectId: "project-id",
         scenarioId: "scenario-id",
-        accessToken: "token",
         payload,
         fetcher: invalidFetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -2340,7 +2234,6 @@ describe("updateScenario", () => {
       updateScenario({
         projectId: "project-id",
         scenarioId: "scenario-id",
-        accessToken: "token",
         payload,
         fetcher: unavailableFetcher,
         apiBaseUrl: "http://localhost:8000"
@@ -2357,7 +2250,6 @@ describe("deleteScenario", () => {
       deleteScenario({
         projectId: "project-id",
         scenarioId: "scenario-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2367,9 +2259,7 @@ describe("deleteScenario", () => {
       {
         method: "DELETE",
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -2382,7 +2272,6 @@ describe("deleteScenario", () => {
       deleteScenario({
         projectId: "project-id",
         scenarioId: "scenario-id",
-        accessToken: "bad-token",
         fetcher: unauthorizedFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2392,7 +2281,6 @@ describe("deleteScenario", () => {
       deleteScenario({
         projectId: "project-id",
         scenarioId: "missing-scenario",
-        accessToken: "token",
         fetcher: notFoundFetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2428,7 +2316,6 @@ describe("createScenarioRun", () => {
       createScenarioRun({
         projectId: "project-id",
         scenarioId: "scenario-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2458,7 +2345,6 @@ describe("createScenarioRun", () => {
         method: "POST",
         cache: "no-store",
         headers: {
-          Authorization: "Bearer token",
           "Content-Type": "application/json"
         },
         body: "{}"
@@ -2473,7 +2359,6 @@ describe("createScenarioRun", () => {
       createScenarioRun({
         projectId: "project-id",
         scenarioId: "scenario-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2534,7 +2419,6 @@ describe("setProjectBaseline", () => {
       setProjectBaseline({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2547,7 +2431,6 @@ describe("setProjectBaseline", () => {
       method: "PUT",
       cache: "no-store",
       headers: {
-        Authorization: "Bearer token",
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ check_run_id: "check-run-id" })
@@ -2561,7 +2444,6 @@ describe("setProjectBaseline", () => {
       setProjectBaseline({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2575,7 +2457,6 @@ describe("setProjectBaseline", () => {
       setProjectBaseline({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2591,7 +2472,6 @@ describe("clearProjectBaseline", () => {
     await expect(
       clearProjectBaseline({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2603,9 +2483,7 @@ describe("clearProjectBaseline", () => {
     expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id/baseline", {
       method: "DELETE",
       cache: "no-store",
-      headers: {
-        Authorization: "Bearer token"
-      }
+      headers: {}
     });
   });
 });
@@ -2635,7 +2513,6 @@ describe("fetchBaselineComparison", () => {
       fetchBaselineComparison({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2648,9 +2525,7 @@ describe("fetchBaselineComparison", () => {
       "http://localhost:8000/projects/project-id/check-runs/check-run-id/baseline-comparison",
       {
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -2662,7 +2537,6 @@ describe("fetchBaselineComparison", () => {
       projectId: "project-id",
       checkRunId: "check-run-id",
       baselineCheckRunId: "baseline-id",
-      accessToken: "token",
       fetcher,
       apiBaseUrl: "http://localhost:8000"
     });
@@ -2671,9 +2545,7 @@ describe("fetchBaselineComparison", () => {
       "http://localhost:8000/projects/project-id/check-runs/check-run-id/baseline-comparison?baseline_check_run_id=baseline-id",
       {
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
   });
@@ -2685,7 +2557,6 @@ describe("fetchBaselineComparison", () => {
       fetchBaselineComparison({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2715,7 +2586,6 @@ describe("cancelCheckRun", () => {
       cancelCheckRun({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2729,9 +2599,7 @@ describe("cancelCheckRun", () => {
       {
         method: "POST",
         cache: "no-store",
-        headers: {
-          Authorization: "Bearer token"
-        }
+        headers: {}
       }
     );
     expect(getCancelCheckRunUrl("project-id", "check-run-id", "http://localhost:8000")).toBe(
@@ -2746,7 +2614,6 @@ describe("cancelCheckRun", () => {
       cancelCheckRun({
         projectId: "project-id",
         checkRunId: "check-run-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2761,7 +2628,6 @@ describe("deleteProject", () => {
     await expect(
       deleteProject({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2770,9 +2636,7 @@ describe("deleteProject", () => {
     expect(fetcher).toHaveBeenCalledWith("http://localhost:8000/projects/project-id", {
       method: "DELETE",
       cache: "no-store",
-      headers: {
-        Authorization: "Bearer token"
-      }
+      headers: {}
     });
   });
 
@@ -2782,7 +2646,6 @@ describe("deleteProject", () => {
     await expect(
       deleteProject({
         projectId: "project-id",
-        accessToken: "token",
         fetcher,
         apiBaseUrl: "http://localhost:8000"
       })
@@ -2914,7 +2777,6 @@ describe("agent investigation feedback", () => {
     const result = await submitAgentInvestigationFeedback({
       projectId: "p1",
       checkRunId: "r1",
-      accessToken: "token",
       verdict: "inaccurate",
       rootCause: "scenario_stale",
       fetcher: fetcher as unknown as typeof fetch,
@@ -2937,7 +2799,6 @@ describe("agent investigation feedback", () => {
     await clearAgentInvestigationFeedback({
       projectId: "p1",
       checkRunId: "r1",
-      accessToken: "token",
       fetcher: fetcher as unknown as typeof fetch,
       apiBaseUrl: "https://api.example.com"
     });
@@ -2953,7 +2814,6 @@ describe("agent investigation feedback", () => {
     const result = await submitAgentInvestigationFeedback({
       projectId: "p1",
       checkRunId: "r1",
-      accessToken: "expired",
       verdict: "accurate",
       fetcher: fetcher as unknown as typeof fetch,
       apiBaseUrl: "https://api.example.com"
@@ -2970,7 +2830,6 @@ describe("agent investigation feedback", () => {
     const result = await submitAgentInvestigationFeedback({
       projectId: "p1",
       checkRunId: "r1",
-      accessToken: "token",
       verdict: "accurate",
       fetcher: fetcher as unknown as typeof fetch,
       apiBaseUrl: "https://api.example.com"

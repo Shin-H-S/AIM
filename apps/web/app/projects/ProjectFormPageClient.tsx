@@ -20,7 +20,7 @@ import {
   type ProjectVerification,
   type ScoringPreset
 } from "@/lib/api";
-import { clearStoredAccessToken, getStoredAccessToken } from "@/lib/auth";
+import { hasSession, notifySessionChanged } from "@/lib/auth";
 import { formatNullableDateTime } from "@/lib/format";
 import { isHttpUrl, normalizeServiceUrl } from "@/lib/serviceUrl";
 import { LoginRequiredNotice, Metric, Notice } from "@/components/ui";
@@ -141,11 +141,10 @@ export function ProjectFormPageClient({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const loadVerification = useCallback(async (token: string, targetProjectId: string) => {
+  const loadVerification = useCallback(async (targetProjectId: string) => {
     setVerificationState("loading");
     const result = await fetchProjectVerification({
-      projectId: targetProjectId,
-      accessToken: token
+      projectId: targetProjectId
     });
 
     if (result.state !== "success") {
@@ -159,7 +158,7 @@ export function ProjectFormPageClient({
   }, []);
 
   const loadProject = useCallback(
-    async (token: string) => {
+    async () => {
       if (!projectId) {
         setLoadState("not-found");
         return;
@@ -167,13 +166,12 @@ export function ProjectFormPageClient({
 
       setLoadState("loading");
       const result = await fetchProject({
-        projectId,
-        accessToken: token
+        projectId
       });
 
       if (result.state !== "success") {
         if (result.state === "unauthorized") {
-          clearStoredAccessToken();
+          notifySessionChanged();
         }
 
         setProject(null);
@@ -184,16 +182,14 @@ export function ProjectFormPageClient({
       setProject(result.project);
       setForm(formFromProject(result.project));
       setLoadState("ready");
-      await loadVerification(token, result.project.id);
+      await loadVerification(result.project.id);
     },
     [loadVerification, projectId]
   );
 
   useEffect(() => {
-    const storedAccessToken = getStoredAccessToken();
-
     queueMicrotask(() => {
-      if (!storedAccessToken) {
+      if (!hasSession()) {
         setLoadState("unauthorized");
         return;
       }
@@ -203,7 +199,7 @@ export function ProjectFormPageClient({
         return;
       }
 
-      void loadProject(storedAccessToken);
+      void loadProject();
     });
   }, [loadProject, mode]);
 
@@ -218,9 +214,7 @@ export function ProjectFormPageClient({
       return;
     }
 
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setSubmitState("unauthorized");
       setSubmitMessage("로그인 세션이 없습니다. 다시 로그인하세요.");
       return;
@@ -230,18 +224,16 @@ export function ProjectFormPageClient({
     const result =
       mode === "create"
         ? await createProject({
-            accessToken,
             payload: payloadResult.payload
           })
         : await updateProject({
             projectId: projectId ?? "",
-            accessToken,
             payload: payloadResult.payload
           });
 
     if (result.state !== "success") {
       if (result.state === "unauthorized") {
-        clearStoredAccessToken();
+        notifySessionChanged();
       }
 
       setSubmitState(result.state);
@@ -267,9 +259,7 @@ export function ProjectFormPageClient({
   }
 
   async function handleVerifyProject() {
-    const accessToken = getStoredAccessToken();
-
-    if (!project || !accessToken) {
+    if (!project || !hasSession()) {
       setVerifyActionState("unauthorized");
       return;
     }
@@ -277,12 +267,11 @@ export function ProjectFormPageClient({
     setVerifyActionState("verifying");
     const result = await verifyProjectDomain({
       projectId: project.id,
-      accessToken
     });
 
     if (result.state !== "success") {
       if (result.state === "unauthorized") {
-        clearStoredAccessToken();
+        notifySessionChanged();
       }
 
       setVerifyActionState(result.state);
@@ -307,9 +296,7 @@ export function ProjectFormPageClient({
       return;
     }
 
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setDeleteError("로그인 세션이 없습니다. 다시 로그인하세요.");
       return;
     }
@@ -323,7 +310,6 @@ export function ProjectFormPageClient({
     setDeleteError(null);
     const result = await deleteProject({
       projectId: project.id,
-      accessToken
     });
 
     if (result.state === "success") {
@@ -332,7 +318,7 @@ export function ProjectFormPageClient({
     }
 
     if (result.state === "unauthorized") {
-      clearStoredAccessToken();
+      notifySessionChanged();
       setDeleteError("로그인 세션이 만료되었습니다. 다시 로그인하세요.");
     } else if (result.state === "not-found") {
       setDeleteError("프로젝트를 찾을 수 없습니다. 이미 삭제되었을 수 있습니다.");
@@ -768,14 +754,12 @@ function DeployTokenPanel({ projectId }: { projectId: string }) {
   const [revokingTokenId, setRevokingTokenId] = useState<string | null>(null);
 
   const loadTokens = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setListState("unauthorized");
       return;
     }
 
-    const result = await fetchProjectApiTokens({ projectId, accessToken });
+    const result = await fetchProjectApiTokens({ projectId });
 
     if (result.state === "success") {
       setTokens(result.tokens);
@@ -794,17 +778,16 @@ function DeployTokenPanel({ projectId }: { projectId: string }) {
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const accessToken = getStoredAccessToken();
     const name = tokenName.trim();
 
-    if (!accessToken || !name || isCreating) {
+    if (!hasSession() || !name || isCreating) {
       return;
     }
 
     setIsCreating(true);
     setActionError(null);
     setCopied(false);
-    const result = await createProjectApiToken({ projectId, name, accessToken });
+    const result = await createProjectApiToken({ projectId, name });
 
     if (result.state === "success") {
       setIssuedToken(result.token);
@@ -818,15 +801,13 @@ function DeployTokenPanel({ projectId }: { projectId: string }) {
   }
 
   async function handleRevoke(tokenId: string) {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken || revokingTokenId !== null) {
+    if (!hasSession() || revokingTokenId !== null) {
       return;
     }
 
     setRevokingTokenId(tokenId);
     setActionError(null);
-    const result = await revokeProjectApiToken({ projectId, tokenId, accessToken });
+    const result = await revokeProjectApiToken({ projectId, tokenId });
 
     if (result.state === "success") {
       if (issuedToken?.id === tokenId) {

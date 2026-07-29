@@ -97,6 +97,9 @@ test.describe.serial("핵심 플로우", () => {
     // 로그아웃은 계정 드롭다운(aria-label="계정 메뉴") 안의 menuitem이다.
     await page.getByRole("button", { name: "계정 메뉴" }).click();
     await page.getByRole("menuitem", { name: "로그아웃" }).click();
+    // 로그아웃은 서버가 쿠키를 지운 뒤(응답 완료 후) 홈으로 이동한다.
+    // 그 이동을 기다리지 않고 goto 하면 앱의 이동이 테스트의 이동을 중단시킨다.
+    await page.waitForURL((url) => url.pathname === "/");
 
     await page.goto("/dashboard");
     await expect(page.getByRole("link", { name: "로그인 페이지로 이동" })).toBeVisible();

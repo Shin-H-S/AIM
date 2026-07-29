@@ -15,7 +15,7 @@ import {
   type ProjectDetailResult,
   type RetryAlertResult
 } from "@/lib/api";
-import { clearStoredAccessTokenIfMatches, getStoredAccessToken } from "@/lib/auth";
+import { hasSession, notifySessionChanged } from "@/lib/auth";
 import { formatDateTime, formatNullableDateTime } from "@/lib/format";
 import {
   alertChannelLabel,
@@ -89,9 +89,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 
   const loadOverview = useCallback(async () => {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setSessionState("signed-out");
       setProjectResult(null);
       setIncidentResult(null);
@@ -111,16 +109,13 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     const [nextProjectResult, nextIncidentResult, nextAlertResult] = await Promise.all([
       fetchProject({
         projectId,
-        accessToken
       }),
       fetchProjectIncidents({
         projectId,
-        accessToken,
         limit: LIST_LIMIT
       }),
       fetchProjectAlerts({
         projectId,
-        accessToken,
         limit: LIST_LIMIT
       })
     ]);
@@ -130,7 +125,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
       nextIncidentResult.state === "unauthorized" ||
       nextAlertResult.state === "unauthorized"
     ) {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     setProjectResult(nextProjectResult);
@@ -161,9 +156,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const alertStatusCounts = summarizeAlertStatuses(alerts);
 
   async function handleLoadMoreAlerts() {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken || alertResult?.state !== "success") {
+    if (!hasSession() || alertResult?.state !== "success") {
       return;
     }
 
@@ -172,13 +165,12 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
 
     const nextResult = await fetchProjectAlerts({
       projectId,
-      accessToken,
       limit: LIST_LIMIT,
       offset: alertResult.alerts.length
     });
 
     if (nextResult.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     if (nextResult.state !== "success") {
@@ -206,9 +198,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     event.preventDefault();
     setSettingsSubmitMessage(null);
 
-    const accessToken = getStoredAccessToken();
-
-    if (!project || !accessToken) {
+    if (!project || !hasSession()) {
       setSettingsSubmitState("unauthorized");
       setSettingsSubmitMessage("로그인 세션 또는 Project 정보를 먼저 확인하세요.");
       return;
@@ -231,7 +221,6 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     setSettingsSubmitState("submitting");
     const result = await updateProject({
       projectId: project.id,
-      accessToken,
       payload: {
         name: project.name,
         service_url: project.service_url,
@@ -250,7 +239,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
 
     if (result.state !== "success") {
       if (result.state === "unauthorized") {
-        clearStoredAccessTokenIfMatches(accessToken);
+        notifySessionChanged();
       }
 
       setSettingsSubmitState(result.state);
@@ -268,9 +257,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   }
 
   async function handleRetryAlert(alert: Alert) {
-    const accessToken = getStoredAccessToken();
-
-    if (!accessToken) {
+    if (!hasSession()) {
       setRetryFeedback({
         alertId: alert.id,
         state: "unauthorized",
@@ -285,7 +272,6 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     const result = await retryAlert({
       projectId,
       alertId: alert.id,
-      accessToken
     });
 
     if (result.state === "success") {
@@ -309,7 +295,7 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
     }
 
     if (result.state === "unauthorized") {
-      clearStoredAccessTokenIfMatches(accessToken);
+      notifySessionChanged();
     }
 
     setRetryFeedback({

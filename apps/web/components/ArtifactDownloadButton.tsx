@@ -5,7 +5,6 @@ import { downloadArtifact, type ArtifactDownloadResult } from "@/lib/api";
 
 type ArtifactDownloadButtonProps = {
   artifactId: string;
-  accessToken: string;
   label?: string;
 };
 
@@ -13,27 +12,16 @@ type ButtonState = "idle" | "downloading" | "success" | "error";
 
 export function ArtifactDownloadButton({
   artifactId,
-  accessToken,
   label = "다운로드"
 }: ArtifactDownloadButtonProps) {
   const [state, setState] = useState<ButtonState>("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const trimmedToken = accessToken.trim();
 
   const handleDownload = async () => {
-    if (!trimmedToken) {
-      setState("error");
-      setMessage("다운로드하려면 Bearer token이 필요합니다.");
-      return;
-    }
-
     setState("downloading");
     setMessage(null);
 
-    const result = await downloadArtifact({
-      artifactId,
-      accessToken: trimmedToken
-    });
+    const result = await downloadArtifact({ artifactId });
 
     if (result.state !== "success") {
       setState("error");
@@ -51,7 +39,7 @@ export function ArtifactDownloadButton({
       <button
         className="rounded-xl border border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950 px-3 py-2 text-xs font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 disabled:cursor-not-allowed disabled:opacity-50"
         type="button"
-        disabled={!trimmedToken || state === "downloading"}
+        disabled={state === "downloading"}
         onClick={() => {
           void handleDownload();
         }}

@@ -13,19 +13,24 @@ RouterPolicy의 위임 정책이다. 라우터가 확정 신호(평가셋 66%)�
 - G4: API 예외·파싱 실패는 그대로 던진다 — 루프의 결정론 폴백이 받는다.
 """
 
+import logging
 import time
-from collections.abc import Callable
-from typing import Literal, Protocol
+from collections.abc import Callable, Sequence
+from typing import Literal, Protocol, cast
 
 from aim_api.config import Settings, get_settings
 from anthropic import Anthropic
+from anthropic.types import ImageBlockParam, TextBlockParam
 from pydantic import BaseModel
 
 from aim_worker.agent.cases import ArtifactsSnapshot
 from aim_worker.agent.loop import AgentAction, CallTool, Conclude, Observations, ToolRefusal
 from aim_worker.agent.render import render_observation
 from aim_worker.agent.root_causes import RootCause
+from aim_worker.agent.screenshots import ScreenshotEvidence, ScreenshotLoader
 from aim_worker.agent.toolbox import RECHECK_TOOL
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """당신은 웹서비스 검사 실패의 원인을 판별하는 조사관입니다.
 시나리오 스텝이 실패한 검사의 증거 카드를 읽고, 원인을 셋 중 하나로 판별하세요.
@@ -41,6 +46,10 @@ SYSTEM_PROMPT = """당신은 웹서비스 검사 실패의 원인을 판별하�
 2. 이동 흔적이 증거에 명확할 때만 scenario_stale로 판정한다.
 3. 애매하면 ui_regression으로 판정한다 — 진짜 파손을 "테스트가 낡았다"로
    오판하면 개발자가 장애를 놓친다. 거짓 안심이 가장 위험한 오류다.
+
+실패 시점 스크린샷이 첨부되면 렌더 상태를 판별에 사용하세요 — 에러 배너·빈
+화면·깨진 레이아웃은 파손의 증거이고, 페이지가 정상 렌더링됐는데 기대 요소만
+없다면(특히 대체 진입점이 보인다면) 이동 흔적을 뒷받침하는 증거입니다.
 
 confidence는 증거가 확정적이면 "high", 판단이 갈릴 수 있으면 "low".
 summary는 판별 근거 한 문장, recommendation은 조치 한 문장 — 모두 한국어로."""
@@ -67,18 +76,30 @@ class LlmVerdict(BaseModel):
 
 
 class JudgeCall(BaseModel):
-    """판별 호출 1회의 실측 — G3 비용·지연 리포트의 원자료."""
+    """판별 호출 1회의 실측 — G3 비용·지연 리포트의 원자료.
+
+    image_count: 동봉한 실패 스크린샷 수. usage의 input_tokens에 이미지
+    토큰이 이미 포함되므로 비용 계측은 그대로고, 이 필드는 "시각 증거를
+    보고 내린 결론인가"를 trace에서 구분하기 위한 것이다.
+    """
 
     model: str
     input_tokens: int
     output_tokens: int
     latency_ms: int
+    image_count: int = 0
 
 
 class Judge(Protocol):
     """판별 실행기 계약 — 시험은 가짜로, 운영은 AnthropicJudge로."""
 
-    def judge(self, model: str, system: str, prompt: str) -> tuple[LlmVerdict, JudgeCall]: ...
+    def judge(
+        self,
+        model: str,
+        system: str,
+        prompt: str,
+        images: Sequence[ScreenshotEvidence] = (),
+    ) -> tuple[LlmVerdict, JudgeCall]: ...
 
 
 class LlmJudgeError(Exception):
@@ -104,11 +125,13 @@ class LlmPolicy:
         judge: Judge,
         model: str = "claude-haiku-4-5",
         escalation_model: str | None = "claude-sonnet-5",
+        screenshot_loader: ScreenshotLoader | None = None,
     ) -> None:
         self._judge = judge
         self._model = model
         self._escalation_model = escalation_model
         self._model_used = model
+        self._screenshot_loader = screenshot_loader
         # 호출 실측(케이스당 1~2건) — 평가 러너가 케이스별로 수거한다.
         self.calls: list[JudgeCall] = []
 
@@ -123,12 +146,23 @@ class LlmPolicy:
             return CallTool("get_artifacts")
 
         prompt = build_evidence_prompt(observations)
-        verdict, call = self._judge.judge(self._model, SYSTEM_PROMPT, prompt)
+        # 로더 실패는 시각 증거 없이 계속한다 — 스크린샷은 있으면 좋은
+        # 증거이지, 없다고 조사가 죽어야 할 전제가 아니다.
+        images: tuple[ScreenshotEvidence, ...] = ()
+        if self._screenshot_loader is not None:
+            try:
+                images = self._screenshot_loader()
+            except Exception:
+                logger.exception("Failure screenshot loading failed; judging without images.")
+
+        verdict, call = self._judge.judge(self._model, SYSTEM_PROMPT, prompt, images=images)
         self.calls.append(call)
         self._model_used = self._model
 
         if verdict.confidence == "low" and self._escalation_model is not None:
-            verdict, call = self._judge.judge(self._escalation_model, SYSTEM_PROMPT, prompt)
+            verdict, call = self._judge.judge(
+                self._escalation_model, SYSTEM_PROMPT, prompt, images=images
+            )
             self.calls.append(call)
             self._model_used = self._escalation_model
 
@@ -151,13 +185,19 @@ class AnthropicJudge:
     def __init__(self, client: Anthropic) -> None:
         self._client = client
 
-    def judge(self, model: str, system: str, prompt: str) -> tuple[LlmVerdict, JudgeCall]:
+    def judge(
+        self,
+        model: str,
+        system: str,
+        prompt: str,
+        images: Sequence[ScreenshotEvidence] = (),
+    ) -> tuple[LlmVerdict, JudgeCall]:
         started = time.perf_counter()
         response = self._client.messages.parse(
             model=model,
             max_tokens=1024,
             system=system,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": build_user_content(prompt, images)}],
             output_format=LlmVerdict,
         )
         verdict = response.parsed_output
@@ -168,14 +208,47 @@ class AnthropicJudge:
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
             latency_ms=int((time.perf_counter() - started) * 1000),
+            image_count=len(images),
         )
         return verdict, call
 
 
+ImageMediaType = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
+
+
+def build_user_content(
+    prompt: str, images: Sequence[ScreenshotEvidence]
+) -> str | list[TextBlockParam | ImageBlockParam]:
+    """이미지가 있으면 라벨과 함께 앞에 싣는다(이미지-먼저가 판독 정확도에 유리)."""
+    if not images:
+        return prompt
+
+    content: list[TextBlockParam | ImageBlockParam] = []
+    for image in images:
+        content.append({"type": "text", "text": image.label})
+        content.append(
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    # 로더의 ALLOWED_MEDIA_TYPES가 이 Literal 집합을 보증한다.
+                    "media_type": cast(ImageMediaType, image.media_type),
+                    "data": image.data_base64,
+                },
+            }
+        )
+    content.append({"type": "text", "text": prompt})
+    return content
+
+
 def build_llm_policy_factory(
     settings: Settings | None = None,
-) -> Callable[[], LlmPolicy] | None:
-    """운영·평가 공용 팩토리 — API 키가 없으면 None(호출부가 규칙 전용으로)."""
+) -> Callable[..., LlmPolicy] | None:
+    """운영·평가 공용 팩토리 — API 키가 없으면 None(호출부가 규칙 전용으로).
+
+    운영은 screenshot_loader를 물려 실패 스크린샷을 판별 증거로 쓰고,
+    평가(fixtures 재생)는 인자 없이 불러 이미지 없는 판별로 돈다.
+    """
     runtime_settings = settings or get_settings()
     if not runtime_settings.anthropic_api_key:
         return None
@@ -189,7 +262,12 @@ def build_llm_policy_factory(
     model = runtime_settings.aim_agent_model
     escalation_model = runtime_settings.aim_agent_escalation_model
 
-    def factory() -> LlmPolicy:
-        return LlmPolicy(judge, model=model, escalation_model=escalation_model)
+    def factory(screenshot_loader: ScreenshotLoader | None = None) -> LlmPolicy:
+        return LlmPolicy(
+            judge,
+            model=model,
+            escalation_model=escalation_model,
+            screenshot_loader=screenshot_loader,
+        )
 
     return factory

@@ -31,6 +31,7 @@ from aim_worker.agent.llm_policy import LlmPolicy, build_llm_policy_factory
 from aim_worker.agent.loop import InvestigationLoop, Policy
 from aim_worker.agent.policies import RouterPolicy, RulePolicy
 from aim_worker.agent.root_causes import ROOT_CAUSE_LABELS, RootCause
+from aim_worker.agent.screenshots import build_screenshot_loader
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,10 @@ def run_agent_investigation_for_check_run(
     budget = llm_budget_service.get_budget_status(session)
     policy: Policy
     if llm_factory is not None and not budget.exhausted:
-        llm_policy = llm_factory()
+        # 실패 스크린샷을 판별 증거로 동봉한다(W5 잔여 과제였던 판독 채널).
+        llm_policy = llm_factory(
+            screenshot_loader=build_screenshot_loader(session, check_run_id=check_run.id)
+        )
         policy = RouterPolicy(llm_policy)
     else:
         # API 키가 없거나 예산 상한에 닿았다 — 규칙 전용으로도 조사는 항상

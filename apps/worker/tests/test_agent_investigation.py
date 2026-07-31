@@ -786,7 +786,9 @@ def test_the_agent_uses_the_llm_while_within_budget(
         ),
     )
 
-    def recording_factory() -> None:
+    def recording_factory(**kwargs: object) -> None:
+        # 운영 배선은 screenshot_loader를 넘긴다 — 팩토리 계약의 일부다.
+        assert "screenshot_loader" in kwargs
         built.append(True)
         raise RuntimeError("stop here — we only need to know the factory was consulted")
 

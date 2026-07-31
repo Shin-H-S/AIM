@@ -72,3 +72,15 @@
 	root * /srv/lab
 	file_server
 }
+
+# ssl 장애 실험대 — 같은 정적 페이지를 다른 호스트네임으로 서빙한다.
+# lab 본체와 분리하는 이유: ssl을 망가뜨리면 도메인 인증(meta 태그 fetch)도
+# 막혀서, 같은 호스트로는 "인증된 프로젝트가 ssl만 깨진" 상태를 만들 수 없다.
+# TLS 상태는 ssl-lab-tls.caddy 파일 교체로 전환한다(HTML variants와 같은 패턴).
+{$AIM_SSL_LAB_HOSTNAME} {
+	encode zstd gzip
+	import security_headers
+	import ssl-lab-tls.caddy
+	root * /srv/lab
+	file_server
+}

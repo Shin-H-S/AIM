@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from aim_worker.agent.dataset import generate_cases
 from aim_worker.agent.evaluate import evaluate
 from aim_worker.agent.llm_policy import (
@@ -10,6 +12,7 @@ from aim_worker.agent.llm_policy import (
 from aim_worker.agent.loop import AgentInvestigator, InvestigationLoop
 from aim_worker.agent.policies import RouterPolicy, RulePolicy
 from aim_worker.agent.root_causes import RootCause
+from aim_worker.agent.screenshots import ScreenshotEvidence
 from aim_worker.agent.toolbox import FixturesToolbox
 
 
@@ -18,21 +21,35 @@ def a_call(model: str) -> JudgeCall:
 
 
 class FakeJudge:
-    """정해진 평결을 순서대로 내놓고 (model, system, prompt)를 기록한다."""
+    """정해진 평결을 순서대로 내놓고 (model, system, prompt, images)를 기록한다."""
 
     def __init__(self, verdicts: list[LlmVerdict]) -> None:
         self._verdicts = list(verdicts)
         self.requests: list[tuple[str, str, str]] = []
+        self.images_seen: list[tuple[ScreenshotEvidence, ...]] = []
 
-    def judge(self, model: str, system: str, prompt: str) -> tuple[LlmVerdict, JudgeCall]:
+    def judge(
+        self,
+        model: str,
+        system: str,
+        prompt: str,
+        images: Sequence[ScreenshotEvidence] = (),
+    ) -> tuple[LlmVerdict, JudgeCall]:
         self.requests.append((model, system, prompt))
+        self.images_seen.append(tuple(images))
         return self._verdicts.pop(0), a_call(model)
 
 
 class ExplodingJudge:
     """항상 실패하는 판별기 — LLM 장애 시뮬레이션."""
 
-    def judge(self, model: str, system: str, prompt: str) -> tuple[LlmVerdict, JudgeCall]:
+    def judge(
+        self,
+        model: str,
+        system: str,
+        prompt: str,
+        images: Sequence[ScreenshotEvidence] = (),
+    ) -> tuple[LlmVerdict, JudgeCall]:
         raise RuntimeError("API unavailable")
 
 
@@ -40,7 +57,13 @@ class EvidenceReadingJudge:
     """프롬프트 텍스트만 읽고 판별 — 증거 카드가 판별 특징을 온전히
     싣고 있음을 증명하는 시험용 판별기(W3 LLM이 할 일의 하한)."""
 
-    def judge(self, model: str, system: str, prompt: str) -> tuple[LlmVerdict, JudgeCall]:
+    def judge(
+        self,
+        model: str,
+        system: str,
+        prompt: str,
+        images: Sequence[ScreenshotEvidence] = (),
+    ) -> tuple[LlmVerdict, JudgeCall]:
         if "이동 흔적: " in prompt:
             cause = "scenario_stale"
         elif "timeout waiting for selector" in prompt:
@@ -155,3 +178,54 @@ def test_router_llm_with_prompt_reading_judge_hits_ceiling() -> None:
 
 def _unused_protocol_check(judge: Judge) -> Judge:
     return judge
+
+
+def a_screenshot(label: str = "실패 스텝 2(#email)의 실패 시점 스크린샷") -> ScreenshotEvidence:
+    return ScreenshotEvidence(label=label, media_type="image/png", data_base64="aW1n")
+
+
+def test_screenshots_ride_along_on_every_judge_call() -> None:
+    """로더의 이미지는 1차 판별과 에스컬레이션 재판별 모두에 실려야 한다."""
+    judge = FakeJudge([stale_verdict("low"), stale_verdict("high")])
+    policy = LlmPolicy(
+        judge,
+        model="haiku",
+        escalation_model="sonnet",
+        screenshot_loader=lambda: (a_screenshot(),),
+    )
+
+    trace = run_case("scenario_stale-00", policy)
+
+    assert trace.root_cause is RootCause.SCENARIO_STALE
+    assert len(judge.images_seen) == 2
+    assert all(len(images) == 1 for images in judge.images_seen)
+
+
+def test_a_broken_screenshot_loader_does_not_break_the_verdict() -> None:
+    """시각 증거는 부가물이다 — 로더가 죽어도 판별은 텍스트 증거로 계속된다."""
+
+    def exploding_loader() -> tuple[ScreenshotEvidence, ...]:
+        raise OSError("disk gone")
+
+    judge = FakeJudge([stale_verdict()])
+    policy = LlmPolicy(judge, model="haiku", screenshot_loader=exploding_loader)
+
+    trace = run_case("scenario_stale-00", policy)
+
+    assert trace.root_cause is RootCause.SCENARIO_STALE
+    assert judge.images_seen == [()]
+
+
+def test_anthropic_content_puts_labeled_images_before_the_prompt() -> None:
+    from aim_worker.agent.llm_policy import build_user_content
+
+    shot = a_screenshot()
+    content = build_user_content("증거 카드", [shot])
+
+    assert isinstance(content, list)
+    assert [block["type"] for block in content] == ["text", "image", "text"]
+    assert content[0]["text"] == shot.label
+    assert content[1]["source"]["media_type"] == "image/png"
+    assert content[2]["text"] == "증거 카드"
+    # 이미지가 없으면 순수 문자열 — 기존 호출 형태 그대로.
+    assert build_user_content("증거 카드", []) == "증거 카드"

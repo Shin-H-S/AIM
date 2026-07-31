@@ -1,0 +1,5 @@
+# ssl-lab 사이트의 TLS 상태 파일 — git 기본값은 "정상"(빈 설정 = 공인 인증서 자동 발급).
+#
+# ssl 장애 실험은 이 파일을 variants/ssl-lab-tls-broken.caddy 로 덮어쓰고
+# caddy reload 하는 것으로 시작한다. 복구는 git checkout -- 이 파일 + reload.
+# 자세한 절차는 infra/lab/README.md 의 "ssl 장애 실험" 절.

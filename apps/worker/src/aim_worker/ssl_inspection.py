@@ -78,10 +78,23 @@ def inspect_ssl_certificate(
             fetch_certificate=fetch_certificate,
             inspected_at=inspected_at,
         )
-    except (OSError, ssl.SSLError):
+    except ssl.SSLError:
         return invalid_result(
             service_url=service_url,
             failure_reason="SSL certificate inspection failed.",
+        )
+    except OSError:
+        # TCP 자체가 안 됐다(다운·거부·타임아웃) — 인증서가 나쁜 것이 아니라
+        # 확인할 수 없었던 것이다. is_valid=False로 기록하면 진짜 다운을
+        # ssl 장애로 오판하게 만들므로 "판단 불가(None)"로 구분해 돌려준다.
+        # (SSLError가 OSError의 하위 타입이라 순서가 중요하다.)
+        return SslInspectionResult(
+            service_url=service_url,
+            is_applicable=True,
+            is_valid=None,
+            expires_at=None,
+            days_until_expiration=None,
+            failure_reason="Could not reach the service to inspect the certificate.",
         )
 
     return build_ssl_result(

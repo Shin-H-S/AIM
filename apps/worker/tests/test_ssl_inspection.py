@@ -127,3 +127,49 @@ def test_inspect_ssl_certificate_blocks_unsafe_url_before_fetching_certificate()
     assert calls == []
     assert result.is_valid is False
     assert result.failure_reason == "Service URL is not allowed."
+
+
+def test_tcp_failure_is_inconclusive_not_invalid() -> None:
+    """다운(TCP 불달)을 is_valid=False로 기록하면 진짜 다운이 ssl 장애로
+    오판된다 — 확인 불가는 None으로 구분한다."""
+
+    def refused_fetcher(
+        hostname: str,
+        port: int,
+        timeout_seconds: float,
+        verify: bool,
+    ) -> Mapping[str, Any]:
+        _ = hostname, port, timeout_seconds, verify
+        raise ConnectionRefusedError("connection refused")
+
+    result = inspect_ssl_certificate(
+        "https://example.com",
+        resolver=public_resolver,
+        certificate_fetcher=refused_fetcher,
+    )
+
+    assert result.is_applicable is True
+    assert result.is_valid is None
+    assert result.failure_reason == "Could not reach the service to inspect the certificate."
+
+
+def test_a_non_verification_tls_error_is_invalid() -> None:
+    """핸드셰이크가 인증서 검증 이외의 이유로 깨진 것은 TLS 구성 문제다."""
+
+    def handshake_error_fetcher(
+        hostname: str,
+        port: int,
+        timeout_seconds: float,
+        verify: bool,
+    ) -> Mapping[str, Any]:
+        _ = hostname, port, timeout_seconds, verify
+        raise ssl.SSLError("handshake failure")
+
+    result = inspect_ssl_certificate(
+        "https://example.com",
+        resolver=public_resolver,
+        certificate_fetcher=handshake_error_fetcher,
+    )
+
+    assert result.is_valid is False
+    assert result.failure_reason == "SSL certificate inspection failed."

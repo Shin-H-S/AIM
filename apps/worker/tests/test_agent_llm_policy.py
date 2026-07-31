@@ -217,15 +217,19 @@ def test_a_broken_screenshot_loader_does_not_break_the_verdict() -> None:
 
 
 def test_anthropic_content_puts_labeled_images_before_the_prompt() -> None:
+    from typing import Any, cast
+
     from aim_worker.agent.llm_policy import build_user_content
 
     shot = a_screenshot()
     content = build_user_content("증거 카드", [shot])
 
     assert isinstance(content, list)
-    assert [block["type"] for block in content] == ["text", "image", "text"]
-    assert content[0]["text"] == shot.label
-    assert content[1]["source"]["media_type"] == "image/png"
-    assert content[2]["text"] == "증거 카드"
+    # 유니온 TypedDict는 키 인덱싱이 좁혀지지 않는다 — 검증은 dict로 본다.
+    blocks = cast(list[dict[str, Any]], content)
+    assert [block["type"] for block in blocks] == ["text", "image", "text"]
+    assert blocks[0]["text"] == shot.label
+    assert blocks[1]["source"]["media_type"] == "image/png"
+    assert blocks[2]["text"] == "증거 카드"
     # 이미지가 없으면 순수 문자열 — 기존 호출 형태 그대로.
     assert build_user_content("증거 카드", []) == "증거 카드"

@@ -23,8 +23,10 @@ from aim_api.models.agent_investigation import AgentInvestigation
 from aim_api.models.ai_report import AIReport
 from aim_api.models.alert import Alert, Incident, IncidentStatus
 from aim_api.models.check_run import CheckRun
+from aim_api.models.project import Project
 from aim_api.models.scanner_result import Artifact
 from aim_api.services import incidents as incidents_service
+from aim_api.services import scan_scheduling
 
 # 지연·성공률은 전 기간 평균이 아니라 최근 구간이어야 의미가 있다.
 RECENT_WINDOW_HOURS = 24
@@ -137,6 +139,37 @@ def collect_open_incident_samples(
     return [({"freshness": freshness}, count) for freshness, count in sorted(counts.items())]
 
 
+def collect_scheduled_overdue_count(session: Session, *, now: datetime) -> float:
+    """정기 검사가 밀린 프로젝트 수 — 스케줄러(beat) 죽음의 심장박동 감시.
+
+    beat·스케줄러가 죽으면 검사가 '안 생기는' 형태로 조용히 실패한다. 큐 적체
+    메트릭은 이걸 못 본다 — 큐에 아무것도 들어오지 않기 때문이다. 대상(인증·
+    옵트인) 프로젝트의 마지막 검사(한 번도 없으면 마지막 설정 변경 시각)가
+    자기 주기의 2배를 넘겼으면 밀린 것으로 센다. 2배인 이유: 스케줄러 주기와
+    검사 소요 시간만큼의 자연 지연을 오탐 없이 흡수하기 위해서다.
+    """
+    eligible_projects = session.scalars(
+        select(Project).where(
+            Project.verified_at.is_not(None),
+            Project.owner_id.is_not(None),
+            Project.scheduled_scans_enabled.is_(True),
+        )
+    ).all()
+    if not eligible_projects:
+        return 0.0
+
+    latest_run_at = scan_scheduling.get_latest_check_run_created_at_by_project(session)
+    overdue = 0
+    for project in eligible_projects:
+        baseline = latest_run_at.get(project.id) or project.updated_at
+        deadline = scan_scheduling.as_utc(baseline) + timedelta(
+            minutes=2 * project.scan_interval_minutes
+        )
+        if deadline <= now:
+            overdue += 1
+    return float(overdue)
+
+
 def collect_metrics(session: Session, *, now: datetime | None = None) -> list[Metric]:
     current_time = now or datetime.now(UTC)
     window_start = current_time - timedelta(hours=RECENT_WINDOW_HOURS)
@@ -180,6 +213,16 @@ def collect_metrics(session: Session, *, now: datetime | None = None) -> list[Me
             ),
             metric_type="gauge",
             samples=collect_open_incident_samples(session, now=current_time),
+        ),
+        Metric(
+            name="aim_scheduled_scans_overdue",
+            help_text=(
+                "Opted-in verified projects whose scheduled scan is more than twice "
+                "their interval late. Nonzero means the scheduler (beat) is silent — "
+                "the queue metric cannot see this failure because nothing is enqueued."
+            ),
+            metric_type="gauge",
+            samples=[({}, collect_scheduled_overdue_count(session, now=current_time))],
         ),
         Metric(
             name="aim_alerts_total",

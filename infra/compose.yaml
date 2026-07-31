@@ -238,6 +238,8 @@ services:
       AIM_API_HOSTNAME: ${AIM_API_HOSTNAME:?set AIM_API_HOSTNAME}
       # 실험대 호스트네임 — 기본값은 내부 전용이라 미설정 시 인증서 발급을 시도하지 않는다.
       AIM_LAB_HOSTNAME: ${AIM_LAB_HOSTNAME:-lab.localhost}
+      # ssl 장애 실험대(TLS 상태를 파일 교체로 전환). lab과 분리하는 이유는 Caddyfile 주석.
+      AIM_SSL_LAB_HOSTNAME: ${AIM_SSL_LAB_HOSTNAME:-ssl-lab.localhost}
     depends_on:
       web:
         condition: service_healthy

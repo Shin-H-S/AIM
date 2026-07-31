@@ -1,0 +1,3 @@
+# ssl 장애 상태: 공인 CA 대신 Caddy 내부 CA로 서명한 인증서를 서빙한다.
+# 외부 클라이언트에게는 신뢰할 수 없는 체인 = "SSL certificate verification failed."
+tls internal

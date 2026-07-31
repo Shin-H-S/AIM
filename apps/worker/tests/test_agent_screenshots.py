@@ -134,9 +134,7 @@ def test_caps_the_evidence_at_two_screenshots(session: Session, artifact_root: P
     assert "스텝 2" in evidence[1].label
 
 
-def test_skips_a_missing_file_instead_of_failing(
-    session: Session, artifact_root: Path
-) -> None:
+def test_skips_a_missing_file_instead_of_failing(session: Session, artifact_root: Path) -> None:
     """보존 정리가 파일을 먼저 지웠어도 조사는 이미지 없이 계속돼야 한다."""
     check_run = seed_check_run(session)
     seed_failed_step_with_screenshot(session, check_run, artifact_root, payload=None)

@@ -69,8 +69,10 @@ check_condition "metrics-scrape" 0 1 "(unreachable)" "🟢 AIM /metrics 스크�
 
 metric_value() {
   # 예: metric_value 'aim_check_runs_total{status="QUEUED"}' — 없으면 0.
+  # 주석(# HELP/# TYPE)에도 메트릭 이름이 들어 있으므로 반드시 걸러낸다 —
+  # 라벨 없는 메트릭은 안 거르면 HELP 줄이 먼저 잡힌다.
   local line
-  line=$(grep -F "$1" <<<"$METRICS" | head -1 || true)
+  line=$(grep -v '^#' <<<"$METRICS" | grep -F "$1" | head -1 || true)
   [ -n "$line" ] && printf '%.0f' "${line##* }" || echo 0
 }
 
@@ -84,4 +86,11 @@ check_condition "current-incidents" "$CURRENT_INCIDENTS" 1 \
   "🔴 조치 필요 인시던트 ${CURRENT_INCIDENTS}건 (최근 검사에서 확인됨) — 대시보드 확인." \
   "🟢 조치 필요 인시던트 0건 — 전부 해소."
 
-echo "metrics ok: queued=$QUEUED current_incidents=$CURRENT_INCIDENTS"
+# 심장박동: beat·스케줄러가 죽으면 검사가 '안 생기는' 형태로 조용히 실패한다.
+# 큐 적체 경보는 이걸 못 본다 — 큐에 아무것도 들어오지 않기 때문이다.
+OVERDUE=$(metric_value 'aim_scheduled_scans_overdue ')
+check_condition "scheduled-overdue" "$OVERDUE" 1 \
+  "🔴 정기 검사 밀림 ${OVERDUE}개 프로젝트 (주기 2배 초과) — beat/스케줄러가 침묵 중일 수 있다. \`docker compose logs beat\` 확인." \
+  "🟢 정기 검사 스케줄 정상화."
+
+echo "metrics ok: queued=$QUEUED current_incidents=$CURRENT_INCIDENTS scheduled_overdue=$OVERDUE"

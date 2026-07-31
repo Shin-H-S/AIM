@@ -27,13 +27,26 @@
 - **PAR 만료 관리**: PAR에는 만료일이 있다(발급 시 +1년 권장). 만료되면 업로드가 조용히 실패하기
   시작한다(`backup.log`에 curl 오류, 로컬 덤프는 계속 쌓임). 갱신: OCI 콘솔 → 버킷 →
   Pre-Authenticated Requests → 새로 발급(Permit object writes) → 서버 파일 교체.
-- **백업에 없는 것**: `.env.production`, `~/.config/aim/deploy-token`, `~/.config/aim/scenario-secrets/`,
-  `~/.config/aim/ops-webhook`, `~/.config/aim/backup-par-url` — VM 전체 유실 시 수동 재구성이 필요하다.
+- **정규 백업에 없는 것**: `.env.production`, `~/.config/aim/deploy-token`, `~/.config/aim/scenario-secrets/`,
+  `~/.config/aim/ops-webhook`, `~/.config/aim/backup-par-url` — 이 다섯은
+  `scripts/backup-secrets-offbox.sh`(로컬 PC에서 실행)가 암호화 번들로 받아 둔다.
+  시크릿을 바꿀 때마다 + 분기 리허설 때 함께 갱신. 암호는 비밀번호 관리자에 —
+  암호를 잃으면 백업도 잃는다. 복호화:
+  `openssl enc -d -aes-256-cbc -pbkdf2 -in <번들>.tar.gz.enc | tar -xzf -`
 - 아티팩트 백업은 `docker compose exec api tar` 로 실행 중인 컨테이너에서 뜬다. 아카이브 직후
   `gzip -t` 로 무결성을 확인하므로, 깨진 tar가 성공으로 보고되지 않는다. 아카이브가
   `AIM_ARTIFACT_BACKUP_WARN_BYTES`(기본 2GiB)를 넘으면 로그에 경고가 남는다 —
   **보존 정리 태스크가 동작하지 않고 있다는 신호**다.
-- 후속 과제: 오라클 부트 볼륨 백업 정책 미적용(무료 한도 내 주간 백업 가능) — GCP 주간 스냅샷의 대체물.
+- **부트 볼륨 주간 백업(GCP 주간 스냅샷의 대체물)** — 콘솔 1회 작업:
+  OCI 콘솔 → Storage → Block Storage → **Boot Volumes** → VM의 부트 볼륨 선택 →
+  왼쪽 *Backup Policy* → **사용자 지정 정책 할당**(주 1회 증분, 보존 4개).
+  미리 정의된 Silver/Gold는 보존 개수가 많아 Always Free 볼륨 백업 한도(5개)를
+  넘을 수 있으므로 쓰지 않는다 — 주 1회·보존 4개면 한도 안에서 수동 백업 1개
+  여유가 남는다(한도 수치는 콘솔의 Limits 페이지에서 확인). 정책 적용 후 첫
+  백업이 생겼는지 다음 주에 *Boot Volume Backups* 목록으로 확인할 것.
+  이 백업은 절차 B(VM 전체 유실)에서 "새 VM 생성 + 수동 재구성"을 "백업에서
+  볼륨 복원"으로 줄여 준다 — 단 DB는 볼륨 백업 시점이 아니라 항상 최신 덤프로
+  덮어 복원한다(절차 A).
 
 ## 절차 A — 데이터만 복구 (VM은 정상, 잘못된 데이터/삭제 복구)
 
@@ -93,9 +106,11 @@ docker compose --env-file .env.production -f infra/compose.yaml exec -T postgres
 
 1. 새 VM 생성(오라클 A1 등) 후 docker 설치, 저장소 clone. 스왑 4GB.
    오라클이면 OS iptables **와** VCN 보안 목록 양쪽에서 80/443을 열어야 한다.
-2. 수동 재구성: `.env.production`(시크릿 포함), `~/.config/aim/deploy-token`(웹에서 재발급),
-   `~/.config/aim/scenario-secrets/secrets.env`(디렉토리 2750·파일 640·그룹 999),
-   `~/.config/aim/ops-webhook`, `~/.config/aim/backup-par-url`(PAR 재발급), 크론 4줄(DB 백업·아티팩트 백업·VM 헬스·서비스 메트릭).
+2. 시크릿 복원: 로컬 PC의 암호화 번들(`backup-secrets-offbox.sh`가 만든 최신본)을
+   복호화해 다섯 파일을 제자리에 놓는다(scenario-secrets는 디렉토리 2750·파일 640·그룹 999).
+   번들이 낡았거나 없으면 수동 재구성: `.env.production`(시크릿 포함),
+   `deploy-token`(웹에서 재발급), `backup-par-url`(PAR 재발급), `ops-webhook`.
+   크론 4줄(DB 백업·아티팩트 백업·VM 헬스·서비스 메트릭)은 vm-compose.md대로 재등록.
 3. `docker compose ... up -d` 로 기동 후 **절차 A의 2~4단계**로 오프박스 덤프 복원,
    이어서 **절차 A-2**로 오프박스 아티팩트 아카이브 복원. 아티팩트를 건너뛰면 서비스는
    뜨지만 과거 리포트의 근거 링크가 전부 깨진다.

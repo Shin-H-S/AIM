@@ -315,3 +315,70 @@ def test_agent_feedback_emits_both_buckets_when_empty(session: Session) -> None:
 
     assert 'aim_agent_feedback_total{verdict="accurate"} 0.0' in rendered
     assert 'aim_agent_feedback_total{verdict="inaccurate"} 0.0' in rendered
+
+
+def get_metric(metrics: list[Metric], name: str) -> Metric:
+    return next(metric for metric in metrics if metric.name == name)
+
+
+def test_overdue_counts_projects_the_scheduler_has_abandoned(session: Session) -> None:
+    """마지막 검사가 주기의 2배를 넘긴 옵트인 프로젝트가 심장박동 경보의 대상이다."""
+    project = create_project(session)
+    project.scheduled_scans_enabled = True
+    project.scan_interval_minutes = 60
+    session.commit()
+    check_run = add_check_run(session, project=project)
+    check_run.created_at = datetime.now(UTC) - timedelta(minutes=121)
+    session.commit()
+
+    metric = get_metric(collect_metrics(session), "aim_scheduled_scans_overdue")
+
+    assert metric.samples == [({}, 1.0)]
+
+
+def test_a_recent_scan_keeps_the_heartbeat_quiet(session: Session) -> None:
+    project = create_project(session)
+    project.scheduled_scans_enabled = True
+    project.scan_interval_minutes = 60
+    session.commit()
+    add_check_run(session, project=project)
+
+    metric = get_metric(collect_metrics(session), "aim_scheduled_scans_overdue")
+
+    assert metric.samples == [({}, 0.0)]
+
+
+def test_opted_out_and_unverified_projects_are_not_counted(session: Session) -> None:
+    """스케줄러가 애초에 안 볼 프로젝트는 밀린 것도 아니다 — 오탐 방지."""
+    opted_out = create_project(session)
+    opted_out.scheduled_scans_enabled = False
+    unverified = create_project(session)
+    unverified.scheduled_scans_enabled = True
+    unverified.verified_at = None
+    session.commit()
+    for project in (opted_out, unverified):
+        run = add_check_run(session, project=project)
+        run.created_at = datetime.now(UTC) - timedelta(days=30)
+    session.commit()
+
+    metric = get_metric(collect_metrics(session), "aim_scheduled_scans_overdue")
+
+    assert metric.samples == [({}, 0.0)]
+
+
+def test_a_never_scanned_project_is_graded_from_its_last_config_change(
+    session: Session,
+) -> None:
+    """검사 이력이 없으면 설정 변경 시각 기준 — 방금 켠 프로젝트는 오탐하지 않는다."""
+    project = create_project(session)
+    project.scheduled_scans_enabled = True
+    project.scan_interval_minutes = 60
+    session.commit()
+
+    fresh = get_metric(collect_metrics(session), "aim_scheduled_scans_overdue")
+    assert fresh.samples == [({}, 0.0)]
+
+    project.updated_at = datetime.now(UTC) - timedelta(minutes=121)
+    session.commit()
+    stale = get_metric(collect_metrics(session), "aim_scheduled_scans_overdue")
+    assert stale.samples == [({}, 1.0)]

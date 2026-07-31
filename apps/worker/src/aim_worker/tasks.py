@@ -697,20 +697,26 @@ def run_check_run(check_run_id: str) -> None:
             failure_reason=availability_result.failure_reason,
         )
 
+        # ssl 검사는 가용성과 무관하게 수행한다. 인증서가 깨지면 가용성 HTTP
+        # 요청 자체가 TLS 단계에서 실패하는데, 그때 ssl 검사를 건너뛰면 "ssl
+        # 검사가 존재하는 이유인 바로 그 상황"의 증거가 비어 조사가
+        # service_down으로 오판한다(2026-07-31 ssl-lab 실험이 잡은 결함).
+        # 진짜 다운(TCP 불달)은 검사기가 is_valid=None(판단 불가)으로 구분한다.
+        ssl_result = inspect_ssl_certificate(
+            availability_result.final_url or project.service_url,
+        )
+        saved_ssl_result = scanner_result_service.record_ssl_result(
+            session,
+            check_run_id=parsed_check_run_id,
+            service_url=ssl_result.service_url,
+            is_applicable=ssl_result.is_applicable,
+            is_valid=ssl_result.is_valid,
+            expires_at=ssl_result.expires_at,
+            days_until_expiration=ssl_result.days_until_expiration,
+            failure_reason=ssl_result.failure_reason,
+        )
+
         if availability_result.is_available:
-            ssl_result = inspect_ssl_certificate(
-                availability_result.final_url or project.service_url,
-            )
-            saved_ssl_result = scanner_result_service.record_ssl_result(
-                session,
-                check_run_id=parsed_check_run_id,
-                service_url=ssl_result.service_url,
-                is_applicable=ssl_result.is_applicable,
-                is_valid=ssl_result.is_valid,
-                expires_at=ssl_result.expires_at,
-                days_until_expiration=ssl_result.days_until_expiration,
-                failure_reason=ssl_result.failure_reason,
-            )
             if ssl_result.is_applicable and ssl_result.is_valid is False:
                 score_result = score_result_service.record_score_result(
                     session,
@@ -857,7 +863,9 @@ def run_check_run(check_run_id: str) -> None:
             check_run_id=parsed_check_run_id,
             project=project,
             availability_result=saved_availability_result,
-            ssl_result=None,
+            # 불달이어도 ssl 증거는 넘긴다 — 인증서 문제로 불달이 된 경우
+            # 조사·리포트가 진짜 원인(ssl)을 볼 수 있어야 한다.
+            ssl_result=saved_ssl_result,
             lighthouse_result=None,
         )
         run_comparison_service.record_previous_run_comparison(

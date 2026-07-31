@@ -342,6 +342,30 @@ def valid_ssl_result(service_url: str) -> SslInspectionResult:
     )
 
 
+def unreachable_ssl_result(service_url: str) -> SslInspectionResult:
+    """TCP 불달 — 인증서가 나쁜 게 아니라 확인할 수 없었던 상태."""
+    return SslInspectionResult(
+        service_url=service_url,
+        is_applicable=True,
+        is_valid=None,
+        expires_at=None,
+        days_until_expiration=None,
+        failure_reason="Could not reach the service to inspect the certificate.",
+    )
+
+
+def verification_failed_ssl_result(service_url: str) -> SslInspectionResult:
+    """TLS는 붙지만 체인을 신뢰할 수 없음 — 인증서가 진짜 문제인 상태."""
+    return SslInspectionResult(
+        service_url=service_url,
+        is_applicable=True,
+        is_valid=False,
+        expires_at=datetime(2027, 6, 26, tzinfo=UTC),
+        days_until_expiration=365,
+        failure_reason="SSL certificate verification failed.",
+    )
+
+
 def invalid_ssl_result(service_url: str) -> SslInspectionResult:
     return SslInspectionResult(
         service_url=service_url,
@@ -669,6 +693,7 @@ def test_run_check_run_fails_when_availability_scan_fails(
         return unavailable_result(service_url)
 
     monkeypatch.setattr(tasks, "scan_http_availability", fake_scan)
+    monkeypatch.setattr(tasks, "inspect_ssl_certificate", unreachable_ssl_result)
 
     tasks.run_check_run.run(str(check_run.id))
 
@@ -680,7 +705,10 @@ def test_run_check_run_fails_when_availability_scan_fails(
     assert availability_result.is_available is False
     assert availability_result.status_code == 503
     assert availability_result.failure_reason == "Service returned HTTP 503."
-    assert session.scalars(select(SslResult)).all() == []
+    # 불달이어도 ssl 검사는 돌고, "판단 불가"로 정직하게 기록된다.
+    ssl_result = session.scalars(select(SslResult)).one()
+    assert ssl_result.is_valid is None
+    assert ssl_result.failure_reason == "Could not reach the service to inspect the certificate."
     score_result = session.scalars(select(ScoreResult)).one()
     assert score_result.overall_score == 0
     assert score_result.grade == "F"
@@ -703,6 +731,7 @@ def test_run_check_run_records_connection_failure_incident(
         return connection_failure_result(service_url)
 
     monkeypatch.setattr(tasks, "scan_http_availability", fake_scan)
+    monkeypatch.setattr(tasks, "inspect_ssl_certificate", unreachable_ssl_result)
 
     tasks.run_check_run.run(str(check_run.id))
 
@@ -718,6 +747,30 @@ def test_run_check_run_records_connection_failure_incident(
     assert alert.check_run_id == check_run.id
     assert alert.recipient_email is not None
     assert email_alert_delivery_queue == [str(check_run.id)]
+
+
+def test_a_tls_broken_service_still_gets_its_ssl_evidence_recorded(
+    session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """인증서가 깨지면 가용성 요청 자체가 TLS에서 실패한다 — 그때 ssl 검사를
+    건너뛰면 조사가 service_down으로 오판한다(2026-07-31 ssl-lab 실험이 잡은
+    결함). 불달이어도 ssl 증거는 기록돼야 한다."""
+    check_run = create_check_run(session, status=CheckRunStatus.QUEUED)
+
+    def fake_scan(service_url: str) -> AvailabilityScanResult:
+        return connection_failure_result(service_url)
+
+    monkeypatch.setattr(tasks, "scan_http_availability", fake_scan)
+    monkeypatch.setattr(tasks, "inspect_ssl_certificate", verification_failed_ssl_result)
+
+    tasks.run_check_run.run(str(check_run.id))
+
+    session.refresh(check_run)
+    assert check_run.status == CheckRunStatus.FAILED.value
+    ssl_result = session.scalars(select(SslResult)).one()
+    assert ssl_result.is_valid is False
+    assert ssl_result.failure_reason == "SSL certificate verification failed."
 
 
 def test_deliver_pending_email_alerts_task_returns_delivery_counts(

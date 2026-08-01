@@ -27,26 +27,41 @@ export function AIReportDetailPanel({
   topAudits?: LighthouseTopAudit[] | null;
 }) {
   const payload = report.report_json;
+  // 없음은 한 줄, 문제는 크게 — 이슈·변화·경고가 전부 비면 빈 카드 세 개 대신
+  // 요약 한 줄로 끝낸다. 화면 면적은 정보량을 따라간다.
+  const allClear =
+    payload.top_issues.length === 0 &&
+    payload.improved_areas.length === 0 &&
+    payload.regressed_areas.length === 0 &&
+    payload.generation_warnings.length === 0;
+
+  if (allClear) {
+    return (
+      <p className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+        ✓ 우선 이슈 · 변화 영역 · 생성 경고 모두 없음 — 안정 상태 리포트입니다.
+      </p>
+    );
+  }
 
   return (
-    <section className="mt-6 grid gap-5">
+    <section className="mt-6 grid gap-4">
       <AIReportIssuesList issues={payload.top_issues} topAudits={topAudits ?? null} />
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <AIReportChangesCard
-          changes={payload.improved_areas}
-          emptyDescription="이번 리포트에 기록된 개선 영역이 없습니다."
-          title="개선된 영역"
-        />
-        <AIReportChangesCard
-          changes={payload.regressed_areas}
-          emptyDescription="이번 리포트에 기록된 회귀 영역이 없습니다."
-          title="회귀한 영역"
-        />
+        <AIReportChangesCard changes={payload.improved_areas} title="개선된 영역" />
+        <AIReportChangesCard changes={payload.regressed_areas} title="회귀한 영역" />
       </section>
 
       <AIReportWarningsCard warnings={payload.generation_warnings} />
     </section>
+  );
+}
+
+function EmptyLine({ label }: { label: string }) {
+  return (
+    <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
+      {label} 없음
+    </p>
   );
 }
 
@@ -58,14 +73,7 @@ function AIReportIssuesList({
   topAudits: LighthouseTopAudit[] | null;
 }) {
   if (issues.length === 0) {
-    return (
-      <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 p-4 text-emerald-800 dark:text-emerald-300">
-        <h3 className="text-lg font-semibold">우선 이슈 없음</h3>
-        <p className="mt-2 text-sm opacity-80">
-          AIReport에 top issue가 없습니다. 안정 상태 리포트일 때 정상적으로 발생할 수 있습니다.
-        </p>
-      </div>
-    );
+    return <EmptyLine label="우선 확인 이슈" />;
   }
 
   return (
@@ -133,50 +141,52 @@ function AIReportIssuesList({
 
 function AIReportChangesCard({
   changes,
-  emptyDescription,
   title
 }: {
   changes: AIReportChange[];
-  emptyDescription: string;
   title: string;
 }) {
+  if (changes.length === 0) {
+    return <EmptyLine label={title} />;
+  }
+
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h3>
         <span className="rounded-full bg-slate-200 dark:bg-slate-700 px-3 py-1 text-xs font-bold text-slate-600 dark:text-slate-300 ring-1 ring-slate-200 dark:ring-slate-700">
           {changes.length}개
         </span>
       </div>
 
-      {changes.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">{emptyDescription}</p>
-      ) : (
-        <ul className="grid gap-3">
-          {changes.map((change) => (
-            <li className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4" key={change.id}>
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">{change.summary}</p>
-              <dl className="mt-3 grid gap-3 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-3">
+      <ul className="grid gap-3">
+        {changes.map((change) => (
+          <li className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4" key={change.id}>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">{change.summary}</p>
+            {/* 이전·현재가 없는 변화(요약만 있는 리포트)에 "없음/없음/-1"을 찍지 않는다 —
+                값이 있는 항목만 보여준다. */}
+            <dl className="mt-3 grid gap-3 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-3">
+              {change.previous_value !== null && (
                 <Metric label="이전" value={formatReportValue(change.previous_value)} />
+              )}
+              {change.current_value !== null && (
                 <Metric label="현재" value={formatReportValue(change.current_value)} />
+              )}
+              {change.delta !== null && (
                 <Metric label="변화" value={formatReportValue(change.delta)} />
-              </dl>
-            </li>
-          ))}
-        </ul>
-      )}
+              )}
+            </dl>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
 function AIReportWarningsCard({ warnings }: { warnings: string[] }) {
   if (warnings.length === 0) {
-    return (
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">생성 경고</h3>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">기록된 생성 경고가 없습니다.</p>
-      </div>
-    );
+    // 경고 없음은 정상 상태다 — 자리를 차지할 이유가 없다(R2).
+    return null;
   }
 
   return (

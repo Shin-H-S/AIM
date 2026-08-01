@@ -90,6 +90,8 @@ test.describe.serial("핵심 플로우", () => {
     // 여기까지가 이 스위트의 책임 범위다.
     await page.waitForURL(/\/projects\/[0-9a-f-]+\/check-runs\/[0-9a-f-]+/);
     await expect(page.getByText("대기 중").first()).toBeVisible();
+    // 판정 헤더(R1)는 진행 중에도 첫 블록에서 상태를 말해야 한다.
+    await expect(page.getByText("검사가 아직 진행 중입니다.")).toBeVisible();
   });
 
   test("로그아웃하면 대시보드가 로그인으로 안내한다", async ({ page }) => {

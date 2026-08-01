@@ -78,7 +78,10 @@ export function InvestigationCard({
     : 0;
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <article
+      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      id="investigation"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h2 className="text-base font-bold text-slate-900 dark:text-white">🕵️ 조사 에이전트</h2>

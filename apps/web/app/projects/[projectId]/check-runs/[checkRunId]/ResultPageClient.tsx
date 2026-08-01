@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import { AIReportDetailPanel } from "./AIReportDetailPanel";
 import { InvestigationCard, type InvestigationCardState } from "./InvestigationCard";
+import { VerdictHeader } from "./VerdictHeader";
 import {
   cancelCheckRun,
   clearProjectBaseline,
@@ -548,16 +549,16 @@ export function ResultPageClient({
 
         {checkRun && (
           <>
-            {checkRun.failure_reason && (
-              <Notice
-                description={checkRun.failure_reason}
-                title="검사 실패 사유"
-                tone="danger"
-              />
-            )}
             {cancelError && (
               <Notice description={cancelError} title="취소 요청 실패" tone="danger" />
             )}
+
+            <VerdictHeader
+              failureReason={checkRun.failure_reason}
+              investigation={investigation}
+              score={checkRun.score_result}
+              status={checkRun.status}
+            />
 
             <VerdictCard
               aiReport={checkRun.ai_report}

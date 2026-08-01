@@ -143,27 +143,27 @@ function ScorePreviewCard() {
         <div className="grid h-16 w-16 place-items-center rounded-full bg-white text-center font-mono dark:bg-slate-900">
           <span className="text-2xl font-extrabold leading-none text-slate-900 dark:text-white">
             97
-            <small className="block text-[11px] font-extrabold text-emerald-600">A</small>
+            <small className="block text-[11px] font-extrabold text-emerald-700">A</small>
           </span>
         </div>
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">qaaimsync.com · 검사 리포트</h3>
-          <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+          <p className="text-sm font-extrabold text-slate-900 dark:text-white">qaaimsync.com · 검사 리포트</p>
+          <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
             회귀 없음
           </span>
         </div>
         <div className="mt-2.5 flex flex-wrap gap-2 font-mono text-[11.5px] tabular-nums text-slate-500 dark:text-slate-400">
           <span className="rounded-lg border border-slate-200 px-2 py-1 dark:border-slate-700">
-            성능 <b className="text-emerald-600 dark:text-emerald-400">+2 ▲</b>
+            성능 <b className="text-emerald-700 dark:text-emerald-400">+2 ▲</b>
           </span>
           <span className="rounded-lg border border-slate-200 px-2 py-1 dark:border-slate-700">
-            응답 <b className="text-emerald-600 dark:text-emerald-400">-31ms ▲</b>
+            응답 <b className="text-emerald-700 dark:text-emerald-400">-31ms ▲</b>
           </span>
           <span className="rounded-lg border border-slate-200 px-2 py-1 dark:border-slate-700">접근성 100</span>
           <span className="rounded-lg border border-slate-200 px-2 py-1 dark:border-slate-700">
-            시나리오 <b className="text-emerald-600 dark:text-emerald-400">8/8 ✓</b>
+            시나리오 <b className="text-emerald-700 dark:text-emerald-400">8/8 ✓</b>
           </span>
         </div>
       </div>
@@ -255,7 +255,7 @@ function MockFrame({ children, url }: { children: React.ReactNode; url: string }
         <i className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-600" />
         <i className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-600" />
         <i className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-600" />
-        <span className="ml-2 rounded-md border border-slate-200 bg-white px-2.5 py-0.5 font-mono text-[10.5px] text-slate-400 dark:border-slate-700 dark:bg-slate-900">
+        <span className="ml-2 rounded-md border border-slate-200 bg-white px-2.5 py-0.5 font-mono text-[10.5px] text-slate-500 dark:border-slate-700 dark:bg-slate-900">
           {url}
         </span>
       </div>
@@ -267,14 +267,14 @@ function MockFrame({ children, url }: { children: React.ReactNode; url: string }
 function SignupMock() {
   return (
     <MockFrame url="qaaimsync.com/signup">
-      <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500">이메일</div>
+      <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">이메일</div>
       <div className="mt-1 rounded-lg border border-slate-200 px-3 py-2 text-slate-500 dark:border-slate-700 dark:text-slate-400">
         you@example.com
       </div>
       <div className="mt-3 rounded-lg bg-cyan-600 py-2 text-center font-extrabold text-white">
         가입하기
       </div>
-      <div className="mt-2.5 rounded-lg bg-emerald-50 px-3 py-2 font-semibold text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+      <div className="mt-2.5 rounded-lg bg-emerald-50 px-3 py-2 font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
         ✉️ 인증 메일을 보냈습니다 — 링크를 열면 완료됩니다.
       </div>
     </MockFrame>
@@ -284,15 +284,15 @@ function SignupMock() {
 function ProjectMock() {
   return (
     <MockFrame url="projects/new">
-      <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500">서비스 URL</div>
+      <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">서비스 URL</div>
       <div className="mt-1 rounded-lg border border-slate-200 px-3 py-2 font-mono text-slate-500 dark:border-slate-700 dark:text-slate-400">
         https://myservice.io
       </div>
-      <div className="mt-2.5 text-[11px] font-bold text-slate-400 dark:text-slate-500">소유 확인 — head에 한 줄</div>
+      <div className="mt-2.5 text-[11px] font-bold text-slate-500 dark:text-slate-400">소유 확인 — head에 한 줄</div>
       <div className="mt-1 overflow-x-auto rounded-lg border border-slate-200 px-3 py-2 font-mono text-[10.5px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
         {'<meta name="aim-verification" content="a1b2…">'}
       </div>
-      <div className="mt-2.5 rounded-lg bg-emerald-50 px-3 py-2 font-semibold text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+      <div className="mt-2.5 rounded-lg bg-emerald-50 px-3 py-2 font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
         ✓ 도메인 확인 완료 — 검사를 시작할 수 있습니다.
       </div>
     </MockFrame>
@@ -316,7 +316,7 @@ function CheckRunMock() {
       </div>
       <div className="flex items-center justify-between py-2">
         <span className="text-slate-600 dark:text-slate-300">사용자 흐름 8단계</span>
-        <span className="rounded-md border border-slate-200 px-2 py-0.5 font-mono text-[10.5px] text-slate-400 dark:border-slate-700">
+        <span className="rounded-md border border-slate-200 px-2 py-0.5 font-mono text-[10.5px] text-slate-500 dark:border-slate-700">
           대기
         </span>
       </div>
@@ -332,7 +332,7 @@ function ResultMock() {
     <MockFrame url="runs/164">
       <div className="flex items-center justify-between border-b border-dashed border-slate-200 pb-2 dark:border-slate-700">
         <b className="font-mono text-xl text-slate-900 dark:text-white">
-          97 <span className="text-emerald-600 dark:text-emerald-400">A</span>
+          97 <span className="text-emerald-700 dark:text-emerald-400">A</span>
         </b>
         <svg aria-hidden className="block" height="34" viewBox="0 0 150 34" width="150">
           <polyline
@@ -349,13 +349,13 @@ function ResultMock() {
         <span className="font-mono tabular-nums text-slate-600 dark:text-slate-300">
           성능 86 · 접근성 100 · SEO 100
         </span>
-        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-extrabold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
           회귀 없음
         </span>
       </div>
       <div className="flex items-center justify-between pt-2">
         <span className="text-slate-600 dark:text-slate-300">직전 배포 대비</span>
-        <span className="font-mono font-bold text-emerald-600">+2.0 ▲</span>
+        <span className="font-mono font-bold text-emerald-700">+2.0 ▲</span>
       </div>
     </MockFrame>
   );

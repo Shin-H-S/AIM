@@ -23,7 +23,7 @@ export default function Home() {
       <FlowSection />
       <FeatureSection />
       <CtaBand />
-      <footer className="mx-auto flex w-full max-w-6xl flex-wrap justify-between gap-4 px-6 pb-12 pt-9 text-sm text-slate-500 dark:text-slate-400">
+      <footer className="mx-auto flex w-full max-w-6xl flex-wrap justify-between gap-4 px-6 pb-12 pt-9 text-sm text-slate-600 dark:text-slate-400">
         <span>AIM — AI Quality Monitor</span>
         <a
           className="transition hover:text-cyan-700"
@@ -80,7 +80,7 @@ function Hero() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-600/30 transition hover:-translate-y-0.5 hover:bg-cyan-700"
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-600/30 transition hover:-translate-y-0.5 hover:bg-cyan-800"
               href="/signup"
             >
               무료로 시작하기 →
@@ -271,7 +271,7 @@ function SignupMock() {
       <div className="mt-1 rounded-lg border border-slate-200 px-3 py-2 text-slate-500 dark:border-slate-700 dark:text-slate-400">
         you@example.com
       </div>
-      <div className="mt-3 rounded-lg bg-cyan-600 py-2 text-center font-extrabold text-white">
+      <div className="mt-3 rounded-lg bg-cyan-700 py-2 text-center font-extrabold text-white">
         가입하기
       </div>
       <div className="mt-2.5 rounded-lg bg-emerald-50 px-3 py-2 font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
@@ -320,7 +320,7 @@ function CheckRunMock() {
           대기
         </span>
       </div>
-      <div className="mt-3 rounded-lg bg-cyan-600 py-2 text-center font-extrabold text-white">
+      <div className="mt-3 rounded-lg bg-cyan-700 py-2 text-center font-extrabold text-white">
         검사 실행 ▶
       </div>
     </MockFrame>
@@ -439,7 +439,7 @@ function CtaBand() {
           </p>
         </div>
         <Link
-          className="relative z-10 inline-flex items-center rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-600/40 transition hover:-translate-y-0.5 hover:bg-cyan-500"
+          className="relative z-10 inline-flex items-center rounded-xl bg-cyan-700 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-600/40 transition hover:-translate-y-0.5 hover:bg-cyan-600"
           href="/signup"
         >
           무료로 시작하기 →

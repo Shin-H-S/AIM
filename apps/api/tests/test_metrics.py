@@ -165,9 +165,16 @@ def test_open_incidents_are_counted(session: Session) -> None:
 
     rendered = render_metrics(collect_metrics(session))
 
-    # 열린 인시던트는 최근 확인 여부로 나뉜다 — 두 프로젝트 모두 방금 검사됐다.
-    assert 'aim_incidents_open{freshness="current"} 2.0' in rendered
-    assert 'aim_incidents_open{freshness="stale"} 0.0' in rendered
+    # freshness × project로 나뉜다 — 운영자가 자기 프로젝트만 골라 경보를
+    # 걸 수 있어야 외부 사용자 인시던트가 경보를 점유하지 않는다(7/31 실측).
+    assert 'aim_incidents_open{freshness="current",project="AIM Website"} 2.0' in rendered
+
+
+def test_no_open_incidents_still_emits_a_zero_sample(session: Session) -> None:
+    """인시던트가 없어도 시계열이 끊기면 스크레이퍼가 '없음'과 '고장'을 구분 못 한다."""
+    rendered = render_metrics(collect_metrics(session))
+
+    assert 'aim_incidents_open{freshness="current",project=""} 0.0' in rendered
 
 
 def test_ai_reports_are_counted_by_generator(session: Session) -> None:

@@ -113,6 +113,19 @@ test.describe.serial("핵심 플로우", () => {
   });
 });
 
+test("문서 응답은 nonce CSP를 싣고, script-src에 unsafe-inline이 없다", async ({ page }) => {
+  const response = await page.goto("/login");
+  const csp = response?.headers()["content-security-policy"] ?? "";
+
+  expect(csp).toContain("nonce-");
+  expect(csp).toContain("strict-dynamic");
+  const scriptSrc = csp.split(";").find((d) => d.trim().startsWith("script-src")) ?? "";
+  expect(scriptSrc).not.toContain("unsafe-inline");
+  // CSP가 걸린 채로도 하이드레이션이 살아 있어야 한다 — 폼이 동작하면 산 것이다.
+  await page.locator("#email").fill("csp@example.com");
+  await expect(page.locator("#email")).toHaveValue("csp@example.com");
+});
+
 test("잘못된 비밀번호는 대시보드에 들어가지 못한다", async ({ page }) => {
   await page.goto("/login");
   await page.locator("#email").fill(email);

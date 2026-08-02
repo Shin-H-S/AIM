@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { AppHeader } from "@/components/AppHeader";
 import "./globals.css";
 
@@ -11,16 +12,21 @@ export const metadata: Metadata = {
   }
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // CSP nonce — 미들웨어가 요청마다 새로 발급한다. 이 값이 없는 인라인
+  // 스크립트는 브라우저가 실행을 거부한다(그게 CSP의 목적이다).
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html className="scroll-smooth" lang="ko" suppressHydrationWarning>
       <body className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
         {/* 첫 페인트 전에 저장된 테마(없으면 시스템 설정)를 적용해 깜빡임을 막는다. */}
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html:
               '(function(){try{var t=localStorage.getItem("aim-theme");if(t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.classList.add("dark");}}catch(e){}})();'

@@ -112,31 +112,43 @@ def collect_agent_feedback_samples(session: Session) -> list[tuple[dict[str, str
 def collect_open_incident_samples(
     session: Session, *, now: datetime
 ) -> list[tuple[dict[str, str], float]]:
-    """열린 인시던트를 '최근 확인됨'과 '오래됨'으로 나눈다.
+    """열린 인시던트를 '최근 확인됨/오래됨' × 프로젝트로 나눈다.
 
-    나누지 않으면 지금 조치가 필요한 장애와 검사가 멈춘 프로젝트의 화석이 같은
-    숫자로 세어져, 그 숫자로는 아무 판단도 할 수 없게 된다.
+    freshness를 나누지 않으면 지금 조치가 필요한 장애와 검사가 멈춘 프로젝트의
+    화석이 같은 숫자로 세어진다. project를 나누지 않으면 운영자가 고칠 수 없는
+    외부 사용자 서비스의 장애가 운영자 경보를 점유한다(2026-07-31 실측) —
+    스크레이퍼가 라벨로 자기 프로젝트만 골라 경보를 걸 수 있어야 한다.
+    합산이 필요한 소비자는 라벨을 접으면 된다.
     """
     open_incidents = session.execute(
-        select(Incident.project_id, func.count())
+        select(Incident.project_id, Project.name, func.count())
+        .join(Project, Project.id == Incident.project_id)
         .where(Incident.status == IncidentStatus.OPEN.value)
-        .group_by(Incident.project_id)
+        .group_by(Incident.project_id, Project.name)
     ).all()
 
     last_checked = incidents_service.latest_check_run_at_by_project(
-        session, project_ids=[project_id for project_id, _ in open_incidents]
+        session, project_ids=[project_id for project_id, _, _ in open_incidents]
     )
 
-    counts = {"current": 0.0, "stale": 0.0}
-    for project_id, count in open_incidents:
+    counts: dict[tuple[str, str], float] = {}
+    for project_id, project_name, count in open_incidents:
         bucket = (
             "stale"
             if incidents_service.is_stale(last_checked.get(project_id), now=now)
             else "current"
         )
-        counts[bucket] += float(count)
+        key = (bucket, project_name)
+        counts[key] = counts.get(key, 0.0) + float(count)
 
-    return [({"freshness": freshness}, count) for freshness, count in sorted(counts.items())]
+    if not counts:
+        # 인시던트가 없어도 시계열이 끊기지 않게 0을 남긴다(스크레이퍼 편의).
+        return [({"freshness": "current", "project": ""}, 0.0)]
+
+    return [
+        ({"freshness": freshness, "project": project_name}, count)
+        for (freshness, project_name), count in sorted(counts.items())
+    ]
 
 
 def collect_scheduled_overdue_count(session: Session, *, now: datetime) -> float:

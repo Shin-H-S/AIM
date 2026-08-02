@@ -122,16 +122,16 @@ def test_metrics_separate_stale_incidents_from_current_ones(session: Session) ->
 
     rendered = render_metrics(collect_metrics(session, now=NOW))
 
-    assert 'aim_incidents_open{freshness="stale"} 1.0' in rendered
-    assert 'aim_incidents_open{freshness="current"} 1.0' in rendered
+    # project 라벨이 붙는다 — 운영자가 자기 프로젝트만 골라 경보를 걸기 위해서다.
+    assert 'aim_incidents_open{freshness="stale",project="AIM Website"} 1.0' in rendered
+    assert 'aim_incidents_open{freshness="current",project="AIM Website"} 1.0' in rendered
 
 
-def test_metrics_report_zero_for_both_buckets_when_nothing_is_open(session: Session) -> None:
+def test_metrics_report_a_zero_sample_when_nothing_is_open(session: Session) -> None:
     """스크레이퍼가 라벨이 사라져 그래프가 끊기는 일이 없어야 한다."""
     rendered = render_metrics(collect_metrics(session, now=NOW))
 
-    assert 'aim_incidents_open{freshness="stale"} 0.0' in rendered
-    assert 'aim_incidents_open{freshness="current"} 0.0' in rendered
+    assert 'aim_incidents_open{freshness="current",project=""} 0.0' in rendered
 
 
 def test_resolved_incidents_are_not_counted(session: Session) -> None:
@@ -144,7 +144,9 @@ def test_resolved_incidents_are_not_counted(session: Session) -> None:
 
     rendered = render_metrics(collect_metrics(session, now=NOW))
 
-    assert 'aim_incidents_open{freshness="stale"} 0.0' in rendered
+    # 해소된 인시던트는 어떤 라벨로도 세지 않는다 — 빈 상태의 0 샘플만 남는다.
+    assert 'aim_incidents_open{freshness="current",project=""} 0.0' in rendered
+    assert 'project="AIM Website"' not in rendered.split("aim_incidents_open", 1)[1].split("# HELP")[0]
 
 
 def test_the_incident_endpoint_marks_a_stale_open_incident(

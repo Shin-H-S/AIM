@@ -36,14 +36,10 @@
 	encode zstd gzip
 	import security_headers
 
-	# script-src에 'unsafe-inline'이 남아 있는 이유: Next.js App Router가
-	# RSC 페이로드를 인라인 <script>로 넣기 때문에, nonce 없이 막으면 하이드레이션이
-	# 통째로 깨진다. nonce 기반 CSP는 Next 미들웨어가 필요해 후속 과제로 둔다.
-	#
-	# 그래서 방어의 무게는 connect-src에 싣는다 — 인라인 스크립트가 실행되더라도
-	# 토큰을 공격자 서버로 **보낼 수 없으면** 탈취가 성립하지 않는다.
-	# base-uri·form-action·object-src도 같은 이유로 좁힌다.
-	header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://{$AIM_API_HOSTNAME}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+	# 웹의 CSP는 여기 없다 — nonce는 요청마다 달라 정적 헤더로 만들 수 없어,
+	# Next 미들웨어(apps/web/middleware.ts)가 nonce 기반 CSP를 소유한다.
+	# script-src에서 'unsafe-inline'이 사라진 것이 그 이관의 목적이다.
+	# 여기서 CSP를 또 걸면 두 정책의 교집합이 적용돼 nonce가 무력화된다.
 
 	reverse_proxy web:3000
 }

@@ -79,7 +79,7 @@ export function InvestigationCard({
 
   return (
     <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
       id="investigation"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">

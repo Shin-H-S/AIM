@@ -54,7 +54,7 @@ x-aim-env: &aim-env
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     logging: *aim-logging
     environment:

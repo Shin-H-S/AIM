@@ -1,12 +1,17 @@
 ﻿"use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
+  clearAgentInvestigationFeedback,
+  fetchAgentInvestigation,
   fetchProject,
   fetchProjectAlerts,
   fetchProjectIncidents,
   retryAlert,
+  submitAgentInvestigationFeedback,
   updateProject,
+  type AgentInvestigation,
   type Alert,
   type AlertListResult,
   type Incident,
@@ -25,6 +30,7 @@ import {
   environmentLabel,
   incidentStatusLabel,
   incidentTriggerLabel,
+  rootCauseLabel,
   severityLabel,
   verifiedLabel
 } from "@/lib/statusLabels";
@@ -39,6 +45,8 @@ import {
 } from "@/components/ui";
 
 const LIST_LIMIT = 20;
+// 타임라인에 조사를 붙일 인시던트 수 — 그 아래는 발생 검사 링크로 충분하다.
+const INVESTIGATION_LOOKUP_LIMIT = 10;
 
 type SessionState = "checking" | "signed-out" | "ready";
 type LoadState = "idle" | "loading";
@@ -87,6 +95,11 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const [isLoadingMoreAlerts, setIsLoadingMoreAlerts] = useState(false);
   const [alertListMessage, setAlertListMessage] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  // 인시던트 id → 조사 결과. null = 조사 없음(쿨다운·규칙 미적용 등), 미기재 = 미조회.
+  const [investigationsByIncident, setInvestigationsByIncident] = useState<
+    Record<string, AgentInvestigation | null>
+  >({});
+  const [feedbackBusyIncidentId, setFeedbackBusyIncidentId] = useState<string | null>(null);
 
   const loadOverview = useCallback(async () => {
     if (!hasSession()) {
@@ -130,6 +143,21 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
 
     setProjectResult(nextProjectResult);
     setIncidentResult(nextIncidentResult);
+    // 타임라인의 조사 단계: 상위 인시던트들의 조사를 병렬로 붙인다.
+    if (nextIncidentResult.state === "success") {
+      const lookups = await Promise.all(
+        nextIncidentResult.incidents.slice(0, INVESTIGATION_LOOKUP_LIMIT).map(async (incident) => {
+          const result = await fetchAgentInvestigation({
+            projectId,
+            checkRunId: incident.opened_check_run_id
+          });
+          return [incident.id, result.state === "success" ? result.investigation : null] as const;
+        })
+      );
+      setInvestigationsByIncident(Object.fromEntries(lookups));
+    } else {
+      setInvestigationsByIncident({});
+    }
     setAlertResult(nextAlertResult);
     setHasMoreAlerts(
       nextAlertResult.state === "success" && nextAlertResult.alerts.length === LIST_LIMIT
@@ -154,6 +182,34 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
   const alerts = alertResult?.state === "success" ? alertResult.alerts : [];
   const filteredAlerts = filterAlertsByStatus(alerts, alertStatusFilter);
   const alertStatusCounts = summarizeAlertStatuses(alerts);
+
+  async function handleIncidentFeedback(
+    incident: Incident,
+    verdict: "accurate" | null
+  ) {
+    setFeedbackBusyIncidentId(incident.id);
+    const result =
+      verdict === null
+        ? await clearAgentInvestigationFeedback({
+            projectId,
+            checkRunId: incident.opened_check_run_id
+          })
+        : await submitAgentInvestigationFeedback({
+            projectId,
+            checkRunId: incident.opened_check_run_id,
+            verdict
+          });
+    if (result.state === "unauthorized") {
+      notifySessionChanged();
+    }
+    if (result.state === "success") {
+      setInvestigationsByIncident((current) => ({
+        ...current,
+        [incident.id]: result.investigation
+      }));
+    }
+    setFeedbackBusyIncidentId(null);
+  }
 
   async function handleLoadMoreAlerts() {
     if (!hasSession() || alertResult?.state !== "success") {
@@ -359,7 +415,13 @@ export function AlertOverviewPageClient({ projectId }: { projectId: string }) {
         )}
 
         {incidentResult?.state === "success" && (
-          <IncidentSection incidents={incidents} projectId={projectId} />
+          <IncidentSection
+            feedbackBusyIncidentId={feedbackBusyIncidentId}
+            incidents={incidents}
+            investigationsByIncident={investigationsByIncident}
+            onFeedback={(incident, verdict) => void handleIncidentFeedback(incident, verdict)}
+            projectId={projectId}
+          />
         )}
 
         {alertResult?.state === "success" && (
@@ -538,16 +600,37 @@ function ProjectAlertSettingsCard({
   );
 }
 
-function IncidentSection({ incidents, projectId }: { incidents: Incident[]; projectId: string }) {
+type IncidentSectionProps = {
+  feedbackBusyIncidentId: string | null;
+  incidents: Incident[];
+  investigationsByIncident: Record<string, AgentInvestigation | null>;
+  onFeedback: (incident: Incident, verdict: "accurate" | null) => void;
+  projectId: string;
+};
+
+function IncidentSection({
+  feedbackBusyIncidentId,
+  incidents,
+  investigationsByIncident,
+  onFeedback,
+  projectId
+}: IncidentSectionProps) {
   return (
-    <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+    <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
       <SectionHeader count={incidents.length} title="장애" />
       {incidents.length === 0 ? (
         <EmptyState description="아직 이 프로젝트에서 기록된 장애가 없습니다." />
       ) : (
         <ul className="grid gap-4">
           {incidents.map((incident) => (
-            <IncidentCard incident={incident} key={incident.id} projectId={projectId} />
+            <IncidentCard
+              incident={incident}
+              investigation={investigationsByIncident[incident.id]}
+              isFeedbackBusy={feedbackBusyIncidentId === incident.id}
+              key={incident.id}
+              onFeedback={onFeedback}
+              projectId={projectId}
+            />
           ))}
         </ul>
       )}
@@ -555,31 +638,102 @@ function IncidentSection({ incidents, projectId }: { incidents: Incident[]; proj
   );
 }
 
-function IncidentCard({ incident, projectId }: { incident: Incident; projectId: string }) {
+/**
+ * 인시던트 생애 타임라인(R4) — 열림 → 조사 결론 → 해소가 한 카드에서 완결된다.
+ * 조사 피드백을 여기로 승격한 이유: 평가 루프의 입력을 인시던트를 보는 바로
+ * 그 순간에 받는 것이 입력률을 만든다.
+ */
+function IncidentCard({
+  incident,
+  investigation,
+  isFeedbackBusy,
+  onFeedback,
+  projectId
+}: {
+  incident: Incident;
+  investigation: AgentInvestigation | null | undefined;
+  isFeedbackBusy: boolean;
+  onFeedback: (incident: Incident, verdict: "accurate" | null) => void;
+  projectId: string;
+}) {
   return (
-    <li className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap gap-2">
-            <IncidentStatusBadge status={incident.status} />
-            <SeverityBadge severity={incident.severity} />
-            <Badge label={incidentTriggerLabel(incident.trigger_type)} />
-            {incident.is_stale && <StaleBadge />}
-          </div>
-          <h3 className="mt-4 text-lg font-bold text-slate-900 dark:text-white">{incident.title}</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{incident.summary}</p>
-        </div>
-        <LinkButton
-          href={`/projects/${projectId}/check-runs/${incident.opened_check_run_id}`}
-          label="발생 검사 보기"
-          variant="dark"
-        />
+    <li className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <IncidentStatusBadge status={incident.status} />
+        <SeverityBadge severity={incident.severity} />
+        <Badge label={incidentTriggerLabel(incident.trigger_type)} />
+        {incident.is_stale && <StaleBadge />}
+        <h3 className="w-full text-base font-bold text-slate-900 dark:text-white sm:w-auto sm:flex-1">
+          {incident.title}
+        </h3>
       </div>
 
-      <dl className="mt-5 grid gap-3 md:grid-cols-2">
-        <Metric label="시작 시각" value={formatDateTime(incident.started_at)} />
-        <Metric label="해소 시각" value={formatNullableDateTime(incident.resolved_at)} />
-      </dl>
+      <ol className="mt-3 grid gap-0">
+        <TimelineStep
+          dotClassName="bg-rose-500"
+          isLast={false}
+          label={`발생 · ${formatDateTime(incident.started_at)}`}
+        >
+          <p className="break-keep text-sm leading-6 text-slate-600 dark:text-slate-300">
+            {incident.summary}{" "}
+            <Link
+              className="font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-400"
+              href={`/projects/${projectId}/check-runs/${incident.opened_check_run_id}`}
+            >
+              발생 검사 →
+            </Link>
+          </p>
+        </TimelineStep>
+
+        <TimelineStep
+          dotClassName={investigation ? "bg-cyan-500" : "bg-slate-300 dark:bg-slate-600"}
+          isLast={false}
+          label="에이전트 조사"
+        >
+          {investigation ? (
+            <InvestigationTimelineBody
+              incident={incident}
+              investigation={investigation}
+              isFeedbackBusy={isFeedbackBusy}
+              onFeedback={onFeedback}
+              projectId={projectId}
+            />
+          ) : (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {investigation === undefined
+                ? "조사 결과를 확인하려면 발생 검사를 여세요."
+                : "자동 조사가 붙지 않은 인시던트입니다(쿨다운 등) — 발생 검사에서 수동 조사를 시작할 수 있습니다."}
+            </p>
+          )}
+        </TimelineStep>
+
+        <TimelineStep
+          dotClassName={incident.resolved_at ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"}
+          isLast
+          label={
+            incident.resolved_at
+              ? `해소 · ${formatNullableDateTime(incident.resolved_at)}`
+              : "미해소"
+          }
+        >
+          {incident.resolved_at ? (
+            incident.resolved_check_run_id ? (
+              <Link
+                className="text-sm font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-400"
+                href={`/projects/${projectId}/check-runs/${incident.resolved_check_run_id}`}
+              >
+                회복을 확인한 검사 →
+              </Link>
+            ) : (
+              <p className="text-sm text-slate-500 dark:text-slate-400">회복 확인됨</p>
+            )
+          ) : (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              해소는 다음 검사에서 판정됩니다.
+            </p>
+          )}
+        </TimelineStep>
+      </ol>
 
       {incident.is_stale && (
         <p className="mt-4 break-keep rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
@@ -590,6 +744,101 @@ function IncidentCard({ incident, projectId }: { incident: Incident; projectId: 
         </p>
       )}
     </li>
+  );
+}
+
+function TimelineStep({
+  children,
+  dotClassName,
+  isLast,
+  label
+}: {
+  children: React.ReactNode;
+  dotClassName: string;
+  isLast: boolean;
+  label: string;
+}) {
+  return (
+    <li className="relative pl-6">
+      <span aria-hidden className={`absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full ${dotClassName}`} />
+      {!isLast && (
+        <span aria-hidden className="absolute bottom-0 left-[4px] top-5 w-px bg-slate-200 dark:bg-slate-700" />
+      )}
+      <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">
+        {label}
+      </p>
+      <div className={isLast ? "mt-1" : "mt-1 pb-4"}>{children}</div>
+    </li>
+  );
+}
+
+function InvestigationTimelineBody({
+  incident,
+  investigation,
+  isFeedbackBusy,
+  onFeedback,
+  projectId
+}: {
+  incident: Incident;
+  investigation: AgentInvestigation;
+  isFeedbackBusy: boolean;
+  onFeedback: (incident: Incident, verdict: "accurate" | null) => void;
+  projectId: string;
+}) {
+  return (
+    <div>
+      <p className="break-keep text-sm leading-6 text-slate-700 dark:text-slate-200">
+        <span className="font-bold">{rootCauseLabel(investigation.root_cause)}</span>
+        <span className="text-slate-400 dark:text-slate-500">
+          {" "}
+          · 신뢰 {investigation.confidence === "high" ? "높음" : "낮음"}
+        </span>
+        {" — "}
+        {investigation.recommendation}
+      </p>
+      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+        {investigation.feedback_verdict ? (
+          <>
+            <span className="font-semibold text-slate-500 dark:text-slate-400">
+              피드백:{" "}
+              {investigation.feedback_verdict === "accurate"
+                ? "✅ 정확함"
+                : `❌ 부정확${
+                    investigation.feedback_root_cause
+                      ? ` (실제: ${rootCauseLabel(investigation.feedback_root_cause)})`
+                      : ""
+                  }`}
+            </span>
+            <button
+              className="font-semibold text-slate-400 underline underline-offset-2 hover:text-slate-600 disabled:opacity-50 dark:text-slate-500 dark:hover:text-slate-300"
+              disabled={isFeedbackBusy}
+              onClick={() => onFeedback(incident, null)}
+              type="button"
+            >
+              되돌리기
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="text-slate-400 dark:text-slate-500">이 진단이 맞았나요?</span>
+            <button
+              className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 font-bold text-emerald-800 transition hover:border-emerald-400 disabled:opacity-50 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+              disabled={isFeedbackBusy}
+              onClick={() => onFeedback(incident, "accurate")}
+              type="button"
+            >
+              👍 정확함
+            </button>
+            <Link
+              className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 font-bold text-rose-800 transition hover:border-rose-400 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300"
+              href={`/projects/${projectId}/check-runs/${incident.opened_check_run_id}#investigation`}
+            >
+              👎 부정확 — 실제 원인 선택 →
+            </Link>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

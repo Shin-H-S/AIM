@@ -1,6 +1,8 @@
 "use client";
 
 import type { AgentInvestigation, CheckRunStatus, ScoreResult } from "@/lib/api";
+import { TONE_CHIP_CLASSES, TONE_STRIPE_CLASSES, type SemanticTone } from "@/components/ui";
+import { rootCauseLabel } from "@/lib/statusLabels";
 
 /**
  * 판정 헤더 — 이 화면이 답해야 할 단 하나의 질문에 첫 블록이 답한다(R1).
@@ -11,42 +13,9 @@ import type { AgentInvestigation, CheckRunStatus, ScoreResult } from "@/lib/api"
  * 에이전트 조사 결론이 있으면 원인·조치를 같은 블록에 병합한다(R4).
  */
 
-const ROOT_CAUSE_LABELS: Record<string, string> = {
-  service_down: "서비스 다운",
-  ssl_invalid: "SSL 무효",
-  server_slow: "서버 지연",
-  frontend_regression: "프런트 성능 회귀",
-  ui_regression: "UI 파손",
-  scenario_stale: "시나리오 스테일",
-  measurement_noise: "측정 노이즈"
-};
-
 const ACTIVE_STATUSES = new Set<CheckRunStatus>(["QUEUED", "RUNNING", "ANALYZING"]);
 
-type Tone = "good" | "warn" | "bad" | "info";
-
-const TONE_CLASSES: Record<Tone, { stripe: string; badge: string }> = {
-  good: {
-    stripe: "border-l-emerald-500",
-    badge:
-      "bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-900"
-  },
-  warn: {
-    stripe: "border-l-amber-500",
-    badge:
-      "bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-900"
-  },
-  bad: {
-    stripe: "border-l-rose-500",
-    badge:
-      "bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:ring-rose-900"
-  },
-  info: {
-    stripe: "border-l-cyan-500",
-    badge:
-      "bg-cyan-50 text-cyan-800 ring-cyan-200 dark:bg-cyan-950 dark:text-cyan-300 dark:ring-cyan-900"
-  }
-};
+type Tone = SemanticTone;
 
 function deriveVerdict(
   status: CheckRunStatus,
@@ -118,16 +87,16 @@ export function VerdictHeader({
   status: CheckRunStatus;
 }) {
   const verdict = deriveVerdict(status, score, failureReason);
-  const tone = TONE_CLASSES[verdict.tone];
+
 
   return (
     <section
       aria-label="검사 판정"
-      className={`rounded-2xl border border-l-4 border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900 ${tone.stripe}`}
+      className={`rounded-2xl border border-l-4 border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900 ${TONE_STRIPE_CLASSES[verdict.tone]}`}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${tone.badge}`}
+          className={`rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${TONE_CHIP_CLASSES[verdict.tone]}`}
         >
           {verdict.badge}
         </span>
@@ -150,7 +119,7 @@ export function VerdictHeader({
       {investigation && (
         <p className="mt-2 border-t border-slate-100 pt-2 text-sm leading-6 text-slate-700 dark:border-slate-800 dark:text-slate-200">
           <span className="font-bold">
-            🕵️ 조사 결론: {ROOT_CAUSE_LABELS[investigation.root_cause] ?? investigation.root_cause}
+            🕵️ 조사 결론: {rootCauseLabel(investigation.root_cause)}
           </span>
           <span className="text-slate-400 dark:text-slate-500">
             {" "}

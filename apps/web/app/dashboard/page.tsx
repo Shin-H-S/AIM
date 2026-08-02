@@ -26,7 +26,8 @@ import {
   LinkButton,
   LoginRequiredNotice,
   Notice,
-  RefreshButton
+  RefreshButton,
+  TONE_CHIP_CLASSES
 } from "@/components/ui";
 
 const PROJECT_DASHBOARD_LIMIT = 20;
@@ -326,10 +327,10 @@ function buildActionItems(projects: DashboardProject[]): ActionItem[] {
   return items;
 }
 
-const ACTION_CHIP_CLASSES: Record<ActionItem["tone"], string> = {
-  bad: "bg-rose-50 text-rose-800 ring-rose-200 hover:ring-rose-400 dark:bg-rose-950 dark:text-rose-300 dark:ring-rose-900",
-  warn: "bg-amber-50 text-amber-800 ring-amber-200 hover:ring-amber-400 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-900",
-  info: "bg-cyan-50 text-cyan-800 ring-cyan-200 hover:ring-cyan-400 dark:bg-cyan-950 dark:text-cyan-300 dark:ring-cyan-900"
+const ACTION_CHIP_HOVER: Record<ActionItem["tone"], string> = {
+  bad: "hover:ring-rose-400",
+  warn: "hover:ring-amber-400",
+  info: "hover:ring-cyan-400"
 };
 
 function ActionStrip({ items, projectCount }: { items: ActionItem[]; projectCount: number }) {
@@ -349,14 +350,14 @@ function ActionStrip({ items, projectCount }: { items: ActionItem[]; projectCoun
       {items.map((item) =>
         item.href === "#" ? (
           <span
-            className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${ACTION_CHIP_CLASSES[item.tone]}`}
+            className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${TONE_CHIP_CLASSES[item.tone]}`}
             key={item.key}
           >
             {item.label}
           </span>
         ) : (
           <Link
-            className={`rounded-full px-3 py-1 text-xs font-bold ring-1 transition ${ACTION_CHIP_CLASSES[item.tone]}`}
+            className={`rounded-full px-3 py-1 text-xs font-bold ring-1 transition ${TONE_CHIP_CLASSES[item.tone]} ${ACTION_CHIP_HOVER[item.tone]}`}
             href={item.href}
             key={item.key}
           >

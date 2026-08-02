@@ -73,10 +73,15 @@ test.describe.serial("핵심 플로우", () => {
     await page.waitForURL(/\/projects\/[0-9a-f-]+\/settings/);
     await expect(page.getByText(/인증/).first()).toBeVisible();
 
-    // 대시보드에서도 이 프로젝트는 검사를 시작할 수 없는 상태로 보여야 한다.
+    // 대시보드는 막다른 길 대신 다음 행동을 보여야 한다(R3) — 미인증 프로젝트의
+    // 주 행동은 "인증하기"이고, 온보딩 체크리스트가 남은 여정을 안내한다.
     await page.goto("/dashboard");
-    const card = page.locator("article, section, li").filter({ hasText: projectName }).first();
-    await expect(card.getByRole("button", { name: "검증 필요" })).toBeVisible();
+    const card = page.locator("article").filter({ hasText: projectName }).first();
+    await expect(card.getByRole("link", { name: "인증하기" })).toBeVisible();
+    await expect(card.getByText("도메인 인증")).toBeVisible();
+    await expect(card.getByRole("link", { name: /핵심 흐름 시나리오/ })).toBeVisible();
+    // 관제 스트립에도 인증 대기가 조치 항목으로 떠야 한다.
+    await expect(page.getByRole("link", { name: new RegExp(`${projectName}.*인증 대기`) })).toBeVisible();
   });
 
   test("인증된 프로젝트는 검사를 시작해 대기 상태 화면에 도착한다", async ({ page }) => {

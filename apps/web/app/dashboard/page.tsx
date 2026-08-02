@@ -7,7 +7,9 @@ import {
   createCheckRun,
   fetchApiHealth,
   fetchCheckRuns,
+  fetchProjectIncidents,
   fetchProjects,
+  fetchScenarios,
   type CheckRunListResult,
   type CheckRunStatus,
   type CheckRunSummary,
@@ -43,6 +45,9 @@ type DashboardProject = {
   checkRuns: CheckRunSummary[];
   latestCheckRun: CheckRunSummary | null;
   latestCheckRunState: CheckRunListResult["state"];
+  openIncidentCount: number;
+  // null = 조회 실패(알 수 없음) — 체크리스트에서 이 단계를 빼고 판단한다.
+  scenarioCount: number | null;
 };
 
 type CheckRunStartState =
@@ -108,17 +113,25 @@ export default function DashboardPage() {
     const projects = await Promise.all(
       projectsResult.projects.map(async (project) => {
         // 목록 응답에 점수 요약과 linked ScenarioRun이 포함되므로 상세 조회 없이 구성한다.
-        const checkRunsResult = await fetchCheckRuns({
-          projectId: project.id,
-          limit: PROJECT_TREND_RUN_LIMIT
-        });
+        // 인시던트·시나리오는 관제 스트립과 온보딩 체크리스트의 원료다.
+        const [checkRunsResult, incidentsResult, scenariosResult] = await Promise.all([
+          fetchCheckRuns({ projectId: project.id, limit: PROJECT_TREND_RUN_LIMIT }),
+          fetchProjectIncidents({ projectId: project.id, limit: 20 }),
+          fetchScenarios({ projectId: project.id })
+        ]);
         const checkRuns = checkRunsResult.state === "success" ? checkRunsResult.checkRuns : [];
 
         return {
           project,
           checkRuns,
           latestCheckRun: checkRuns[0] ?? null,
-          latestCheckRunState: checkRunsResult.state
+          latestCheckRunState: checkRunsResult.state,
+          openIncidentCount:
+            incidentsResult.state === "success"
+              ? incidentsResult.incidents.filter((incident) => incident.status === "OPEN").length
+              : 0,
+          scenarioCount:
+            scenariosResult.state === "success" ? scenariosResult.scenarios.length : null
         };
       })
     );
@@ -147,31 +160,11 @@ export default function DashboardPage() {
     });
   }, [loadDashboard]);
 
-  const dashboardSummary = useMemo(() => {
+  const actionItems = useMemo(() => {
     if (dashboard.state !== "success") {
       return null;
     }
-
-    const latestRuns = dashboard.projects
-      .map((project) => project.latestCheckRun)
-      .filter((checkRun): checkRun is CheckRunSummary => checkRun !== null);
-    const activeCount = latestRuns.filter((checkRun) =>
-      ACTIVE_CHECK_RUN_STATUSES.includes(checkRun.status)
-    ).length;
-    const failedCount = latestRuns.filter((checkRun) => checkRun.status === "FAILED").length;
-    const linkedScenarioRuns = dashboard.projects.flatMap(
-      (project) => project.latestCheckRun?.linked_scenario_runs ?? []
-    );
-    const scenarioFailureCount = linkedScenarioRuns.filter(
-      (scenarioRun) => scenarioRun.status === "FAILED"
-    ).length;
-
-    return {
-      projectCount: dashboard.projects.length,
-      activeCount,
-      failedCount,
-      scenarioFailureCount
-    };
+    return buildActionItems(dashboard.projects);
   }, [dashboard]);
 
   async function handleStartCheckRun(project: Project) {
@@ -234,7 +227,9 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {dashboardSummary && <StatStrip summary={dashboardSummary} />}
+        {actionItems && (
+          <ActionStrip items={actionItems} projectCount={dashboard.state === "success" ? dashboard.projects.length : 0} />
+        )}
 
         <DashboardContent
           checkRunStartStates={checkRunStartStates}
@@ -267,56 +262,108 @@ function HealthInline({ health }: { health: HealthCheckResult }) {
   );
 }
 
-type DashboardSummary = {
-  projectCount: number;
-  activeCount: number;
-  failedCount: number;
-  scenarioFailureCount: number;
+type ActionItem = {
+  key: string;
+  tone: "bad" | "warn" | "info";
+  label: string;
+  href: string;
 };
 
-function StatStrip({ summary }: { summary: DashboardSummary }) {
-  return (
-    <div className="grid grid-cols-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
-      <StatCell label="프로젝트" value={summary.projectCount} />
-      <StatCell
-        label="진행 중"
-        tone={summary.activeCount > 0 ? "active" : "default"}
-        value={summary.activeCount}
-      />
-      <StatCell
-        label="최신 검사 실패"
-        tone={summary.failedCount > 0 ? "danger" : "default"}
-        value={summary.failedCount}
-      />
-      <StatCell
-        label="시나리오 실패"
-        tone={summary.scenarioFailureCount > 0 ? "danger" : "default"}
-        value={summary.scenarioFailureCount}
-      />
-    </div>
-  );
+/**
+ * 관제 스트립의 원료 — "지금 조치할 것"만 골라낸다(R3).
+ * 심각한 것부터: 열린 인시던트 → 최신 검사 실패 → 인증 대기 → 진행 중(정보).
+ */
+function buildActionItems(projects: DashboardProject[]): ActionItem[] {
+  const items: ActionItem[] = [];
+
+  for (const { openIncidentCount, project } of projects) {
+    if (openIncidentCount > 0) {
+      items.push({
+        key: `incident-${project.id}`,
+        tone: "bad",
+        label: `${project.name} · 인시던트 ${openIncidentCount}건`,
+        href: `/projects/${project.id}/alerts`
+      });
+    }
+  }
+
+  for (const { latestCheckRun, openIncidentCount, project } of projects) {
+    // 인시던트 칩이 이미 있는 프로젝트의 실패는 중복 신호다.
+    if (openIncidentCount === 0 && latestCheckRun?.status === "FAILED") {
+      items.push({
+        key: `failed-${project.id}`,
+        tone: "bad",
+        label: `${project.name} · 최신 검사 실패`,
+        href: `/projects/${project.id}/check-runs/${latestCheckRun.id}`
+      });
+    }
+  }
+
+  for (const { project } of projects) {
+    if (!project.is_verified) {
+      items.push({
+        key: `verify-${project.id}`,
+        tone: "warn",
+        label: `${project.name} · 도메인 인증 대기`,
+        href: `/projects/${project.id}/settings`
+      });
+    }
+  }
+
+  const activeCount = projects.filter(
+    ({ latestCheckRun }) =>
+      latestCheckRun !== null && ACTIVE_CHECK_RUN_STATUSES.includes(latestCheckRun.status)
+  ).length;
+  if (activeCount > 0) {
+    items.push({
+      key: "active",
+      tone: "info",
+      label: `검사 진행 중 ${activeCount}건`,
+      href: "#"
+    });
+  }
+
+  return items;
 }
 
-function StatCell({
-  label,
-  tone = "default",
-  value
-}: {
-  label: string;
-  tone?: "default" | "danger" | "active";
-  value: number;
-}) {
-  const valueClassName =
-    tone === "danger" && value > 0
-      ? "text-rose-600 dark:text-rose-400"
-      : tone === "active"
-        ? "text-cyan-700 dark:text-cyan-400"
-        : "text-slate-900 dark:text-white";
+const ACTION_CHIP_CLASSES: Record<ActionItem["tone"], string> = {
+  bad: "bg-rose-50 text-rose-800 ring-rose-200 hover:ring-rose-400 dark:bg-rose-950 dark:text-rose-300 dark:ring-rose-900",
+  warn: "bg-amber-50 text-amber-800 ring-amber-200 hover:ring-amber-400 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-900",
+  info: "bg-cyan-50 text-cyan-800 ring-cyan-200 hover:ring-cyan-400 dark:bg-cyan-950 dark:text-cyan-300 dark:ring-cyan-900"
+};
+
+function ActionStrip({ items, projectCount }: { items: ActionItem[]; projectCount: number }) {
+  if (items.length === 0) {
+    return (
+      <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+        ✓ 프로젝트 {projectCount}개 모두 정상 — 지금 조치할 항목이 없습니다.
+      </p>
+    );
+  }
 
   return (
-    <div className="px-4 py-3 text-center">
-      <p className="text-xs font-semibold text-slate-400 dark:text-slate-500">{label}</p>
-      <p className={`mt-0.5 text-xl font-bold ${valueClassName}`}>{value}</p>
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+        지금 조치 필요
+      </span>
+      {items.map((item) =>
+        item.href === "#" ? (
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${ACTION_CHIP_CLASSES[item.tone]}`}
+            key={item.key}
+          >
+            {item.label}
+          </span>
+        ) : (
+          <Link
+            className={`rounded-full px-3 py-1 text-xs font-bold ring-1 transition ${ACTION_CHIP_CLASSES[item.tone]}`}
+            href={item.href}
+            key={item.key}
+          >
+            {item.label} →
+          </Link>
+        )
+      )}
     </div>
   );
 }
@@ -420,15 +467,14 @@ function ProjectDashboardCard({
             {project.service_url}
           </a>
         </div>
-        <button
-          className="shrink-0 rounded-xl bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
-          disabled={!project.is_verified || startState === "starting"}
-          onClick={() => onStartCheckRun(project)}
-          type="button"
-        >
-          {startState === "starting" ? "요청 중" : project.is_verified ? "검사 시작" : "검증 필요"}
-        </button>
+        <PrimaryAction
+          dashboardProject={dashboardProject}
+          onStartCheckRun={onStartCheckRun}
+          startState={startState}
+        />
       </div>
+
+      <OnboardingChecklist dashboardProject={dashboardProject} />
 
       {startState !== "idle" && startState !== "starting" && (
         <p className="mt-2 rounded-xl bg-rose-50 dark:bg-rose-950 px-3 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-900">
@@ -462,6 +508,148 @@ function ProjectDashboardCard({
         <FooterLink href={`/projects/${project.id}/settings`} label="설정" />
       </div>
     </article>
+  );
+}
+
+const PRIMARY_ACTION_CLASSES =
+  "shrink-0 rounded-xl bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-cyan-600";
+
+/**
+ * 상태마다 주 행동은 정확히 하나다(R3). 이전의 비활성 "검증 필요" 버튼은
+ * 막다른 길이었다 — 못 하는 이유를 보여줄 게 아니라 다음 행동으로 보내야 한다.
+ */
+function PrimaryAction({
+  dashboardProject,
+  onStartCheckRun,
+  startState
+}: {
+  dashboardProject: DashboardProject;
+  onStartCheckRun: (project: Project) => void;
+  startState: CheckRunStartState;
+}) {
+  const { openIncidentCount, project } = dashboardProject;
+
+  if (!project.is_verified) {
+    return (
+      <Link className={PRIMARY_ACTION_CLASSES} href={`/projects/${project.id}/settings`}>
+        인증하기
+      </Link>
+    );
+  }
+
+  if (openIncidentCount > 0) {
+    return (
+      <div className="flex shrink-0 items-center gap-1.5">
+        <Link
+          className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-500"
+          href={`/projects/${project.id}/alerts`}
+        >
+          인시던트 보기
+        </Link>
+        <button
+          className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300"
+          disabled={startState === "starting"}
+          onClick={() => onStartCheckRun(project)}
+          type="button"
+        >
+          {startState === "starting" ? "요청 중" : "재검사"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      className={`${PRIMARY_ACTION_CLASSES} disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500`}
+      disabled={startState === "starting"}
+      onClick={() => onStartCheckRun(project)}
+      type="button"
+    >
+      {startState === "starting" ? "요청 중" : "검사 시작"}
+    </button>
+  );
+}
+
+type ChecklistStep = {
+  key: string;
+  label: string;
+  done: boolean;
+  href: string | null;
+};
+
+/**
+ * 프로젝트가 "완성"될 때까지 카드에 상주하는 온보딩 여정(R3) —
+ * 인증 → 첫 검사 → 시나리오 → 알림 채널. 전부 끝나면 사라진다.
+ * 빈 상태를 안내로 쓰는 것이지, 완료된 사용자를 방해하지 않는다.
+ */
+function OnboardingChecklist({ dashboardProject }: { dashboardProject: DashboardProject }) {
+  const { checkRuns, project, scenarioCount } = dashboardProject;
+
+  const steps: ChecklistStep[] = [
+    {
+      key: "verify",
+      label: "도메인 인증",
+      done: project.is_verified,
+      href: `/projects/${project.id}/settings`
+    },
+    {
+      key: "first-run",
+      label: "첫 검사 실행",
+      done: checkRuns.length > 0,
+      // 행동은 이 카드의 검사 시작 버튼이다 — 다른 페이지로 보내지 않는다.
+      href: null
+    },
+    // 조회 실패(null)면 이 단계를 판단에서 뺀다 — 모르는 것을 미완료로 단정하지 않는다.
+    ...(scenarioCount !== null
+      ? [
+          {
+            key: "scenario",
+            label: "핵심 흐름 시나리오",
+            done: scenarioCount > 0,
+            href: `/projects/${project.id}/scenarios`
+          }
+        ]
+      : []),
+    {
+      key: "alerts",
+      label: "알림 채널",
+      done: Boolean(project.alert_webhook_url) || project.alert_email_enabled,
+      href: `/projects/${project.id}/alerts`
+    }
+  ];
+
+  if (steps.every((step) => step.done)) {
+    return null;
+  }
+
+  return (
+    <ol className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800/50">
+      {steps.map((step) => (
+        <li className="flex items-center gap-1 text-xs" key={step.key}>
+          <span aria-hidden className={step.done ? "text-emerald-600 dark:text-emerald-400" : "text-slate-300 dark:text-slate-600"}>
+            {step.done ? "✓" : "○"}
+          </span>
+          {step.done || step.href === null ? (
+            <span
+              className={
+                step.done
+                  ? "font-semibold text-slate-400 line-through dark:text-slate-500"
+                  : "font-semibold text-slate-600 dark:text-slate-300"
+              }
+            >
+              {step.label}
+            </span>
+          ) : (
+            <Link
+              className="font-semibold text-cyan-700 underline-offset-2 hover:underline dark:text-cyan-400"
+              href={step.href}
+            >
+              {step.label} →
+            </Link>
+          )}
+        </li>
+      ))}
+    </ol>
   );
 }
 

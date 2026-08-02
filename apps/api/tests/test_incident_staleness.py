@@ -146,7 +146,9 @@ def test_resolved_incidents_are_not_counted(session: Session) -> None:
 
     # 해소된 인시던트는 어떤 라벨로도 세지 않는다 — 빈 상태의 0 샘플만 남는다.
     assert 'aim_incidents_open{freshness="current",project=""} 0.0' in rendered
-    assert 'project="AIM Website"' not in rendered.split("aim_incidents_open", 1)[1].split("# HELP")[0]
+    assert (
+        'project="AIM Website"' not in rendered.split("aim_incidents_open", 1)[1].split("# HELP")[0]
+    )
 
 
 def test_the_incident_endpoint_marks_a_stale_open_incident(

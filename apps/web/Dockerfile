@@ -1,4 +1,4 @@
-FROM node:22.21-bookworm-slim AS deps
+FROM node:26.5-bookworm-slim AS deps
 
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
@@ -18,7 +18,7 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 COPY apps/web ./apps/web
 RUN corepack pnpm --filter @aim/web build
 
-FROM node:22.21-bookworm-slim AS runner
+FROM node:26.5-bookworm-slim AS runner
 
 ENV NODE_ENV=production \
     PORT=3000 \

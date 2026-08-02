@@ -37,6 +37,26 @@ function getRunStatusBadgeClassName(status: RunStatus): string {
   return "bg-cyan-50 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-400 ring-cyan-200 dark:ring-cyan-900";
 }
 
+/**
+ * 판정·조치의 시맨틱 톤(RD1-2). 액센트(cyan)와 별개로, 상태의 심각도를
+ * 말하는 색이다 — 판정 헤더·관제 스트립·인시던트 타임라인이 공유한다.
+ */
+export type SemanticTone = "good" | "warn" | "bad" | "info";
+
+export const TONE_CHIP_CLASSES: Record<SemanticTone, string> = {
+  good: "bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-900",
+  warn: "bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-900",
+  bad: "bg-rose-50 text-rose-800 ring-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:ring-rose-900",
+  info: "bg-cyan-50 text-cyan-800 ring-cyan-200 dark:bg-cyan-950 dark:text-cyan-300 dark:ring-cyan-900"
+};
+
+export const TONE_STRIPE_CLASSES: Record<SemanticTone, string> = {
+  good: "border-l-emerald-500",
+  warn: "border-l-amber-500",
+  bad: "border-l-rose-500",
+  info: "border-l-cyan-500"
+};
+
 export function CheckRunStatusBadge({ status }: { status: CheckRunStatus }) {
   return (
     <span

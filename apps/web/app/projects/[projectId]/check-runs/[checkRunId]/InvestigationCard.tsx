@@ -10,15 +10,16 @@ export type InvestigationCardState =
   | "unauthorized"
   | "error";
 
-const ROOT_CAUSE_LABELS: Record<string, string> = {
-  service_down: "서비스 다운",
-  ssl_invalid: "SSL 무효",
-  server_slow: "서버 지연",
-  frontend_regression: "프런트 성능 회귀",
-  ui_regression: "UI 파손",
-  scenario_stale: "시나리오 스테일",
-  measurement_noise: "측정 노이즈"
-};
+import { rootCauseLabel } from "@/lib/statusLabels";
+
+const ROOT_CAUSE_KEYS = [
+  "service_down",
+  "server_slow",
+  "frontend_regression",
+  "ui_regression",
+  "scenario_stale",
+  "measurement_noise"
+] as const;
 
 const BREAKAGE_CAUSES = new Set(["service_down", "ssl_invalid", "ui_regression"]);
 const ALL_CLEAR_CAUSES = new Set(["scenario_stale", "measurement_noise"]);
@@ -91,7 +92,7 @@ export function InvestigationCard({
                 investigation.root_cause
               )}`}
             >
-              {ROOT_CAUSE_LABELS[investigation.root_cause] ?? investigation.root_cause}
+              {rootCauseLabel(investigation.root_cause)}
             </span>
           )}
           {investigation && (
@@ -130,8 +131,7 @@ export function InvestigationCard({
                       ? "✅ 정확했다고 표시함"
                       : `❌ 부정확 — 실제 원인: ${
                           investigation.feedback_root_cause
-                            ? (ROOT_CAUSE_LABELS[investigation.feedback_root_cause] ??
-                              investigation.feedback_root_cause)
+                            ? rootCauseLabel(investigation.feedback_root_cause)
                             : "미지정"
                         }`}
                   </span>
@@ -160,7 +160,7 @@ export function InvestigationCard({
                     >
                       👍 정확함
                     </button>
-                    {Object.entries(ROOT_CAUSE_LABELS)
+                    {ROOT_CAUSE_KEYS.map((key) => [key, rootCauseLabel(key)] as const)
                       .filter(([cause]) => cause !== investigation.root_cause)
                       .map(([cause, label]) => (
                         <button

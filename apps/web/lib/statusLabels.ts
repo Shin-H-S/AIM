@@ -136,3 +136,18 @@ export function verifiedLabel(isVerified: boolean): string {
 export function enabledLabel(enabled: boolean): string {
   return enabled ? "사용 중" : "사용 안 함";
 }
+
+/** 조사 에이전트의 원인 유형 라벨 — InvestigationCard·VerdictHeader·인시던트 타임라인이 공유. */
+const ROOT_CAUSE_LABELS: Record<string, string> = {
+  service_down: "서비스 다운",
+  ssl_invalid: "SSL 무효",
+  server_slow: "서버 지연",
+  frontend_regression: "프런트 성능 회귀",
+  ui_regression: "UI 파손",
+  scenario_stale: "시나리오 스테일",
+  measurement_noise: "측정 노이즈"
+};
+
+export function rootCauseLabel(rootCause: string): string {
+  return labelOrRaw(ROOT_CAUSE_LABELS, rootCause);
+}

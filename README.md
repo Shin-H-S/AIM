@@ -64,7 +64,7 @@ HTTPS로 실서비스 중이며, **AIM 자신을 첫 프로젝트로 등록해 �
 | **AI** | Anthropic Claude API — structured output, deterministic fallback |
 | **Data** | PostgreSQL, Redis |
 | **Infra** | Docker Compose, Caddy, Oracle Cloud Ampere A1(ARM) 단일 VM, GitHub Actions CI |
-| **품질** | ruff · mypy · pytest(커버리지 게이트) / ESLint · Vitest · TS strict / Playwright E2E — 테스트 774건, CI 4종 게이트 |
+| **품질** | ruff · mypy · pytest(커버리지 게이트) / ESLint · Vitest · TS strict / Playwright E2E — 테스트 778건, CI 4종 게이트 |
 
 ## 아키텍처
 
@@ -135,9 +135,16 @@ Bearer 경로는 CSRF 면역이므로 그대로 유지 — 전환 전에 Playwri
 결함을 이 실험대가 두 번 잡았습니다 — "없는 증거를 인용하는 판정"과 "인증서가 깨지면
 정작 SSL 검사가 건너뛰어지는 파이프라인 게이트"는 모두 실험 첫 가동에서 드러나 수정됐습니다.
 
+**9. 판정 중심 UX**
+모든 화면의 첫 블록이 "배포해도 되는가 / 조치가 필요한가"에 답하도록 설계했습니다 — 결과 화면의
+판정 헤더(에이전트 결론 병합), 대시보드의 조치 스트립, 인시던트의 생애 타임라인(발생 → 조사 → 해소).
+빈 상태는 한 줄로 접고 문제가 커질 때만 화면을 씁니다. 이 리디자인의 합격 판정도 AIM 자신이 내렸습니다 —
+**자기 측정 접근성 93 → 100**, 성능 무회귀.
+
 ## 화면
 
-**대시보드** — 프로젝트별 최신 검사와 등급 도넛, 점수 추이 스파크라인
+**대시보드 (관제판)** — 최상단 "지금 조치 필요" 스트립이 인시던트·검사 실패·인증 대기를 심각도순으로
+띄우고(없으면 "모두 정상" 한 줄), 프로젝트 카드는 상태별 주 행동 하나와 온보딩 체크리스트를 보여줍니다
 
 ![대시보드](docs/images/dashboard.png)
 
@@ -145,7 +152,8 @@ Bearer 경로는 CSRF 면역이므로 그대로 유지 — 전환 전에 Playwri
 
 ![대시보드 다크 모드](docs/images/dashboard-dark.png)
 
-**검사 결과** — 판정 카드(점수·카테고리 바·AI 한국어 진단), 직전/기준점 델타 칩, 근거 아코디언
+**검사 결과** — 첫 블록의 판정 헤더가 "배포해도 되는가"에 한 문장으로 답하고(에이전트 조사 결론 병합),
+AI 진단은 결론·원인·조치 3단으로 구조화됩니다. 점수 카드·델타 칩·근거 아코디언이 그 아래를 받칩니다
 
 ![검사 결과](docs/images/check-run-result.png)
 

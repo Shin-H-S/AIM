@@ -1,4 +1,4 @@
-FROM node:22.21-bookworm-slim AS node-runtime
+FROM node:26.5-bookworm-slim AS node-runtime
 
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 

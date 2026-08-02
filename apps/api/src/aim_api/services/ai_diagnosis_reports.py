@@ -269,17 +269,33 @@ def build_report_summary(
     report_score: AIDiagnosisReportScore,
     top_issues: list[AIDiagnosisReportIssue],
 ) -> str:
-    score_summary = (
-        f"이 검사는 배포 위험도 {report_score.deployment_risk.value}, "
-        f"등급 {report_score.grade}, 점수 {report_score.overall_score}/100으로 판정되었습니다."
+    """요약을 3단(결론/원인/조치) 서식으로 쓴다 — 산문 대신 스캔 가능한 구조.
+
+    각 줄이 "결론: "/"원인: "/"조치: "로 시작하는 것이 프런트와의 서식 계약이다
+    (AIReportSummarySection 참조). LLM 서술 생성기도 같은 서식을 지시받으며,
+    서식을 지키지 않은 요약은 프런트가 산문으로 폴백 렌더링한다 — 구조는
+    보너스이고 내용 유실은 없다.
+    """
+    verdict = (
+        f"결론: 배포 위험도 {report_score.deployment_risk.value} · 등급 {report_score.grade} · "
+        f"{report_score.overall_score}/100."
     )
     if report_score.deployment_risk == AIDiagnosisDeploymentRisk.STABLE:
-        return f"{score_summary} 근거에서 확인된 주요 배포 이슈는 없습니다."
+        return (
+            f"{verdict}\n원인: 근거에서 확인된 주요 배포 이슈가 없습니다."
+            "\n조치: 별도 조치가 필요하지 않습니다."
+        )
 
     if top_issues:
-        return f"{score_summary} 최우선 이슈: {top_issues[0].title}."
+        return (
+            f"{verdict}\n원인: {top_issues[0].title}."
+            f"\n조치: {top_issues[0].recommended_next_action}"
+        )
 
-    return f"{score_summary} 주요 이슈 서술이 제공되지 않았습니다."
+    return (
+        f"{verdict}\n원인: 주요 이슈 서술이 제공되지 않았습니다."
+        "\n조치: 근거 카드에서 세부 결과를 직접 확인하세요."
+    )
 
 
 def find_evidence_ids(

@@ -266,7 +266,10 @@ def test_generate_and_record_skips_llm_for_clean_scheduled_run(session: Session)
 
     assert narrative_generator.calls == 0
     assert ai_report.generator == "deterministic"
-    assert "근거에서 확인된 주요 배포 이슈는 없습니다." in ai_report.summary
+    # 3단 서식 계약: 결론/원인/조치 각 줄이 라벨로 시작한다(리디자인 Phase 1).
+    assert ai_report.summary.startswith("결론: ")
+    assert "\n원인: 근거에서 확인된 주요 배포 이슈가 없습니다." in ai_report.summary
+    assert "\n조치: " in ai_report.summary
 
 
 def test_generate_and_record_keeps_llm_for_clean_deploy_run(session: Session) -> None:

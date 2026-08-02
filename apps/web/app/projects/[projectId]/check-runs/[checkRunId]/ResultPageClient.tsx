@@ -6,6 +6,7 @@ import { ArtifactDownloadButton } from "@/components/ArtifactDownloadButton";
 import { AIReportDetailPanel } from "./AIReportDetailPanel";
 import { InvestigationCard, type InvestigationCardState } from "./InvestigationCard";
 import { VerdictHeader } from "./VerdictHeader";
+import { parseStructuredSummary } from "@/lib/aiSummary";
 import {
   cancelCheckRun,
   clearProjectBaseline,
@@ -659,6 +660,38 @@ function CategoryBar({ label, score }: { label: string; score: number | null }) 
   );
 }
 
+function AIReportSummarySection({ summary }: { summary: string }) {
+  const structured = parseStructuredSummary(summary);
+
+  // 구서식 리포트·서식을 벗어난 LLM 요약은 산문 그대로 — 내용 유실 없음.
+  if (structured === null) {
+    return (
+      <p className="mt-2 break-keep text-sm leading-6 text-slate-700 dark:text-slate-200">
+        {summary}
+      </p>
+    );
+  }
+
+  const rows = [
+    { label: "결론", text: structured.verdict },
+    { label: "원인", text: structured.cause },
+    { label: "조치", text: structured.action }
+  ];
+
+  return (
+    <dl className="mt-2 grid gap-1.5">
+      {rows.map((row) => (
+        <div className="flex gap-2.5 text-sm leading-6" key={row.label}>
+          <dt className="w-9 shrink-0 font-bold text-slate-400 dark:text-slate-500">
+            {row.label}
+          </dt>
+          <dd className="m-0 break-keep text-slate-700 dark:text-slate-200">{row.text}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function VerdictCard({
   aiReport,
   detailResult,
@@ -679,7 +712,7 @@ function VerdictCard({
   topAudits: LighthouseTopAudit[] | null;
 }) {
   return (
-    <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+    <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
       {result ? (
         <div className="flex flex-wrap items-center gap-x-8 gap-y-5">
           <div className="flex items-center gap-5">
@@ -734,9 +767,7 @@ function VerdictCard({
         </p>
         {aiReport ? (
           <>
-            <p className="mt-2 break-keep text-sm leading-6 text-slate-700 dark:text-slate-200">
-              {aiReport.summary}
-            </p>
+            <AIReportSummarySection summary={aiReport.summary} />
             <div className="mt-3">
               <button
                 className="rounded-xl border border-cyan-300 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950 px-3 py-1.5 text-xs font-bold text-cyan-700 dark:text-cyan-400 transition hover:border-cyan-500 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 disabled:cursor-not-allowed disabled:opacity-50"
@@ -1111,7 +1142,7 @@ export function ScoreCard({ result }: { result: ScoreResult | null }) {
 
   return (
     <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
+      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"
       id="score-card"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -1264,7 +1295,7 @@ export function AIReportSummaryCard({
   const riskClassName = getRiskBadgeClassName(report.deployment_risk);
 
   return (
-    <article className="rounded-3xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 dark:bg-cyan-950/40 p-6">
+    <article className="rounded-3xl border border-cyan-200 dark:border-cyan-900 bg-cyan-50/60 dark:bg-cyan-950/40 p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400">
@@ -1657,7 +1688,7 @@ function LinkedScenarioRunsCard({
   if (scenarioRuns.length === 0) {
     return (
       <article
-        className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
+        className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"
         id="scenario-runs-card"
       >
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white">연결된 시나리오 실행</h2>
@@ -1677,7 +1708,7 @@ function LinkedScenarioRunsCard({
 
   return (
     <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
+      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"
       id="scenario-runs-card"
     >
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -1863,7 +1894,7 @@ export function AvailabilityCard({
 
   return (
     <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
+      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"
       id="availability-card"
     >
       <ResultHeader
@@ -1936,7 +1967,7 @@ function SslCard({ result }: { result: SslResult | null }) {
 
   return (
     <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
+      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"
       id="ssl-card"
     >
       <ResultHeader
@@ -1999,7 +2030,7 @@ export function LighthouseCard({ result }: { result: LighthouseResult | null }) 
 
   return (
     <article
-      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
+      className="scroll-mt-24 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5"
       id="lighthouse-card"
     >
       <ResultHeader
@@ -2136,7 +2167,7 @@ function ArtifactCard({ artifacts }: { artifacts: Artifact[] }) {
   }
 
   return (
-    <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+    <article className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">산출물</h2>
         <span className="rounded-full bg-cyan-50 dark:bg-cyan-950 px-3 py-1 text-xs font-bold text-cyan-700 dark:text-cyan-400 ring-1 ring-cyan-200 dark:ring-cyan-900">
@@ -2166,7 +2197,7 @@ function ArtifactCard({ artifacts }: { artifacts: Artifact[] }) {
 
 function EmptyResultCard({ title, description }: { title: string; description: string }) {
   return (
-    <article className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-6">
+    <article className="rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-5">
       <h2 className="text-xl font-semibold">{title}</h2>
       <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">{description}</p>
     </article>

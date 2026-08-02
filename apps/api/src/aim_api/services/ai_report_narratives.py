@@ -23,9 +23,12 @@ NARRATIVE_SYSTEM_PROMPT = (
     "The deterministic report's scores, grade, deployment risk, issue list, severities, "
     "statement types, and evidence references are final and must not change. Your only "
     "job is to write clearer narrative text:\n"
-    '- "summary": a short plain-language summary of this run for a developer deciding '
-    "whether the deployment is safe. Mention the deployment risk and the most important "
-    "issues.\n"
+    '- "summary": exactly three lines, each starting with a fixed Korean label — '
+    '"결론: " (one-sentence verdict for a developer deciding whether the deployment is '
+    'safe, mentioning the deployment risk), "원인: " (the most important cause found in '
+    'the evidence, or that none was found), "조치: " (the single most useful next '
+    "action). Separate the lines with newline characters and write nothing outside "
+    "these three lines.\n"
     '- "issue_narratives": one entry per issue id in deterministic_report.top_issues, '
     "with expected_user_impact (how the issue affects real users) and "
     "recommended_next_action (the most useful next step for the developer).\n"

@@ -81,10 +81,33 @@ check_condition "queued-runs" "$QUEUED" "$QUEUED_ALERT" \
   "🟠 AIM 검사 ${QUEUED}건이 큐에 정체 — 워커가 소비하지 못하고 있다. \`docker compose ps\`와 worker 로그 확인." \
   "🟢 AIM 검사 큐 정상화 (현재 ${QUEUED}건)."
 
-CURRENT_INCIDENTS=$(metric_value 'aim_incidents_open{freshness="current"}')
-check_condition "current-incidents" "$CURRENT_INCIDENTS" 1 \
-  "🔴 조치 필요 인시던트 ${CURRENT_INCIDENTS}건 (최근 검사에서 확인됨) — 대시보드 확인." \
-  "🟢 조치 필요 인시던트 0건 — 전부 해소."
+# 조치 필요 인시던트. 두 가지가 특별하다:
+# 1) AIM_OPS_PROJECTS(쉼표 구분 이름)를 설정하면 그 프로젝트만 센다 — 외부
+#    사용자 서비스의 장애는 운영자가 고칠 수 없어 경보만 점유한다(7/31 실측).
+# 2) 임계 초과가 아니라 **증가**를 경보한다. 초과-상태 에지 트리거는 외부
+#    인시던트 하나에 붙들리면 내 프로젝트의 새 인시던트가 조용히 묻힌다.
+sum_current_incidents() {
+  local lines
+  lines=$(grep -v '^#' <<<"$METRICS" | grep 'aim_incidents_open{' | grep 'freshness="current"')
+  if [ -n "${AIM_OPS_PROJECTS:-}" ]; then
+    local filter
+    filter=$(tr ',' '\n' <<<"$AIM_OPS_PROJECTS" | sed 's/^/project="/; s/$/"/' | paste -sd'|' -)
+    lines=$(grep -E "$filter" <<<"$lines" || true)
+  fi
+  [ -n "$lines" ] && awk '{sum += $NF} END {printf "%.0f", sum}' <<<"$lines" || echo 0
+}
+
+CURRENT_INCIDENTS=$(sum_current_incidents)
+INCIDENT_STATE_FILE="$STATE_DIR/current-incidents.count"
+LAST_INCIDENTS=$(cat "$INCIDENT_STATE_FILE" 2>/dev/null || echo 0)
+if [ "$CURRENT_INCIDENTS" -gt "$LAST_INCIDENTS" ]; then
+  send_message "🔴 조치 필요 인시던트 ${LAST_INCIDENTS}→${CURRENT_INCIDENTS}건 (최근 검사에서 확인됨) — 대시보드 확인." \
+    && echo "alert sent: current-incidents ($LAST_INCIDENTS -> $CURRENT_INCIDENTS)"
+elif [ "$CURRENT_INCIDENTS" -eq 0 ] && [ "$LAST_INCIDENTS" -gt 0 ]; then
+  send_message "🟢 조치 필요 인시던트 0건 — 전부 해소." \
+    && echo "recovery sent: current-incidents"
+fi
+echo "$CURRENT_INCIDENTS" > "$INCIDENT_STATE_FILE"
 
 # 심장박동: beat·스케줄러가 죽으면 검사가 '안 생기는' 형태로 조용히 실패한다.
 # 큐 적체 경보는 이걸 못 본다 — 큐에 아무것도 들어오지 않기 때문이다.

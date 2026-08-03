@@ -14,6 +14,6 @@
     "typecheck": "corepack pnpm --filter @aim/web typecheck"
   },
   "dependencies": {
-    "lighthouse": "^13.4.0"
+    "lighthouse": "^13.4.1"
   }
 }
